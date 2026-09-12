@@ -14,6 +14,8 @@ use Illuminate\Support\Carbon;
  * @property string $capacity_gb
  * @property string $beneficiary_phone
  * @property string $channel
+ * @property string $source
+ * @property string $payment_status
  * @property string $customer_price
  * @property string $seller_cost
  * @property string $agent_cost
@@ -30,7 +32,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $refunded_at
  */
 #[Fillable([
-    'reference', 'idempotency_key', 'source', 'network', 'capacity_gb', 'beneficiary_phone',
+    'reference', 'idempotency_key', 'source', 'payment_status', 'network', 'capacity_gb', 'beneficiary_phone',
     'channel', 'customer_price', 'seller_cost', 'agent_cost', 'base_cost',
     'status', 'upstream_request_id', 'upstream_reference', 'upstream_status', 'upstream_cost',
     'failure_reason', 'last_polled_at', 'completed_at', 'failed_at', 'refunded_at',
@@ -40,6 +42,21 @@ class Order extends Model
     public const CHANNEL_PREPAID = 'prepaid';
 
     public const CHANNEL_ONLINE = 'online';
+
+    // Where the order came from. Portal/API are seller-driven; storefront is a public customer.
+    public const SOURCE_PORTAL = 'portal';
+
+    public const SOURCE_API = 'api';
+
+    public const SOURCE_STOREFRONT = 'storefront';
+
+    // Payment lifecycle, orthogonal to `status`. Wallet-funded orders are PAID on creation;
+    // storefront orders start AWAITING and only fulfill once the gateway confirms the payment.
+    public const PAYMENT_PAID = 'paid';
+
+    public const PAYMENT_AWAITING = 'awaiting';
+
+    public const PAYMENT_FAILED = 'failed';
 
     public const STATUS_PENDING = 'pending';
 

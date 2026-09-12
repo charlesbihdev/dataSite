@@ -20,15 +20,26 @@ class PricingController extends Controller
 {
     public function index(): Response
     {
+        $tiers = PricingTier::query()->withCount('agents')->with(['prices' => fn($q) => $q->orderBy('network')->orderBy('min_gb')])
+            ->orderBy('name')->get();
+
         return Inertia::render('admin/pricing', [
             'baseCosts' => BaseCost::query()->orderBy('network')->orderBy('min_gb')->get()->map($this->mapBaseCost(...)),
-            'tiers' => PricingTier::query()->with(['prices' => fn ($q) => $q->orderBy('network')->orderBy('min_gb')])
-                ->orderBy('name')->get()->map(fn (PricingTier $tier): array => [
-                    'id' => $tier->id,
-                    'name' => $tier->name,
-                    'isActive' => $tier->is_active,
-                    'prices' => $tier->prices->map($this->mapTierPrice(...))->all(),
-                ]),
+            'tiers' => $tiers->map(fn(PricingTier $tier): array => [
+                'id' => $tier->id,
+                'name' => $tier->name,
+                'isActive' => $tier->is_active,
+                'agentsCount' => $tier->agents_count,
+                'prices' => $tier->prices->map($this->mapTierPrice(...))->all(),
+            ]),
+            'tierList' => $tiers->map(fn(PricingTier $tier): array => [
+                'id' => $tier->id,
+                'name' => $tier->name,
+                'isActive' => $tier->is_active,
+                'isDefault' => $tier->is_default,
+                'isUndeletable' => $tier->is_undeletable,
+                'agentsCount' => $tier->agents_count,
+            ])->all(),
         ]);
     }
 
@@ -76,6 +87,97 @@ class PricingController extends Controller
     {
         $tierPrice->delete();
         Inertia::flash('toast', ['type' => 'success', 'message' => 'Selling rate removed.']);
+
+        return back();
+    }
+
+    public function storeTier(\Illuminate\Http\Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:100', 'unique:pricing_tiers,name'],
+            'is_active' => ['boolean'],
+        ]);
+
+        PricingTier::create($validated);
+        Inertia::flash('toast', ['type' => 'success', 'message' => 'Pricing tier created.']);
+
+        return back();
+    }
+
+    public function updateTier(\Illuminate\Http\Request $request, PricingTier $pricingTier): RedirectResponse
+    {
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:100', \Illuminate\Validation\Rule::unique('pricing_tiers', 'name')->ignore($pricingTier->id)],
+            'is_active' => ['boolean'],
+        ]);
+
+        $pricingTier->update($validated);
+        Inertia::flash('toast', ['type' => 'success', 'message' => 'Pricing tier updated.']);
+
+        return back();
+    }
+
+    public function destroyTier(PricingTier $pricingTier): RedirectResponse
+    {
+        if ($pricingTier->is_undeletable) {
+            Inertia::flash('toast', ['type' => 'error', 'message' => 'System tiers cannot be deleted.']);
+            return back();
+        }
+
+        if ($pricingTier->agents()->exists()) {
+            Inertia::flash('toast', ['type' => 'error', 'message' => 'Reassign agents before deleting this tier.']);
+            return back();
+        }
+
+        $pricingTier->delete();
+        Inertia::flash('toast', ['type' => 'success', 'message' => 'Pricing tier deleted.']);
+
+        return back();
+    }
+
+    public function cloneNetwork(\Illuminate\Http\Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'target_network' => ['required', 'string', \Illuminate\Validation\Rule::in(['telecel', 'at'])],
+        ]);
+
+        $target = $validated['target_network'];
+
+        BaseCost::where('network', $target)->delete();
+        TierPrice::where('network', $target)->delete();
+
+        $mtnBase = BaseCost::where('network', 'mtn')->get();
+        $mtnTier = TierPrice::where('network', 'mtn')->get();
+
+        foreach ($mtnBase as $base) {
+            $new = $base->replicate();
+            $new->network = $target;
+            $new->save();
+        }
+
+        foreach ($mtnTier as $tier) {
+            $new = $tier->replicate();
+            $new->network = $target;
+            $new->save();
+        }
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => ucfirst($target) . ' pricing cloned from MTN.']);
+
+        return back();
+    }
+
+    public function resetNetwork(\Illuminate\Http\Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'target_network' => ['required', 'string', \Illuminate\Validation\Rule::in(['telecel', 'at'])],
+        ]);
+
+        $target = $validated['target_network'];
+
+        BaseCost::where('network', $target)->delete();
+        TierPrice::where('network', $target)->delete();
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => ucfirst($target) . ' pricing reset.']);
 
         return back();
     }

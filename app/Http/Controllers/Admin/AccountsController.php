@@ -44,7 +44,7 @@ class AccountsController extends Controller
             'counts' => ['agents' => Agent::query()->count(), 'subagents' => Subagent::query()->count()],
             'stats' => $this->presenter->stats($type),
             'analytics' => $this->presenter->analytics($rows),
-            'tiers' => PricingTier::query()->where('is_active', true)->orderBy('name')->get(['id', 'name'])->all(),
+            'tiers' => PricingTier::query()->where('is_active', true)->orderBy('name')->get(['id', 'name', 'is_default'])->all(),
             'agents' => Agent::query()->where('is_active', true)->orderBy('name')->get(['id', 'name'])->all(),
         ]);
     }
@@ -56,6 +56,10 @@ class AccountsController extends Controller
     {
         $data = $request->safe()->except('initial_balance');
         $data['is_active'] = $request->boolean('is_active', true);
+
+        if ($type === 'agents' && empty($data['pricing_tier_id'])) {
+            $data['pricing_tier_id'] = \App\Models\PricingTier::where('is_default', true)->value('id');
+        }
 
         $account = $type === 'subagents' ? Subagent::create($data) : Agent::create($data);
 
@@ -91,7 +95,7 @@ class AccountsController extends Controller
 
         $verb = $amount > 0 ? 'Added' : 'Deducted';
 
-        return $this->toast('success', "{$verb} GHS ".number_format(abs($amount), 2)." — {$model->name}.");
+        return $this->toast('success', "{$verb} GHS " . number_format(abs($amount), 2) . " — {$model->name}.");
     }
 
     public function toggle(string $type, int $id): RedirectResponse
@@ -104,24 +108,41 @@ class AccountsController extends Controller
         $model->is_active = ! $model->is_active;
         $model->save();
 
-        return $this->toast('success', "{$model->name} ".($model->is_active ? 'activated' : 'suspended').'.');
+        return $this->toast('success', "{$model->name} " . ($model->is_active ? 'activated' : 'suspended') . '.');
     }
 
-    /**
-     * Issue a fresh temporary password and surface it in the toast so the admin can relay it.
-     */
-    public function resetPassword(string $type, int $id): RedirectResponse
+    public function assignTier(Request $request, int $id): RedirectResponse
     {
+        $request->validate([
+            'pricing_tier_id' => ['required', 'exists:pricing_tiers,id'],
+        ]);
+
+        $agent = Agent::find($id);
+        if ($agent === null) {
+            return $this->toast('error', 'Agent not found.');
+        }
+
+        $tier = PricingTier::find($request->input('pricing_tier_id'));
+        $agent->update(['pricing_tier_id' => $tier->id]);
+
+        return $this->toast('success', "Assigned tier {$tier->name} to {$agent->name}.");
+    }
+
+    public function resetPassword(\Illuminate\Http\Request $request, string $type, int $id): RedirectResponse
+    {
+        $validated = $request->validate([
+            'password' => ['required', 'string', \Illuminate\Validation\Rules\Password::defaults()],
+        ]);
+
         $model = $this->resolve($type, $id);
         if ($model === null) {
             return $this->toast('error', 'Account not found.');
         }
 
-        $temporary = Str::password(10, symbols: false);
-        $model->password = $temporary;
+        $model->password = $validated['password'];
         $model->save();
 
-        return $this->toast('success', "{$model->name} — temporary password: {$temporary}");
+        return $this->toast('success', "Password updated successfully.");
     }
 
     /**
@@ -183,9 +204,9 @@ class AccountsController extends Controller
      */
     private function bulkReset(EloquentCollection $models, string $password): RedirectResponse
     {
-        $models->each(fn (Agent|Subagent $m) => tap($m, fn ($x) => $x->update(['password' => $password])));
+        $models->each(fn(Agent|Subagent $m) => tap($m, fn($x) => $x->update(['password' => $password])));
 
-        return $this->toast('success', $models->count().' password(s) reset.');
+        return $this->toast('success', $models->count() . ' password(s) reset.');
     }
 
     /**
@@ -193,9 +214,9 @@ class AccountsController extends Controller
      */
     private function bulkFlag(EloquentCollection $models, bool $active): RedirectResponse
     {
-        $models->each(fn (Agent|Subagent $m) => $m->update(['is_active' => $active]));
+        $models->each(fn(Agent|Subagent $m) => $m->update(['is_active' => $active]));
 
-        return $this->toast('success', $models->count().' account(s) '.($active ? 'activated' : 'suspended').'.');
+        return $this->toast('success', $models->count() . ' account(s) ' . ($active ? 'activated' : 'suspended') . '.');
     }
 
     /**
@@ -203,14 +224,14 @@ class AccountsController extends Controller
      */
     private function bulkDelete(EloquentCollection $models): RedirectResponse
     {
-        $deletable = $models->filter(fn (Agent|Subagent $m) => $this->isDeletable($m));
+        $deletable = $models->filter(fn(Agent|Subagent $m) => $this->isDeletable($m));
         $deletable->each(function (Agent|Subagent $m): void {
             $m->wallet()->delete();
             $m->delete();
         });
 
         $blocked = $models->count() - $deletable->count();
-        $message = $deletable->count().' deleted.'.($blocked > 0 ? " {$blocked} kept (had orders/subagents)." : '');
+        $message = $deletable->count() . ' deleted.' . ($blocked > 0 ? " {$blocked} kept (had orders/subagents)." : '');
 
         return $this->toast($blocked > 0 ? 'error' : 'success', $message);
     }
@@ -220,7 +241,7 @@ class AccountsController extends Controller
      */
     private function export(EloquentCollection $models, string $type): StreamedResponse
     {
-        $file = "{$type}-".now()->format('Y-m-d').'.csv';
+        $file = "{$type}-" . now()->format('Y-m-d') . '.csv';
 
         return response()->streamDownload(function () use ($models): void {
             $out = fopen('php://output', 'wb');
@@ -249,7 +270,7 @@ class AccountsController extends Controller
         $value = (string) $value;
 
         if ($value !== '' && in_array($value[0], ['=', '+', '-', '@'], true)) {
-            return "\t".$value;
+            return "\t" . $value;
         }
 
         return $value;

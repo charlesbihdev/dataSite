@@ -1,4 +1,22 @@
-export type AccountType = 'agents' | 'subagents';
+export type AccountType = "agents" | "subagents";
+
+export interface ApiKeyItem {
+    id: number;
+    name: string;
+    prefix: string;
+    isActive: boolean;
+    lastUsedAt: string;
+    createdAt: string;
+}
+
+export interface RawApiKeyFlash {
+    rawKey: string;
+    name: string;
+    prefix: string;
+    accountName: string;
+    accountId: number;
+    accountType: AccountType;
+}
 
 export interface Account {
     id: number;
@@ -15,6 +33,9 @@ export interface Account {
     createdAt: string | null;
     status: string;
     canDelete: boolean;
+    pricingTierId: number | null;
+    pricingTierName: string | null;
+    apiKeys?: ApiKeyItem[];
 }
 
 export interface Named {

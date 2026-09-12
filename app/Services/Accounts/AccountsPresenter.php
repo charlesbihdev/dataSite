@@ -33,16 +33,18 @@ class AccountsPresenter
     private function agentRows(?string $q, ?string $status): Collection
     {
         return Agent::query()
-            ->with(['wallet', 'pricingTier'])
+            ->with(['wallet', 'pricingTier', 'apiKeys'])
             ->withCount(['subagents', 'orders'])
             ->withSum('orders as orders_total', 'customer_price')
             ->withMax('orders as last_order_at', 'created_at')
-            ->when($q, fn (Builder $b) => $this->applySearch($b, $q))
-            ->when($status, fn (Builder $b) => $b->where('is_active', $status === 'active'))
+            ->when($q, fn(Builder $b) => $this->applySearch($b, $q))
+            ->when($status, fn(Builder $b) => $b->where('is_active', $status === 'active'))
             ->orderBy('name')
             ->get()
-            ->map(fn (Agent $a): array => $this->base($a) + [
-                'detail' => ($a->pricingTier?->name ?? 'No tier').' · '.$a->subagents_count.' subagents',
+            ->map(fn(Agent $a): array => $this->base($a) + [
+                'pricingTierId' => $a->pricing_tier_id,
+                'pricingTierName' => $a->pricingTier?->name,
+                'detail' => ($a->pricingTier?->name ?? 'No tier') . ' · ' . $a->subagents_count . ' subagents',
                 'canDelete' => $a->subagents_count === 0 && (int) $a->orders_count === 0,
             ]);
     }
@@ -53,16 +55,16 @@ class AccountsPresenter
     private function subagentRows(?string $q, ?string $status): Collection
     {
         return Subagent::query()
-            ->with(['wallet', 'agent'])
+            ->with(['wallet', 'agent', 'apiKeys'])
             ->withCount(['orders'])
             ->withSum('orders as orders_total', 'customer_price')
             ->withMax('orders as last_order_at', 'created_at')
-            ->when($q, fn (Builder $b) => $this->applySearch($b, $q))
-            ->when($status, fn (Builder $b) => $b->where('is_active', $status === 'active'))
+            ->when($q, fn(Builder $b) => $this->applySearch($b, $q))
+            ->when($status, fn(Builder $b) => $b->where('is_active', $status === 'active'))
             ->orderBy('name')
             ->get()
-            ->map(fn (Subagent $s): array => $this->base($s) + [
-                'detail' => 'Under '.($s->agent?->name ?? 'unknown agent'),
+            ->map(fn(Subagent $s): array => $this->base($s) + [
+                'detail' => 'Under ' . ($s->agent?->name ?? 'unknown agent'),
                 'canDelete' => (int) $s->orders_count === 0,
             ]);
     }
@@ -87,14 +89,22 @@ class AccountsPresenter
             'lastActivity' => $model->last_order_at ? Carbon::parse($model->last_order_at)->format('M j, Y') : null,
             'createdAt' => $model->created_at?->format('M j, Y'),
             'status' => $model->is_active ? 'active' : 'suspended',
+            'apiKeys' => $model->apiKeys->map(fn($k): array => [
+                'id' => $k->id,
+                'name' => $k->name,
+                'prefix' => $k->prefix,
+                'isActive' => (bool) $k->is_active,
+                'lastUsedAt' => $k->last_used_at ? Carbon::parse($k->last_used_at)->diffForHumans() : 'Never',
+                'createdAt' => $k->created_at?->format('M j, Y'),
+            ])->values()->all(),
         ];
     }
 
     private function applySearch(Builder $query, ?string $q): Builder
     {
-        $term = '%'.$q.'%';
+        $term = '%' . $q . '%';
 
-        return $query->where(fn (Builder $b) => $b
+        return $query->where(fn(Builder $b) => $b
             ->where('name', 'like', $term)
             ->orWhere('phone', 'like', $term)
             ->orWhere('username', 'like', $term)
@@ -117,7 +127,7 @@ class AccountsPresenter
         return [
             'totalAccounts' => $model::query()->count(),
             'active30d' => $model::query()
-                ->whereHas('orders', fn (Builder $q) => $q->where('created_at', '>=', now()->subDays(30)))
+                ->whereHas('orders', fn(Builder $q) => $q->where('created_at', '>=', now()->subDays(30)))
                 ->count(),
             'totalBalance' => round((float) Wallet::query()->where('walletable_type', $morph)->sum('balance'), 2),
             'totalOrders' => (clone $orders)->count(),
@@ -144,7 +154,7 @@ class AccountsPresenter
                 'negative' => $rows->where('wallet', '<', 0)->count(),
             ],
             'topByOrders' => $rows->sortByDesc('ordersCount')->take(5)
-                ->map(fn (array $r): array => [
+                ->map(fn(array $r): array => [
                     'name' => $r['name'],
                     'ordersCount' => $r['ordersCount'],
                     'ordersTotal' => $r['ordersTotal'],

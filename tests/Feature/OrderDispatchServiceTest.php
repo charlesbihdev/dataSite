@@ -220,6 +220,60 @@ class OrderDispatchServiceTest extends TestCase
         $this->assertSame(1, Earning::where('status', Earning::STATUS_REVERSED)->count());
     }
 
+    public function test_fulfill_paid_dispatches_an_awaiting_storefront_order(): void
+    {
+        $agent = $this->agent();
+        $subagent = $this->subagent($agent);
+        $this->fakeUpstream(['success' => true, 'data' => ['requestId' => 30, 'orderStatus' => 'completed', 'price' => 15.0]]);
+
+        // Storefront order: created awaiting, no wallet debit, no earnings yet — as the gateway
+        // flow would leave it before an admin verifies the payment.
+        $order = $subagent->orders()->create([
+            'reference' => 'DS-STORE0001',
+            'source' => Order::SOURCE_STOREFRONT,
+            'payment_status' => Order::PAYMENT_AWAITING,
+            'network' => 'mtn',
+            'capacity_gb' => 5,
+            'beneficiary_phone' => '0559999999',
+            'channel' => Order::CHANNEL_ONLINE,
+            'customer_price' => 30,
+            'seller_cost' => 25,
+            'agent_cost' => 20,
+            'base_cost' => 15,
+            'status' => Order::STATUS_PENDING,
+        ]);
+        $this->assertSame(0, Earning::count());
+
+        $fulfilled = app(OrderDispatchService::class)->fulfillPaid($order->fresh());
+
+        $this->assertSame(Order::STATUS_COMPLETED, $fulfilled->status);
+        $this->assertSame(2, Earning::where('status', Earning::STATUS_CREDITED)->count());
+    }
+
+    public function test_fulfill_paid_is_idempotent_and_does_not_resend(): void
+    {
+        $agent = $this->agent();
+        $subagent = $this->subagent($agent);
+        $this->fakeUpstream(['success' => true, 'data' => ['requestId' => 31, 'orderStatus' => 'completed', 'price' => 15.0]]);
+
+        $order = $subagent->orders()->create([
+            'reference' => 'DS-STORE0002',
+            'source' => Order::SOURCE_STOREFRONT,
+            'payment_status' => Order::PAYMENT_AWAITING,
+            'network' => 'mtn', 'capacity_gb' => 5, 'beneficiary_phone' => '0559999999',
+            'channel' => Order::CHANNEL_ONLINE,
+            'customer_price' => 30, 'seller_cost' => 25, 'agent_cost' => 20, 'base_cost' => 15,
+            'status' => Order::STATUS_PENDING,
+        ]);
+
+        $service = app(OrderDispatchService::class);
+        $service->fulfillPaid($order->fresh());
+        $service->fulfillPaid($order->fresh()); // second verify must be a no-op
+
+        Http::assertSentCount(1);
+        $this->assertSame(2, Earning::count()); // not doubled
+    }
+
     public function test_refund_is_idempotent(): void
     {
         $agent = $this->agent();

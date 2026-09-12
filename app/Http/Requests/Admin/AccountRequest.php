@@ -38,7 +38,7 @@ class AccountRequest extends FormRequest
         if ($this->isSubagent()) {
             $rules['agent_id'] = ['required', Rule::exists('agents', 'id')];
         } else {
-            $rules['pricing_tier_id'] = ['required', Rule::exists('pricing_tiers', 'id')];
+            $rules['pricing_tier_id'] = ['nullable', Rule::exists('pricing_tiers', 'id')];
         }
 
         return $rules;

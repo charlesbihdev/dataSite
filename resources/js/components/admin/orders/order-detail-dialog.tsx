@@ -1,6 +1,13 @@
 import { router } from '@inertiajs/react';
 import { useState } from 'react';
-import { poll as pollOrder, refund as refundOrder } from '@/actions/App/Http/Controllers/Admin/OrdersController';
+import {
+    destroy as destroyOrder,
+    markVerified as markOrderVerified,
+    poll as pollOrder,
+    refund as refundOrder,
+    verifyPayment as verifyOrderPayment,
+} from '@/actions/App/Http/Controllers/Admin/OrdersController';
+import { SellerTypeBadge } from '@/components/admin/orders/seller-type-badge';
 import { StatusBadge } from '@/components/common/status-badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -11,10 +18,13 @@ export interface AdminOrder {
     id: number;
     reference: string;
     seller: string;
+    sellerType: string;
     network: string;
     capacityGb: number;
     beneficiary: string;
     channel: string;
+    source: string;
+    paymentStatus: string;
     status: string;
     cascade: {
         customerPrice: number;
@@ -45,7 +55,15 @@ function Row({ label, value, strong }: { label: string; value: string; strong?: 
     );
 }
 
-export function OrderDetailDialog({ order, onClose }: { order: AdminOrder | null; onClose: () => void }) {
+export function OrderDetailDialog({
+    order,
+    segment = 'agent',
+    onClose,
+}: {
+    order: AdminOrder | null;
+    segment?: 'agent' | 'regular';
+    onClose: () => void;
+}) {
     const [refunding, setRefunding] = useState(false);
     const [reason, setReason] = useState('');
 
@@ -77,13 +95,27 @@ export function OrderDetailDialog({ order, onClose }: { order: AdminOrder | null
                     <DialogTitle className="flex items-center gap-2">
                         <span className="font-mono text-sm">{order.reference}</span>
                         <StatusBadge status={order.status} />
+                        {order.paymentStatus !== 'paid' ? (
+                            <span
+                                className={
+                                    order.paymentStatus === 'awaiting'
+                                        ? 'rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-950 dark:text-amber-300'
+                                        : 'rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700 dark:bg-red-950 dark:text-red-300'
+                                }
+                            >
+                                {order.paymentStatus === 'awaiting' ? 'Awaiting payment' : 'Payment failed'}
+                            </span>
+                        ) : null}
                     </DialogTitle>
                 </DialogHeader>
 
                 <div className="space-y-5">
                     <section>
-                        <p className="text-sm text-muted-foreground">
-                            {order.seller} sold {order.network} {order.capacityGb}GB to {order.beneficiary} · {order.channel}
+                        <p className="flex flex-wrap items-center gap-1.5 text-sm text-muted-foreground">
+                            <span className="font-medium text-foreground">{order.seller}</span>
+                            <SellerTypeBadge type={order.sellerType} />
+                            sold {order.network} {order.capacityGb}GB to {order.beneficiary} · {order.channel} · via{' '}
+                            {order.source === 'api' ? 'API' : 'portal'}
                         </p>
                     </section>
 
@@ -123,6 +155,52 @@ export function OrderDetailDialog({ order, onClose }: { order: AdminOrder | null
                             <p className="mt-2 text-sm text-danger">{upstream.failureReason}</p>
                         ) : null}
                     </section>
+
+                    {segment === 'regular' && order.paymentStatus === 'awaiting' ? (
+                        <div className="space-y-2 rounded-lg border border-amber-400/50 p-4">
+                            <p className="text-sm text-muted-foreground">
+                                This storefront order is awaiting payment. Verify checks the gateway (cleared →
+                                dispatch, failed → mark failed). Mark verified confirms it manually and dispatches.
+                            </p>
+                            <div className="flex flex-wrap gap-2">
+                                <Button
+                                    className="flex-1"
+                                    onClick={() =>
+                                        router.post(verifyOrderPayment(order.id).url, {}, {
+                                            preserveScroll: true,
+                                            onSuccess: onClose,
+                                        })
+                                    }
+                                >
+                                    Verify payment
+                                </Button>
+                                <Button
+                                    variant="secondary"
+                                    className="flex-1"
+                                    onClick={() =>
+                                        router.post(markOrderVerified(order.id).url, {}, {
+                                            preserveScroll: true,
+                                            onSuccess: onClose,
+                                        })
+                                    }
+                                >
+                                    Mark verified
+                                </Button>
+                            </div>
+                            <Button
+                                variant="ghost"
+                                className="w-full text-danger hover:text-danger"
+                                onClick={() =>
+                                    router.delete(destroyOrder(order.id).url, {
+                                        preserveScroll: true,
+                                        onSuccess: onClose,
+                                    })
+                                }
+                            >
+                                Delete order
+                            </Button>
+                        </div>
+                    ) : null}
 
                     {order.status === 'processing' && upstream.requestId ? (
                         <Button

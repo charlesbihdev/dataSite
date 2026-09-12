@@ -22,10 +22,10 @@ class WithdrawalsController extends Controller
         $withdrawals = Withdrawal::query()
             ->with('earner')
             ->latest('id')
-            ->paginate(20)
-            ->through(fn (Withdrawal $w): array => [
+            ->paginate(50)
+            ->through(fn(Withdrawal $w): array => [
                 'id' => $w->id,
-                'earner' => ($w->earner?->name ?? 'Unknown').' ('.class_basename($w->earner_type).')',
+                'earner' => ($w->earner?->name ?? 'Unknown') . ' (' . class_basename($w->earner_type) . ')',
                 'amount' => (float) $w->amount,
                 'status' => $w->status,
                 'reference' => $w->reference,

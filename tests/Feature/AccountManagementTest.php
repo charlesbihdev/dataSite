@@ -43,7 +43,9 @@ class AccountManagementTest extends TestCase
 
         $this->from('/admin/accounts')
             ->post('/admin/accounts/agents', [
-                'name' => 'Clash', 'phone' => '0551000001', 'password' => 'Str0ng-Pass!',
+                'name' => 'Clash',
+                'phone' => '0551000001',
+                'password' => 'Str0ng-Pass!',
                 'pricing_tier_id' => $tier->id,
             ])
             ->assertSessionHasErrors('phone');
@@ -77,7 +79,9 @@ class AccountManagementTest extends TestCase
         $agent = $this->agent();
         $original = $agent->password;
 
-        $this->post("/admin/accounts/agents/{$agent->id}/reset-password")->assertRedirect();
+        $this->post("/admin/accounts/agents/{$agent->id}/reset-password", [
+            'password' => 'new-secure-password123',
+        ])->assertRedirect();
 
         $this->assertNotSame($original, $agent->fresh()->password);
     }
@@ -130,7 +134,7 @@ class AccountManagementTest extends TestCase
         Agent::create(['name' => 'Zara', 'phone' => '0551000002', 'password' => 'secret-1234', 'is_active' => true]);
 
         $this->get('/admin/accounts?type=agents&q=Zara')
-            ->assertInertia(fn ($page) => $page->has('accounts', 1)->where('accounts.0.name', 'Zara'));
+            ->assertInertia(fn($page) => $page->has('accounts', 1)->where('accounts.0.name', 'Zara'));
     }
 
     public function test_index_renders_last_activity_for_accounts_with_orders(): void
@@ -140,14 +144,14 @@ class AccountManagementTest extends TestCase
 
         $this->get('/admin/accounts?type=agents')
             ->assertOk()
-            ->assertInertia(fn ($page) => $page->where('accounts.0.ordersCount', 1)
+            ->assertInertia(fn($page) => $page->where('accounts.0.ordersCount', 1)
                 ->whereNot('accounts.0.lastActivity', null));
     }
 
     private function orderFor(Agent $agent): Order
     {
         return $agent->orders()->create([
-            'reference' => 'DS-'.strtoupper(uniqid()),
+            'reference' => 'DS-' . strtoupper(uniqid()),
             'network' => 'mtn',
             'capacity_gb' => 5,
             'beneficiary_phone' => '0209000000',

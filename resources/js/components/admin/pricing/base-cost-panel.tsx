@@ -1,16 +1,19 @@
-import { router, useForm } from '@inertiajs/react';
-import { useState } from 'react';
+import { router, useForm } from "@inertiajs/react";
+import { useState } from "react";
 import {
     destroyBaseCost,
     storeBaseCost,
     updateBaseCost,
-} from '@/actions/App/Http/Controllers/Admin/PricingController';
-import { Column, DataTable } from '@/components/common/data-table';
-import { StatusBadge } from '@/components/common/status-badge';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { BandDialog, BandFormValue } from '@/components/admin/pricing/band-dialog';
-import { cedis } from '@/lib/format';
+} from "@/actions/App/Http/Controllers/Admin/PricingController";
+import { Column, DataTable } from "@/components/common/data-table";
+import { StatusBadge } from "@/components/common/status-badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+    BandDialog,
+    BandFormValue,
+} from "@/components/admin/pricing/band-dialog";
+import { cedis } from "@/lib/format";
 
 export interface BaseCostRow {
     id: number;
@@ -21,16 +24,30 @@ export interface BaseCostRow {
     isActive: boolean;
 }
 
-const emptyBand: BandFormValue = { network: 'mtn', min_gb: '', max_gb: '', rate: '', is_active: true };
+const emptyBand: BandFormValue = {
+    network: "mtn",
+    min_gb: "",
+    max_gb: "",
+    rate: "",
+    is_active: true,
+};
 
-export function BaseCostPanel({ rows }: { rows: BaseCostRow[] }) {
+export function BaseCostPanel({
+    rows,
+    activeNetwork,
+}: {
+    rows: BaseCostRow[];
+    activeNetwork: string;
+}) {
     const [open, setOpen] = useState(false);
     const [editingId, setEditingId] = useState<number | null>(null);
     const form = useForm<BandFormValue>(emptyBand);
 
+    const filteredRows = rows.filter((r) => r.network === activeNetwork);
+
     const openAdd = () => {
         setEditingId(null);
-        form.setData(emptyBand);
+        form.setData({ ...emptyBand, network: activeNetwork });
         setOpen(true);
     };
 
@@ -47,23 +64,45 @@ export function BaseCostPanel({ rows }: { rows: BaseCostRow[] }) {
     };
 
     const columns: Column<BaseCostRow>[] = [
-        { key: 'network', header: 'Network', render: (r) => r.network.toUpperCase() },
-        { key: 'range', header: 'Range', render: (r) => `${r.minGb}–${r.maxGb} GB` },
-        { key: 'costPerGb', header: 'Cost / GB', align: 'right', render: (r) => cedis(r.costPerGb) },
-        { key: 'isActive', header: 'Status', render: (r) => <StatusBadge status={r.isActive ? 'active' : 'inactive'} /> },
         {
-            key: 'actions',
-            header: '',
-            align: 'right',
+            key: "range",
+            header: "Range",
+            render: (r) => `${r.minGb}–${r.maxGb} GB`,
+        },
+        {
+            key: "costPerGb",
+            header: "Cost / GB",
+            align: "right",
+            render: (r) => cedis(r.costPerGb),
+        },
+        {
+            key: "isActive",
+            header: "Status",
+            render: (r) => (
+                <StatusBadge status={r.isActive ? "active" : "inactive"} />
+            ),
+        },
+        {
+            key: "actions",
+            header: "",
+            align: "right",
             render: (r) => (
                 <div className="flex justify-end gap-1">
-                    <Button variant="ghost" size="sm" onClick={() => openEdit(r)}>
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => openEdit(r)}
+                    >
                         Edit
                     </Button>
                     <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => router.delete(destroyBaseCost(r.id).url, { preserveScroll: true })}
+                        onClick={() =>
+                            router.delete(destroyBaseCost(r.id).url, {
+                                preserveScroll: true,
+                            })
+                        }
                     >
                         Delete
                     </Button>
@@ -77,23 +116,33 @@ export function BaseCostPanel({ rows }: { rows: BaseCostRow[] }) {
             <CardHeader className="flex flex-row items-center justify-between">
                 <div>
                     <CardTitle className="text-base">Base cost</CardTitle>
-                    <p className="mt-1 text-sm text-muted-foreground">What we pay Databundleshub per GB.</p>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                        What we pay Databundleshub per GB.
+                    </p>
                 </div>
                 <Button onClick={openAdd}>Add band</Button>
             </CardHeader>
             <CardContent>
-                <DataTable columns={columns} rows={rows} rowKey={(r) => r.id} emptyMessage="No base cost bands yet." />
+                <DataTable
+                    columns={columns}
+                    rows={filteredRows}
+                    rowKey={(r) => r.id}
+                    emptyMessage={`No base cost bands for ${activeNetwork.toUpperCase()}.`}
+                />
             </CardContent>
 
             <BandDialog
                 open={open}
                 onOpenChange={setOpen}
-                title={editingId ? 'Edit base cost band' : 'Add base cost band'}
+                title={editingId ? "Edit base cost band" : "Add base cost band"}
                 rateLabel="Cost per GB"
                 rateErrorKey="cost_per_gb"
                 form={form}
                 onSubmit={() => {
-                    const opts = { onSuccess: () => setOpen(false), preserveScroll: true };
+                    const opts = {
+                        onSuccess: () => setOpen(false),
+                        preserveScroll: true,
+                    };
                     form.transform((d) => ({
                         network: d.network,
                         min_gb: d.min_gb,

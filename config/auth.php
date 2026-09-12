@@ -1,5 +1,8 @@
 <?php
 
+use App\Models\Admin;
+use App\Models\Agent;
+use App\Models\Subagent;
 use App\Models\User;
 
 return [
@@ -42,6 +45,18 @@ return [
             'driver' => 'session',
             'provider' => 'users',
         ],
+        'admin' => [
+            'driver' => 'session',
+            'provider' => 'admins',
+        ],
+        'agent' => [
+            'driver' => 'session',
+            'provider' => 'agents',
+        ],
+        'subagent' => [
+            'driver' => 'session',
+            'provider' => 'subagents',
+        ],
     ],
 
     /*
@@ -62,15 +77,22 @@ return [
     */
 
     'providers' => [
+        'admins' => [
+            'driver' => 'eloquent',
+            'model' => Admin::class,
+        ],
+        'agents' => [
+            'driver' => 'eloquent',
+            'model' => Agent::class,
+        ],
+        'subagents' => [
+            'driver' => 'eloquent',
+            'model' => Subagent::class,
+        ],
         'users' => [
             'driver' => 'eloquent',
             'model' => env('AUTH_MODEL', User::class),
         ],
-
-        // 'users' => [
-        //     'driver' => 'database',
-        //     'table' => 'users',
-        // ],
     ],
 
     /*
@@ -93,6 +115,24 @@ return [
     */
 
     'passwords' => [
+        'admins' => [
+            'provider' => 'admins',
+            'table' => env('AUTH_PASSWORD_RESET_TOKEN_TABLE', 'password_reset_tokens'),
+            'expire' => 60,
+            'throttle' => 60,
+        ],
+        'agents' => [
+            'provider' => 'agents',
+            'table' => env('AUTH_PASSWORD_RESET_TOKEN_TABLE', 'password_reset_tokens'),
+            'expire' => 60,
+            'throttle' => 60,
+        ],
+        'subagents' => [
+            'provider' => 'subagents',
+            'table' => env('AUTH_PASSWORD_RESET_TOKEN_TABLE', 'password_reset_tokens'),
+            'expire' => 60,
+            'throttle' => 60,
+        ],
         'users' => [
             'provider' => 'users',
             'table' => env('AUTH_PASSWORD_RESET_TOKEN_TABLE', 'password_reset_tokens'),

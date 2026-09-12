@@ -72,6 +72,11 @@ class OrderSettlementService
             if ($reason !== null) {
                 $locked->failure_reason = mb_substr($reason, 0, 255);
             }
+            // Payment invariant: PAID ⇔ money is held. A prepaid reversal refunds the wallet below,
+            // so the money is no longer secured — flip it off so a retry re-debits before dispatch.
+            if ($locked->channel === Order::CHANNEL_PREPAID) {
+                $locked->payment_status = Order::PAYMENT_AWAITING;
+            }
             $locked->save();
 
             Earning::query()
@@ -123,6 +128,34 @@ class OrderSettlementService
                 'amount' => $amount,
                 'message' => "Order {$locked->reference} refunded.",
             ];
+        });
+    }
+
+    /**
+     * Admin force-complete (Apply status → completed): mark delivered and credit the pending
+     * earnings, without an upstream result. Idempotent on the locked status. Money invariant holds
+     * because the order must already be PAID to be completed this way — a completed order's money
+     * is, by definition, held.
+     */
+    public function completeManually(Order $order): void
+    {
+        DB::transaction(function () use ($order): void {
+            /** @var Order $locked */
+            $locked = Order::query()->whereKey($order->getKey())->lockForUpdate()->firstOrFail();
+
+            if ($locked->status === Order::STATUS_COMPLETED) {
+                return;
+            }
+
+            $locked->status = Order::STATUS_COMPLETED;
+            $locked->completed_at = now();
+            $locked->payment_status = Order::PAYMENT_PAID;
+            $locked->save();
+
+            Earning::query()
+                ->where('order_id', $locked->getKey())
+                ->where('status', Earning::STATUS_PENDING)
+                ->update(['status' => Earning::STATUS_CREDITED, 'credited_at' => now()]);
         });
     }
 

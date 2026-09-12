@@ -34,10 +34,24 @@ class PriceQuote
             ->value('price_per_gb');
 
         if ($pricePerGb === null) {
+            $pricePerGb = TierPrice::query()
+                ->where('is_active', true)
+                ->where('pricing_tier_id', $tierId)
+                ->where('network', 'default')
+                ->where('min_gb', '<=', $capacityGb)
+                ->where('max_gb', '>=', $capacityGb)
+                ->value('price_per_gb');
+        }
+
+        if ($pricePerGb === null) {
             return null;
         }
 
         $baseCost = BaseCost::query()->forBand($network, $capacityGb)->value('cost_per_gb');
+        
+        if ($baseCost === null) {
+            $baseCost = BaseCost::query()->forBand('default', $capacityGb)->value('cost_per_gb');
+        }
 
         return [
             'pricePerGb' => (float) $pricePerGb,

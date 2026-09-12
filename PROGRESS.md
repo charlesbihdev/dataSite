@@ -1,140 +1,100 @@
-# DataSite — Progress & Handoff
+# Progress & Handoff Context
 
-> **Fresh agent? Read in this order (all in `datasiteAdmin/` root):**
-> 1. `AGENTS.md` — how to behave in this repo (workflow, guardrails).
-> 2. `ENGINEERING_PRINCIPLES.md` — **binding** style/rules (tokens, Tailwind-only, ≤300 lines, modularity, Laravel/Inertia way, DBH is a supplier not a code donor).
-> 3. `ARCHITECTURE.md` — system design + the DBH upstream contract (§1 3-domain firewall, §2/§3/§4 pricing/dispatch/settlement).
-> 4. This file — what's built, what's decided, what's next.
-> 5. `CLAUDE.md` — the always-loaded pointer that re-states the above as binding.
->
-> Domain background: `../DATABUNDLESHUB_EXPLANATION_AND_DIFFERENCES.md`.
-> Dev logins (local only): `../LOCAL_LOGIN_CREDENTIALS.md`.
-> Do NOT re-derive decisions already logged here.
+This file serves as a durable memory bank across sessions. If you are a fresh agent picking up this
+project, **read this first**.
 
-Stack: Laravel 13 · Inertia v3 · React 19 · Tailwind v4 · shadcn/ui · Fortify · PHPUnit · SQLite (dev).
-App lives in `datasiteAdmin/`. It's a 4-tier telecom-bundle reseller platform
-(Superadmin → Agent → Subagent → end customer) that buys wholesale from **Databundleshub via its API**.
+## The App (`datasiteAdmin`)
 
----
+A multi-tier B2B data reselling platform (Admin -> Agent -> Subagent -> Customer) built on Laravel 11,
+Inertia (React), and Tailwind. It connects upstream to Databundleshub (DBH) to fulfill orders.
 
-## Before you touch code — activate the matching skill
+Key architecture rules:
 
-Skills live in `.claude/skills/**` (and mirrored in `.agents/skills/**`). **Activate the relevant one
-BEFORE editing, not when stuck** (ENGINEERING_PRINCIPLES §0):
+1. **Pint-clean**: Code must pass `vendor/bin/pint`.
+2. **Compact files**: Controller/component max length ~300 lines. Break things up.
+3. **No magic**: Strong typing, simple DTOs, explicit DB transactions (`DB::transaction`).
+4. **Tailwind utilities only**: No `@apply` or custom CSS classes unless absolutely unavoidable.
+5. **Radix UI**: Radix primitives via `components/ui` (shadcn-like).
+6. **Testing**: 100% green on `php artisan test`. No new feature without a test.
 
-| Working on… | Skill |
-| :-- | :-- |
-| React pages/forms/`<Link>`/`useForm`/navigation | `inertia-react-development` |
-| Laravel PHP (controllers, models, migrations, requests, services, jobs) | `laravel-best-practices` |
-| Tailwind classes / theme tokens | `tailwindcss-development` |
-| Calling backend routes/actions from the frontend | `wayfinder-development` |
-| Auth: login, registration, 2FA, passkeys, reset | `fortify-development` |
-| Writing/fixing tests | `testing-best-practices` |
-| Matching conventions in an unfamiliar area | `infer-conventions` |
+## Key technical decisions
 
-House rules that bite most often: **every colour is a token in `resources/css/app.css`** (no raw hex/
-palette, `bg-brand`/`text-success`/etc. only); **Tailwind utilities only** (no CSS/`<style>`/inline
-`style`); **≤300 lines/file** (split into `components/common` or `components/<feature>` or a service);
-**Wayfinder** for URLs (`@/actions/*`, `@/routes/*`); **`useForm`/`<Form>`** for posts; **file downloads
-use a native `<a>`**, not `router`/`window.location`. Run `vendor/bin/pint --format agent` after PHP edits.
-
----
-
-## Key decisions (settled — don't relitigate)
-
-1. **Separate tables per account type** (`admins`, `agents`, `subagents`) — NOT one `users` table.
-   End customers are **guests** (no table; phone captured on the order).
-2. **Login = phone** for agents/subagents (email + username also stored). **Admins log in by email**
-   (username alt; phone optional). Multi-guard auth — NOT wired yet.
-3. **Tier by id:** `pricing_tiers` is a lookup list; agents point to it via `pricing_tier_id`.
-4. **Pricing = per-GB** (`tier_prices`: tier × network × GB-range × `price_per_gb`). Our own rates;
-   DBH cost is only a **floor guardrail** (can't price below cost — enforced in `CostFloor` + requests).
-5. **Two money pools** (DBH model): **deposit wallet** (top-up → spend on buys) vs **earnings**
-   (profit/commissions → withdraw). Kept separate; you buy with deposit, withdraw from earnings.
-6. **Orders freeze the full price cascade** (`customer_price`, `seller_cost`, `agent_cost`,
-   `base_cost`, `channel`) so profit-sharing is pure subtraction, immune to later price edits.
-7. **DBH = fulfillment pipe only.** Connection-config table (`dbh_config`), no price cache. Superadmin
-   sets `base_cost` by hand; actual cost reconciles from each order's `upstream_cost`. DBH is
-   **poll-based — it pushes no callbacks to us**. (ARCHITECTURE §2/§4.)
-8. **Profit-sharing:** `$order->seller` is polymorphic; if seller is a Subagent we fetch its parent
-   Agent and split three ways (subagent profit + agent commission + platform), else agent + platform.
-   Isolated in `Services/Orders/ProfitSplit`. Platform profit is not stored (no superadmin earner row).
-9. **Admin never copies DBH's UI.** DBH's Blade/Bootstrap/jQuery is a *feature reference* only; we
-   rebuild each screen blue/white, biizz-style, with our own components. DBH concepts that don't map
-   are cut (e.g. no VTU config — single API; no agent "roles" — agent vs subagent is structural).
-10. **Manual wallet funding is signed:** admin "add funds" credits on positive, debits on negative
-    (guarded by `Wallet::debit` overdraw check). Same shape as DBH's payment adjustment.
-11. **Account delete is guarded:** blocked if the account has orders (or, for an agent, subagents) —
-    suspend instead. Bulk delete keeps the blocked ones and reports the count.
+1. **DB decimal precision**: `decimal(12,4)` for raw calculations, cast to `decimal:2` in models.
+2. **Wallet concurrency**: Pessimistic locking (`lockForUpdate()`) strictly enforced in `Wallet::credit()` / `debit()`.
+3. **Order status**: `pending` (unpaid) -> `processing` (paid, at DBH) -> `completed` / `failed`.
+4. **Profit split**: Calculated synchronously at order time, pending earnings frozen in `earnings`
+   table. On `completed`, earnings transition to `credited` (and update wallets). On `failed`, `reversed`.
+5. **Upstream polling**: No webhooks from DBH. A queued job polls `purchase-status` until terminal,
+   then triggers `OrderSettlementService`.
+6. **No intake queue**: The Developer API (`POST /api/create_order`) handles requests synchronously,
+   reserving funds and attempting DBH dispatch in real-time, relying on DBH's quick response for the
+   initial `processing` state. (Decision #15).
+7. **Idempotency**: Client `Idempotency-Key` (or derived) stored on `orders.idempotency_key` (unique per seller).
+8. **Pricing Model**: Prices are derived via `Pricing/PriceQuote`. The seller specifies phone, network, capacity; the engine resolves the cost from their assigned `PricingTier`.
+9. **Default Fallbacks**: If a specific network isn't configured, `PriceQuote` falls back to the `default` network bands. If a new agent is created without a tier, they are automatically assigned the `is_default` tier ("Standard").
+10. **Two order dimensions**: `orders.status` = *fulfillment* (`pending → processing → completed / failed / refunded`); `orders.payment_status` = *payment* (`paid | awaiting | failed`), orthogonal. Also `orders.source` (`portal | api | storefront`) records origin.
+11. **Payment invariant (BINDING)**: `payment_status = paid` ⟺ the money is currently held. Every wallet **debit and the paid flag are set in the same `DB::transaction`** (`OrderDispatchService::createAndReserve` + `redispatch`); a prepaid **reversal refunds the wallet and flips paid → awaiting** in one commit. So a retry re-debits only when not paid. Maintain this everywhere money moves.
+12. **Verify-before-fulfill**: money must be secured before the upstream call. Agents = wallet debit (instant, paid on creation). Storefront customers = gateway payment that must be verified first — order starts `awaiting`, verify → `paid` → `OrderDispatchService::fulfillPaid()` dispatches. `PaymentVerifier` is the gateway seam (currently returns `pending` — real verify lands with storefront checkout).
+13. **Dual-gateway routing** (`Services/Payments/PaymentGatewayResolver`): both gateways can be active. Public checkout → Paystack preferred; agent top-up → Paystack < GHS 1,500, Moolre ≥ 1,500 (constant `AGENT_TOPUP_MOOLRE_THRESHOLD_GHS`), with fallback. Credentials in `payment_gateways` (secrets encrypted).
+14. **DB-driven mail**: SMTP settings live in `email_configs` (not `.env`); `Services/Mail/DbMailConfigurator` applies them to the mailer in `AppServiceProvider::boot()`. Mail is sent via Notifications.
 
 ---
 
 ## Built so far (migrated, Pint-clean, tests green)
 
 **DB slices:**
-- Identity: `admins`, `agents`, `subagents` — phone/email/username, `email_verified_at`,
-  `last_login_at`, Fortify 2FA columns. `agents.pricing_tier_id`, `subagents.agent_id` (restrict-on-delete), `slug`.
-- `pricing_tiers` · `tier_prices` (tier×network×min/max GB×price_per_gb) · `base_costs` (admin cost floor).
-- `wallets` (polymorphic, cached `balance`) + `wallet_transactions` (signed ledger).
-- `orders` (polymorphic `seller`, cascade snapshot, status + `upstream_*` tracking).
-- `earnings` (per-`(order,earner)`, shop_profit|commission) + `withdrawals`.
-- `dbh_config` (base_url + `encrypted` api_key + is_active). `login_logs` (polymorphic audit).
 
-**Models/traits:** `Admin/Agent/Subagent` (Authenticatable + 2FA), `PricingTier`, `TierPrice`,
-`BaseCost`, `Wallet` (guarded `credit()/debit()` — DB txn + `lockForUpdate`), `WalletTransaction`,
-`Order`, `Earning`, `Withdrawal`, `DbhConfig`, `LoginLog`. Traits: `Concerns/HasWallet`, `HasOrders`, `HasEarnings`.
+- Identity: `admins`, `agents`, `subagents` – phone/email/username, `email_verified_at`, `last_login_at`. `agents.pricing_tier_id`, `subagents.agent_id` (restrict-on-delete).
+- `pricing_tiers` (w/ `is_default`, `is_undeletable`) → `tier_prices` → `base_costs`.
+- `wallets` (polymorphic, cached `balance`) + `wallet_transactions` (signed ledger).
+- `orders` (polymorphic `seller`, cascade snapshot, status + `upstream_*` tracking; includes `refunded`). Plus `source`, `idempotency_key` (unique per seller), and `payment_status` (`paid|awaiting|failed`).
+- `earnings` (per-`(order,earner)`) + `withdrawals`.
+- `dbh_config`, `login_logs`, `api_keys`.
+- `payment_gateways` (one row per gateway `paystack|moolre`; `secret_key`/`webhook_secret` encrypted; topup min/max, `charge_percent`, moolre creds).
+- `email_configs` (single-row SMTP; `smtp_password` encrypted), `registration_configs` (fee + `is_enabled`).
 
 **Services (`app/Services/`):**
-- `Databundleshub/UpstreamClient` (X-API-Key, `create_order`, `purchase-status`) + `UpstreamOrderResult`
-  DTO + `UpstreamException` (transport-only). Poller: `Jobs/PollUpstreamOrderStatus` (`$tries`-capped,
-  re-polls via `release()` while processing — DBH pushes no callbacks).
-- `Orders/OrderDispatchService` (`createAndReserve` → freeze cascade + debit wallet + pending earnings in a
-  txn; `sendUpstream` → call DBH, route to settle/reverse/poll), `OrderSettlementService` (idempotent
-  `settle()`/`reverse()`), `ProfitSplit`, `NewOrderData` DTO.
-- `Pricing/CostFloor` (per-GB cost guardrail). `Accounts/AccountsPresenter` (rows/stats/analytics).
-- `Withdrawals/WithdrawalService` (pending→approved/rejected→paid state machine).
 
-**Theme:** blue/white tokens applied in `resources/css/app.css` (`--brand*` + semantic
-`--success/--warning/--danger/--info`); `--primary`/`--ring` point at brand. Reusable frontend primitives
-in `components/common/`: `PageHeader`, `StatTile`, `StatusBadge` (all status colour decided here),
-`DataTable` (house-style: rounded bordered card, shaded header band, roomy hover rows), `Pagination`,
-`EmptyState`; helpers in `lib/format.ts` (`cedis`, `gb`).
+- `Databundleshub/UpstreamClient` (X-API-Key, `create_order`, `purchase-status`). Poller: `Jobs/PollUpstreamOrderStatus`.
+- `Orders/OrderDispatchService` (`dispatch`, `fulfillPaid`, `redispatch`), `OrderSettlementService` (`settle`, `reverse`, `refund`, `completeManually`), `ProfitSplit`, `NewOrderData` DTO.
+- `Orders/OrderListPresenter` (segment-scoped list/stats/filters for the two order pages) and `Orders/OrderBulkService` (all bulk actions).
+- `Payments/PaymentGatewayResolver` (routing) + `Payments/PaymentVerifier` (gateway-verify seam, currently `pending`).
+- `Mail/DbMailConfigurator` (DB SMTP → mailer at boot).
+- `Pricing/CostFloor`, `Pricing/PriceQuote` (handles tier → cascade, including `default` fallback).
+- `Accounts/AccountsPresenter`.
+- `Withdrawals/WithdrawalService`.
 
-**Admin backoffice (superadmin) — the 8 agreed sections, all live** under `routes/domain_admin.php`
-(`admin.*`, open in local only; TODO guard + IP allowlist when multi-guard auth lands). Layout:
-`layouts/admin-layout.tsx` + `components/admin/admin-sidebar.tsx`; pages in `pages/admin/*`.
-- **Overview** (`DashboardController`): money chain (revenue − supplier = gross = platform + reseller,
-  all off actual `upstream_cost`), orders headline (done+processing; failed in red), agent/subagent
-  counts, revenue-by-network, recent orders.
-- **Orders** (`OrdersController`): filters (status/network/search), detail dialog, re-poll action.
-- **Pricing** (`PricingController`): base cost + tier price side-by-side, floor-guardrail validation.
-- **Accounts** (`AccountsController` + `components/admin/accounts/*`): agents/subagents tabbed by
-  `?type`, search + status filter, DBH-style stat cards (Total, Active 30d, Total Balances, Total
-  Orders, Pending Orders, Total Revenue), per-tab insight cards (performance / wallet spread / busiest).
-  Actions: **create** (with opening balance), **add/deduct funds**, **reset password**, suspend/activate,
-  **delete (guarded)**, **bulk** reset/suspend/activate/delete, and **CSV export** (GET download).
-- **Top-ups**, **Ledger** (search), **Withdrawals** (state transitions), **Settings** (DBH connection
-  upsert, admins list, IP-allowlist placeholder).
+**Developer API & Admin Key Minting:**
 
-**Tests (`php artisan test`):** upstream client, order dispatch, pricing floor, withdrawal workflow,
-settings connection, dashboard, and `AccountManagementTest` (create/opening balance, funds ±/overdraw,
-reset, delete guard, bulk suspend, CSV export, search). Full suite green. `phpunit.xml` carries a test `APP_KEY`.
+- Auth by `X-API-Key` via `Http/Middleware/AuthenticateApiKey`.
+- `Api/OrderController@store` (`POST /api/create_order` - `/api/developer/purchase`) and `@show`.
+- **Admin API Key Mint UI:** `AccountApiKeysController` with one-time raw-key reveal dialog.
 
-**Dev data:** `DemoDataSeeder` (local only) — superadmin + one agent + one subagent (funded wallets),
-tier, base costs + tier prices, and a spread of orders/top-ups/withdrawals. NOTE: order creation is
-**not** idempotent (re-seeding adds 6 more orders); make it `firstOrCreate` before relying on totals.
+**Admin backoffice (superadmin)** under `routes/domain_admin.php` (`admin.*`, protected by `admin.ip`). Layout: `layouts/admin-layout.tsx` + `components/admin/admin-sidebar.tsx`.
+
+- **Overview**: Money chain, orders headline, revenue-by-network, recent orders.
+- **Agent Orders** (`/admin/orders/agent`) & **Regular Orders** (`/admin/orders/regular`) — two pages, one `orders` table (agent = source portal/api; regular = storefront). Shared `OrdersPage` component + `OrderDetailDialog`, rendered by `OrdersController@agent`/`@regular` via `OrderListPresenter`. `/admin/orders` redirects to agent; sidebar has both.
+  - **Both**: filters (status, network, date, debounced search across ref/phone/seller/upstream), multi-select + bulk bar (`OrderBulkService`, one `POST /admin/orders/bulk`), detail dialog.
+  - **Agent actions**: poll (single), refund (single), and bulk **Sync status** / **Retry dispatch** / **Apply status** (5 statuses, money-routed through settlement). Toolbar **Export CSV** (`orders/export`, honours filters). XLSX intentionally skipped (needs `phpoffice/phpspreadsheet`).
+  - **Regular actions**: **Verify payment** (gateway-branched: paid→dispatch, failed→mark failed, pending→stays), **Mark verified** (manual confirm+dispatch), **Delete** (awaiting only) — all single + bulk. Awaiting queue via the Payment filter; row ✓ quick-verify icon.
+- **Pricing**: DBH-inspired **Network Tabbed Pricing** (MTN, Telecel, AT, Default Fallback). Bulk "Clone from MTN" / "Reset network" per tab. Tier CRUD (protects `is_undeletable`).
+- **Accounts**: Tabbed agents/subagents. Insight cards. Actions: **create** (auto-selects `is_default` tier), add/deduct funds, **reset password** modal, manage API keys, toggle status, delete (guarded), CSV export.
+- **Payments** (`/admin/payment-config`): Paystack + Moolre credentials (encrypted secrets, keep-on-blank), topup limits, charge %, and a live **routing summary** from `PaymentGatewayResolver`. Webhook URLs shown (receiver routes not built yet).
+- **Top-ups**, **Ledger**, **Withdrawals**.
+- **Settings**: DBH connection, admins, IP allowlist (stub), plus **Email** (DB-driven SMTP + "send test" via `TestEmailNotification`) and **Registration** (fee + open toggle) config cards.
+
+**Seeders & Dev Data:**
+
+- `DatabaseSeeder.php` (Production-safe): Creates the `Super Admin` account, the undeletable `Standard` tier, and sets up baseline DBH production pricing (1-100GB bands at 4.00 base / 4.50 sell across all networks).
+- `DemoDataSeeder.php` (Local dev only): Generates fake agents (Agent Mensah), wallets, dummy orders, API keys. Completely separated from prod setup.
+
+**Tests (`php artisan test`):**
+Upstream client, order dispatch, pricing floor, withdrawal workflow, settings connection, dashboard, `AccountManagementTest`, `AccountApiKeyManagementTest`, `MultiGuardAuthTest`, `DeveloperApiOrderTest`. **85 tests green** as of this session.
 
 ---
 
 ## Next / open (not built)
 
-1. **Auth wiring** — multi-guard login per domain (Fortify is still global). Agent registration scoped
-   to the admin/agents domain; role enforcement (only agent may invite subagent) + reserved-slug guard;
-   then lock `/admin` behind the admin guard + IP allowlist. Flagged in `routes/domain_admin.php`.
-2. **Wallet top-ups (real money in)** — DataSite's own Paystack/MoMo init + webhook (may port DBH's
-   `PaymentInitController`/`CallbackController`/webhook handlers — logic only, not UI).
-3. **Agent & Subagent portals** + **storefront (D3, forced-light)** — reuse the shared sidebar shell;
-   per-role nav is data, not a forked sidebar.
-4. **Wire real order placement** from a portal through `OrderDispatchService` (admin currently views/
-   re-polls; nothing creates a live order yet outside the seeder).
-5. **Make `DemoDataSeeder` order creation idempotent** (see note above).
+1. **Wallet top-ups (real money in)** — DataSite's own Paystack/MoMo init + webhook (may port DBH's `PaymentInitController`/`CallbackController`/webhook handlers — logic only, not UI).
+2. **Agent & Subagent portals** + **storefront (D3, forced-light)** — reuse the shared sidebar shell; per-role nav is data, not a forked sidebar.
+3. **Wire real order placement** from a portal through `OrderDispatchService` (admin currently views/re-polls; the Developer API can now create live orders, but no _portal_ UI does yet).
