@@ -2,21 +2,28 @@
 
 /*
 |--------------------------------------------------------------------------
-| DOMAIN 1 — Admin + Agents  (e.g. datasite.com)
+| DOMAIN 1  ·  surface "admin_agents"  ·  e.g. datasite.com
 |--------------------------------------------------------------------------
+| The platform's HOME domain. Two tenants live here: the AGENT tier (agents
+| sign up + run their portal) and the SUPERADMIN who operates everything.
+| No storefront on this domain — nobody buys bundles here.
 |
+| URL map:
 |   /            Public landing
 |   /register    Public — BECOME AN AGENT (open, no fee)   [Fortify, global*]
 |   /login       Agent login                               [Fortify, global*]
-|   /dashboard   Agent management portal
-|   /admin       Superadmin backoffice (IP-locked)
+|   /dashboard   Agent portal (wallet, orders, subagents)
+|   /admin       Superadmin backoffice (IP-locked, auth:admin)
 |
-| *Auth routes (/login, /register, /logout, 2FA) are currently served globally
-|  by Fortify. Scoping them to this domain only — so agent registration cannot
-|  be reached from the other domains — is a follow-up (see ARCHITECTURE.md).
+| LADDER RULE: "Become an agent" is the TOP rung and exists ONLY on this
+| domain. It must never be reachable from the store domains — that separation
+| is the whole point of splitting the domains (the URL-truncation firewall).
 |
-| Placeholder responses below are stubs; real Inertia pages replace them as the
-| portals are built.
+| *Auth routes (/login, /register, /logout, 2FA) are still served globally by
+|  Fortify. Scoping them to this domain only is a follow-up — see ARCHITECTURE.md.
+|
+| Non-stub routes below are live; the plain Inertia pages are portal stubs
+| that fill in as each portal is built.
 |
 */
 
@@ -33,26 +40,27 @@ use Illuminate\Support\Facades\Route;
 
 Route::inertia('/', 'welcome')->name('home');
 
-Route::middleware(['auth', 'verified'])->group(function () {
-    Route::inertia('dashboard', 'dashboard')->name('dashboard');
+Route::middleware(['auth:agent', 'verified'])->group(function () {
+    Route::inertia('dashboard', 'dashboard')->name('agent.dashboard');
     Route::inertia('wallet', 'agent/wallet')->name('agent.wallet');
-    Route::get('orders', [\App\Http\Controllers\Agent\OrdersController::class, 'index'])->name('agent.orders');
+    Route::get('orders', [App\Http\Controllers\Agent\OrdersController::class, 'index'])->name('agent.orders');
     Route::inertia('subagents', 'agent/subagents')->name('agent.subagents');
 });
 
 use App\Http\Controllers\Admin\AnalyticsController;
+use App\Http\Controllers\Admin\AuthController;
 
 // Superadmin backoffice. Protected by auth:admin and admin.ip allowlist
 Route::prefix('admin')->name('admin.')->group(function () {
     // Guest Admin Auth Routes
     Route::middleware(['guest:admin'])->group(function () {
-        Route::get('login', [\App\Http\Controllers\Admin\AuthController::class, 'showLoginForm'])->name('login');
-        Route::post('login', [\App\Http\Controllers\Admin\AuthController::class, 'login']);
+        Route::get('login', [AuthController::class, 'showLoginForm'])->name('login');
+        Route::post('login', [AuthController::class, 'login']);
     });
 
     // Authenticated Admin Routes
     Route::middleware(['auth:admin', 'admin.ip'])->group(function () {
-        Route::post('logout', [\App\Http\Controllers\Admin\AuthController::class, 'logout'])->name('logout');
+        Route::post('logout', [AuthController::class, 'logout'])->name('logout');
 
         Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
         Route::get('analytics', [AnalyticsController::class, 'index'])->name('analytics');

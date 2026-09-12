@@ -1,22 +1,18 @@
-import { Form, Head } from '@inertiajs/react';
-import { useRef } from 'react';
-import SecurityController from '@/actions/App/Http/Controllers/Settings/SecurityController';
-import Heading from '@/components/heading';
-import InputError from '@/components/input-error';
-import PasswordInput from '@/components/password-input';
-import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
-import { edit } from '@/routes/security';
-import type { Props as ManagePasskeysProps } from '@/components/manage-passkeys';
-import ManagePasskeys from '@/components/manage-passkeys';
-import type { Props as ManageTwoFactorProps } from '@/components/manage-two-factor';
-import ManageTwoFactor from '@/components/manage-two-factor';
+import { Form, Head } from "@inertiajs/react";
+import { useRef } from "react";
+import SecurityController from "@/actions/App/Http/Controllers/Settings/SecurityController";
+import Heading from "@/components/heading";
+import InputError from "@/components/input-error";
+import PasswordInput from "@/components/password-input";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { edit } from "@/routes/security";
+import type { Props as ManageTwoFactorProps } from "@/components/manage-two-factor";
+import ManageTwoFactor from "@/components/manage-two-factor";
 
-// oxfmt-ignore
 type Props = {
     passwordRules: string;
-} & ManagePasskeysProps &
-    ManageTwoFactorProps;
+} & ManageTwoFactorProps;
 
 export default function Security(props: Props) {
     const passwordInput = useRef<HTMLInputElement>(null);
@@ -41,9 +37,9 @@ export default function Security(props: Props) {
                         preserveScroll: true,
                     }}
                     resetOnError={[
-                        'password',
-                        'password_confirmation',
-                        'current_password',
+                        "password",
+                        "password_confirmation",
+                        "current_password",
                     ]}
                     resetOnSuccess
                     onError={(errors) => {
@@ -129,11 +125,6 @@ export default function Security(props: Props) {
                 requiresConfirmation={props.requiresConfirmation}
                 twoFactorEnabled={props.twoFactorEnabled}
             />
-
-            <ManagePasskeys
-                canManagePasskeys={props.canManagePasskeys}
-                passkeys={props.passkeys}
-            />
         </>
     );
 }
@@ -141,7 +132,7 @@ export default function Security(props: Props) {
 Security.layout = {
     breadcrumbs: [
         {
-            title: 'Security settings',
+            title: "Security settings",
             href: edit(),
         },
     ],

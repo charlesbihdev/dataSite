@@ -8,9 +8,9 @@ use Inertia\Inertia;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Stamps the active "surface" (admin | agents | store) onto the request and
- * shares it with Inertia so the frontend can pick the right layout. Bound per
- * domain group in routes/web.php via the `surface:{name}` alias.
+ * Stamps the active "surface" (admin_agents | agent_store | subagent_store) onto
+ * the request and shares it with Inertia so the frontend can pick the right
+ * layout. Bound per domain group in routes/web.php via the `surface:{name}` alias.
  *
  * Role enforcement (rejecting an authenticated user whose role may not use this
  * surface) is a TODO once the hierarchical user model exists — see ARCHITECTURE.md.

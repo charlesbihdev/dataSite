@@ -50,7 +50,7 @@ class ProfileController extends Controller
     {
         $user = $request->user();
 
-        Auth::logout();
+        Auth::guard('agent')->logout();
 
         $user->delete();
 

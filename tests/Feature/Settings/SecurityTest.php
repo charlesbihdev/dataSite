@@ -2,7 +2,7 @@
 
 namespace Tests\Feature\Settings;
 
-use App\Models\User;
+use App\Models\Agent;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -25,17 +25,18 @@ class SecurityTest extends TestCase
             'confirmPassword' => true,
         ]);
 
-        $user = User::factory()->create();
+        $user = Agent::factory()->create();
 
         $this->actingAs($user)
             ->withSession(['auth.password_confirmed_at' => time()])
             ->get(route('security.edit'))
-            ->assertInertia(fn (Assert $page) => $page
-                ->component('settings/security')
-                ->where('canManagePasskeys', true)
-                ->where('passkeys', [])
-                ->where('canManageTwoFactor', true)
-                ->where('twoFactorEnabled', false),
+            ->assertInertia(
+                fn(Assert $page) => $page
+                    ->component('settings/security')
+                    ->where('canManagePasskeys', true)
+                    ->where('passkeys', [])
+                    ->where('canManageTwoFactor', true)
+                    ->where('twoFactorEnabled', false),
             );
     }
 
@@ -43,7 +44,7 @@ class SecurityTest extends TestCase
     {
         $this->skipUnlessFortifyHas(Features::twoFactorAuthentication());
 
-        $user = User::factory()->create();
+        $user = Agent::factory()->create();
 
         Features::twoFactorAuthentication([
             'confirm' => true,
@@ -62,25 +63,26 @@ class SecurityTest extends TestCase
 
         config(['fortify.features' => []]);
 
-        $user = User::factory()->create();
+        $user = Agent::factory()->create();
 
         $this->actingAs($user)
             ->withSession(['auth.password_confirmed_at' => time()])
             ->get(route('security.edit'))
             ->assertOk()
-            ->assertInertia(fn (Assert $page) => $page
-                ->component('settings/security')
-                ->where('canManagePasskeys', false)
-                ->where('passkeys', [])
-                ->where('canManageTwoFactor', false)
-                ->missing('twoFactorEnabled')
-                ->missing('requiresConfirmation'),
+            ->assertInertia(
+                fn(Assert $page) => $page
+                    ->component('settings/security')
+                    ->where('canManagePasskeys', false)
+                    ->where('passkeys', [])
+                    ->where('canManageTwoFactor', false)
+                    ->missing('twoFactorEnabled')
+                    ->missing('requiresConfirmation'),
             );
     }
 
     public function test_password_can_be_updated()
     {
-        $user = User::factory()->create();
+        $user = Agent::factory()->create();
 
         $response = $this
             ->actingAs($user)
@@ -100,7 +102,7 @@ class SecurityTest extends TestCase
 
     public function test_correct_password_must_be_provided_to_update_password()
     {
-        $user = User::factory()->create();
+        $user = Agent::factory()->create();
 
         $response = $this
             ->actingAs($user)

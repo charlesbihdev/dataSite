@@ -39,7 +39,7 @@ class HandleInertiaRequests extends Middleware
             ...parent::share($request),
             'name' => config('app.name'),
             'auth' => [
-                'user' => $request->user(),
+                'user' => $request->user() ? (method_exists($request->user(), 'wallet') ? $request->user()->load('wallet') : $request->user()) : null,
             ],
             'flash' => [
                 'rawApiKey' => fn () => $request->session()->get('rawApiKey'),

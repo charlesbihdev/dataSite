@@ -7,10 +7,10 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
+
 import { register } from '@/routes';
 import { store } from '@/routes/login';
 import { request } from '@/routes/password';
-import PasskeyVerify from '@/components/passkey-verify';
 
 type Props = {
     status?: string;
@@ -22,8 +22,6 @@ export default function Login({ status, canResetPassword }: Props) {
         <>
             <Head title="Log in" />
 
-            <PasskeyVerify />
-
             <Form
                 {...store.form()}
                 resetOnSuccess={['password']}
@@ -33,16 +31,16 @@ export default function Login({ status, canResetPassword }: Props) {
                     <>
                         <div className="grid gap-6">
                             <div className="grid gap-2">
-                                <Label htmlFor="email">Email address</Label>
+                                <Label htmlFor="email">Email, Username, or Phone</Label>
                                 <Input
                                     id="email"
-                                    type="email"
+                                    type="text"
                                     name="email"
                                     required
                                     autoFocus
                                     tabIndex={1}
-                                    autoComplete="email"
-                                    placeholder="email@example.com"
+                                    autoComplete="username"
+                                    placeholder="johndoe or 024xxxxxxx"
                                 />
                                 <InputError message={errors.email} />
                             </div>
@@ -98,6 +96,8 @@ export default function Login({ status, canResetPassword }: Props) {
                                 Sign up
                             </TextLink>
                         </div>
+
+
                     </>
                 )}
             </Form>
@@ -112,6 +112,6 @@ export default function Login({ status, canResetPassword }: Props) {
 }
 
 Login.layout = {
-    title: 'Log in to your account',
-    description: 'Enter your email and password below to log in',
+    title: 'Welcome back',
+    description: 'Enter your credentials to access your account.',
 };

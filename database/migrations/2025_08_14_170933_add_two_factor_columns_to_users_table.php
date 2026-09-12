@@ -1,34 +1,21 @@
 <?php
 
 use Illuminate\Database\Migrations\Migration;
-use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\Schema;
+
+// The 'users' table does not exist in DataSite. Agents, admins, and subagents
+// have their own tables with two-factor columns already baked into their
+// respective create-table migrations. This file is a Fortify starter-kit
+// leftover and has been intentionally emptied.
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
-        Schema::table('users', function (Blueprint $table) {
-            $table->text('two_factor_secret')->after('password')->nullable();
-            $table->text('two_factor_recovery_codes')->after('two_factor_secret')->nullable();
-            $table->timestamp('two_factor_confirmed_at')->after('two_factor_recovery_codes')->nullable();
-        });
+        // no-op: 2FA columns live on agents/admins/subagents tables, not users.
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
-        Schema::table('users', function (Blueprint $table) {
-            $table->dropColumn([
-                'two_factor_secret',
-                'two_factor_recovery_codes',
-                'two_factor_confirmed_at',
-            ]);
-        });
+        // no-op
     }
 };

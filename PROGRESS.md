@@ -70,7 +70,7 @@ Key architecture rules:
 - `Api/OrderController@store` (`POST /api/create_order` - `/api/developer/purchase`) and `@show`.
 - **Admin API Key Mint UI:** `AccountApiKeysController` with one-time raw-key reveal dialog.
 
-**Admin backoffice (superadmin)** under `routes/domain_admin.php` (`admin.*`, protected by `admin.ip`). Layout: `layouts/admin-layout.tsx` + `components/admin/admin-sidebar.tsx`.
+**Admin backoffice (superadmin)** under `routes/domain_admin_agents.php` (`admin.*`, protected by `admin.ip`). Layout: `layouts/admin-layout.tsx` + `components/admin/admin-sidebar.tsx`.
 
 - **Overview**: Money chain, orders headline, revenue-by-network, recent orders.
 - **Agent Orders** (`/admin/orders/agent`) & **Regular Orders** (`/admin/orders/regular`) — two pages, one `orders` table (agent = source portal/api; regular = storefront). Shared `OrdersPage` component + `OrderDetailDialog`, rendered by `OrdersController@agent`/`@regular` via `OrderListPresenter`. `/admin/orders` redirects to agent; sidebar has both.

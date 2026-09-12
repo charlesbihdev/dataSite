@@ -11,6 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
+        // We are using admins, agents, and subagents tables instead of users.
+        /*
         Schema::create('users', function (Blueprint $table) {
             $table->id();
             $table->string('name');
@@ -20,6 +22,7 @@ return new class extends Migration
             $table->rememberToken();
             $table->timestamps();
         });
+        */
 
         Schema::create('password_reset_tokens', function (Blueprint $table) {
             $table->string('email')->primary();
@@ -42,7 +45,9 @@ return new class extends Migration
      */
     public function down(): void
     {
+        /*
         Schema::dropIfExists('users');
+        */
         Schema::dropIfExists('password_reset_tokens');
         Schema::dropIfExists('sessions');
     }

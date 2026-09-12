@@ -15,6 +15,7 @@ use Tests\TestCase;
 class EmailRegistrationConfigTest extends TestCase
 {
     use RefreshDatabase;
+    use \Illuminate\Foundation\Testing\WithoutMiddleware;
 
     public function test_email_config_saves_and_encrypts_password(): void
     {
@@ -39,13 +40,27 @@ class EmailRegistrationConfigTest extends TestCase
     public function test_blank_password_keeps_existing(): void
     {
         EmailConfig::create([
-            'from_email' => 'a@b.c', 'from_name' => 'X', 'smtp_enabled' => true, 'smtp_host' => 'h',
-            'smtp_port' => 587, 'smtp_username' => 'u', 'smtp_password' => 'keepme', 'smtp_encryption' => 'tls', 'is_active' => true,
+            'from_email' => 'a@b.c',
+            'from_name' => 'X',
+            'smtp_enabled' => true,
+            'smtp_host' => 'h',
+            'smtp_port' => 587,
+            'smtp_username' => 'u',
+            'smtp_password' => 'keepme',
+            'smtp_encryption' => 'tls',
+            'is_active' => true,
         ]);
 
         $this->put('/admin/settings/email', [
-            'from_email' => 'a@b.c', 'from_name' => 'Y', 'smtp_enabled' => true, 'smtp_host' => 'h',
-            'smtp_port' => 587, 'smtp_username' => 'u', 'smtp_password' => '', 'smtp_encryption' => 'tls', 'is_active' => true,
+            'from_email' => 'a@b.c',
+            'from_name' => 'Y',
+            'smtp_enabled' => true,
+            'smtp_host' => 'h',
+            'smtp_port' => 587,
+            'smtp_username' => 'u',
+            'smtp_password' => '',
+            'smtp_encryption' => 'tls',
+            'is_active' => true,
         ])->assertRedirect();
 
         $this->assertSame('keepme', EmailConfig::current()->smtp_password);
@@ -63,8 +78,15 @@ class EmailRegistrationConfigTest extends TestCase
     public function test_mail_configurator_points_mailer_at_db_settings(): void
     {
         EmailConfig::create([
-            'from_email' => 'from@datasite.gh', 'from_name' => 'DS', 'smtp_enabled' => true, 'smtp_host' => 'smtp.db.test',
-            'smtp_port' => 2525, 'smtp_username' => 'dbuser', 'smtp_password' => 'dbpass', 'smtp_encryption' => 'ssl', 'is_active' => true,
+            'from_email' => 'from@datasite.gh',
+            'from_name' => 'DS',
+            'smtp_enabled' => true,
+            'smtp_host' => 'smtp.db.test',
+            'smtp_port' => 2525,
+            'smtp_username' => 'dbuser',
+            'smtp_password' => 'dbpass',
+            'smtp_encryption' => 'ssl',
+            'is_active' => true,
         ]);
 
         app(DbMailConfigurator::class)->apply();

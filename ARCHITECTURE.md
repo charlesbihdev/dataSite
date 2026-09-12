@@ -64,26 +64,26 @@ Dead simple: `web.php` binds each domain to one route file. That file holds exac
 that domain's table above. No nested folders. (Split a file later only if it nears the 300-line cap.)
 
 ```
-config/surfaces.php   # ['admin' => env(...), 'agents' => env(...), 'store' => env(...)]
+config/surfaces.php   # ['admin_agents' => env(...), 'agent_store' => env(...), 'subagent_store' => env(...)]
 routes/web.php        # dispatcher only: 3 domains -> 3 files
-routes/domain_admin.php    # DOMAIN 1: /admin, /register, /login, /dashboard (agent)
-routes/domain_agents.php   # DOMAIN 2: /{agentSlug} (+become subagent), subagent /login, /dashboard
-routes/domain_store.php    # DOMAIN 3: /{subagentSlug}
+routes/domain_admin_agents.php    # DOMAIN 1: /admin, /register, /login, /dashboard (agent)
+routes/domain_agent_store.php     # DOMAIN 2: /{agentSlug} (+become subagent), subagent /login, /dashboard
+routes/domain_subagent_store.php  # DOMAIN 3: /{subagentSlug}
 ```
 
 ```php
 // routes/web.php — the ONLY place domains are referenced
-Route::domain(config('surfaces.admin'))->middleware('surface:admin')
-    ->group(base_path('routes/domain_admin.php'));   // admin.ip allowlist applied inside
-Route::domain(config('surfaces.agents'))->middleware('surface:agents')
-    ->group(base_path('routes/domain_agents.php'));
-Route::domain(config('surfaces.store'))->middleware('surface:store')
-    ->group(base_path('routes/domain_store.php'));
+Route::domain(config('surfaces.admin_agents'))->middleware('surface:admin_agents')
+    ->group(base_path('routes/domain_admin_agents.php'));   // admin.ip allowlist applied inside
+Route::domain(config('surfaces.agent_store'))->middleware('surface:agent_store')
+    ->group(base_path('routes/domain_agent_store.php'));
+Route::domain(config('surfaces.subagent_store'))->middleware('surface:subagent_store')
+    ->group(base_path('routes/domain_subagent_store.php'));
 // Any unknown Host → rejected.
 ```
 
-- "Become an agent" exists only in `domain_admin.php`, "become a subagent" only in
-  `domain_agents.php` — so on the wrong domain those routes simply don't exist (404), not "forbidden".
+- "Become an agent" exists only in `domain_admin_agents.php`, "become a subagent" only in
+  `domain_agent_store.php` — so on the wrong domain those routes simply don't exist (404), not "forbidden".
   That's the truncation firewall.
 - `surface:{name}` middleware stamps the active domain (for Inertia layout selection) and rejects an
   authenticated user whose role may not use that domain. Superadmin also IP-allowlisted on D1.
