@@ -28,4 +28,7 @@ $surface('admin_agents', 'domain_admin_agents.php', '');
 $surface('agent_store', 'domain_agent_store.php', 'agent-store');
 $surface('subagent_store', 'domain_subagent_store.php', 'subagent-store');
 
-require __DIR__.'/settings.php';
+// Agent account settings (profile/security/password/appearance) belong to the
+// platform domain too — bind them through the same dispatcher so they are NOT
+// reachable from the store domains in prod.
+$surface('admin_agents', 'settings.php', '');
