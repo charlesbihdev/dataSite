@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Jobs\PollUpstreamOrderStatus;
 use App\Models\Agent;
 use App\Models\DbhConfig;
 use App\Models\Earning;
@@ -10,6 +11,7 @@ use App\Models\Subagent;
 use App\Services\Payments\PaymentVerifier;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Queue;
 use Tests\TestCase;
 
 class VerifyPaymentTest extends TestCase
@@ -19,6 +21,7 @@ class VerifyPaymentTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        $this->actingAsAdmin();
         DbhConfig::create(['base_url' => 'https://dbh.test/api', 'api_key' => 'k', 'is_active' => true]);
     }
 
@@ -46,7 +49,8 @@ class VerifyPaymentTest extends TestCase
 
     private function fakeVerifier(string $result): void
     {
-        $this->app->instance(PaymentVerifier::class, new class($result) extends PaymentVerifier {
+        $this->app->instance(PaymentVerifier::class, new class($result) extends PaymentVerifier
+        {
             public function __construct(private string $result) {}
 
             public function verify(Order $order): string
@@ -241,12 +245,12 @@ class VerifyPaymentTest extends TestCase
 
     public function test_bulk_sync_queues_processing_orders(): void
     {
-        \Illuminate\Support\Facades\Queue::fake();
+        Queue::fake();
         $order = $this->awaitingOrder('DS-BULK005');
         $order->update(['status' => Order::STATUS_PROCESSING, 'upstream_request_id' => '99']);
 
         $this->post('/admin/orders/bulk', ['action' => 'sync', 'ids' => [$order->id]])->assertRedirect();
 
-        \Illuminate\Support\Facades\Queue::assertPushed(\App\Jobs\PollUpstreamOrderStatus::class, 1);
+        Queue::assertPushed(PollUpstreamOrderStatus::class, 1);
     }
 }

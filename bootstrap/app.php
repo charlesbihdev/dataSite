@@ -38,6 +38,13 @@ return Application::configure(basePath: dirname(__DIR__))
                 return route('admin.login');
             }
 
+            // Subagents have their own login on the agent-store domain — never
+            // the agent (Fortify) login. Discriminate by the matched route name,
+            // which is reliably bound when the auth middleware fires.
+            if ($request->routeIs('subagent.*')) {
+                return route('subagent.login');
+            }
+
             return route('login');
         });
     })

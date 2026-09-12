@@ -2,9 +2,8 @@
 
 namespace Tests\Feature\Auth;
 
-use App\Models\User;
+use App\Models\Agent;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\RateLimiter;
 use Laravel\Fortify\Features;
 use Tests\TestCase;
 
@@ -21,14 +20,14 @@ class AuthenticationTest extends TestCase
 
     public function test_users_can_authenticate_using_the_login_screen()
     {
-        $user = User::factory()->create();
+        $user = Agent::factory()->create();
 
         $response = $this->post(route('login.store'), [
             'email' => $user->email,
             'password' => 'password',
         ]);
 
-        $this->assertAuthenticated();
+        $this->assertAuthenticated('agent');
         $response->assertRedirect(route('agent.dashboard', absolute: false));
     }
 
@@ -41,52 +40,55 @@ class AuthenticationTest extends TestCase
             'confirmPassword' => true,
         ]);
 
-        $user = User::factory()->withTwoFactor()->create();
+        $user = Agent::factory()->withTwoFactor()->create();
 
-        $response = $this->post(route('login'), [
+        $response = $this->post(route('login.store'), [
             'email' => $user->email,
             'password' => 'password',
         ]);
 
         $response->assertRedirect(route('two-factor.login'));
         $response->assertSessionHas('login.id', $user->id);
-        $this->assertGuest();
+        $this->assertGuest('agent');
     }
 
     public function test_users_can_not_authenticate_with_invalid_password()
     {
-        $user = User::factory()->create();
+        $user = Agent::factory()->create();
 
         $this->post(route('login.store'), [
             'email' => $user->email,
             'password' => 'wrong-password',
         ]);
 
-        $this->assertGuest();
+        $this->assertGuest('agent');
     }
 
     public function test_users_can_logout()
     {
-        $user = User::factory()->create();
+        $user = Agent::factory()->create();
 
-        $response = $this->actingAs($user)->post(route('logout'));
+        $response = $this->actingAs($user, 'agent')->post(route('logout'));
 
         $response->assertRedirect(route('home'));
 
-        $this->assertGuest();
+        $this->assertGuest('agent');
     }
 
     public function test_users_are_rate_limited()
     {
-        $user = User::factory()->create();
+        $user = Agent::factory()->create();
 
-        RateLimiter::increment(md5('login'.implode('|', [$user->email, '127.0.0.1'])), amount: 5);
+        foreach (range(1, 5) as $ignored) {
+            $this->post(route('login.store'), [
+                'email' => $user->email,
+                'password' => 'wrong-password',
+            ]);
+        }
 
-        $response = $this->post(route('login.store'), [
+        $this->post(route('login.store'), [
             'email' => $user->email,
             'password' => 'wrong-password',
-        ]);
-
-        $response->assertTooManyRequests();
+        ])->assertTooManyRequests();
     }
 }

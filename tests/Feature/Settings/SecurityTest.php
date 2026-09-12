@@ -21,20 +21,15 @@ class SecurityTest extends TestCase
             'confirm' => true,
             'confirmPassword' => true,
         ]);
-        Features::passkeys([
-            'confirmPassword' => true,
-        ]);
 
         $user = Agent::factory()->create();
 
-        $this->actingAs($user)
+        $this->actingAs($user, 'agent')
             ->withSession(['auth.password_confirmed_at' => time()])
             ->get(route('security.edit'))
             ->assertInertia(
-                fn(Assert $page) => $page
+                fn (Assert $page) => $page
                     ->component('settings/security')
-                    ->where('canManagePasskeys', true)
-                    ->where('passkeys', [])
                     ->where('canManageTwoFactor', true)
                     ->where('twoFactorEnabled', false),
             );
@@ -51,7 +46,7 @@ class SecurityTest extends TestCase
             'confirmPassword' => true,
         ]);
 
-        $response = $this->actingAs($user)
+        $response = $this->actingAs($user, 'agent')
             ->get(route('security.edit'));
 
         $response->assertRedirect(route('password.confirm'));
@@ -65,15 +60,13 @@ class SecurityTest extends TestCase
 
         $user = Agent::factory()->create();
 
-        $this->actingAs($user)
+        $this->actingAs($user, 'agent')
             ->withSession(['auth.password_confirmed_at' => time()])
             ->get(route('security.edit'))
             ->assertOk()
             ->assertInertia(
-                fn(Assert $page) => $page
+                fn (Assert $page) => $page
                     ->component('settings/security')
-                    ->where('canManagePasskeys', false)
-                    ->where('passkeys', [])
                     ->where('canManageTwoFactor', false)
                     ->missing('twoFactorEnabled')
                     ->missing('requiresConfirmation'),
@@ -85,7 +78,7 @@ class SecurityTest extends TestCase
         $user = Agent::factory()->create();
 
         $response = $this
-            ->actingAs($user)
+            ->actingAs($user, 'agent')
             ->from(route('security.edit'))
             ->put(route('user-password.update'), [
                 'current_password' => 'password',
@@ -105,7 +98,7 @@ class SecurityTest extends TestCase
         $user = Agent::factory()->create();
 
         $response = $this
-            ->actingAs($user)
+            ->actingAs($user, 'agent')
             ->from(route('security.edit'))
             ->put(route('user-password.update'), [
                 'current_password' => 'wrong-password',

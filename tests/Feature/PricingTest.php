@@ -11,6 +11,12 @@ class PricingTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->actingAsAdmin();
+    }
+
     public function test_base_cost_band_can_be_created(): void
     {
         $this->post('/admin/pricing/base-costs', [

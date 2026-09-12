@@ -34,7 +34,7 @@ use Laravel\Fortify\TwoFactorAuthenticatable;
 #[Hidden(['password', 'remember_token', 'two_factor_secret', 'two_factor_recovery_codes'])]
 class Agent extends Authenticatable
 {
-    use HasApiKeys, HasEarnings, HasOrders, HasWallet, Notifiable, TwoFactorAuthenticatable;
+    use HasApiKeys, HasEarnings, HasFactory, HasOrders, HasWallet, Notifiable, TwoFactorAuthenticatable;
 
     protected function casts(): array
     {

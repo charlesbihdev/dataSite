@@ -88,7 +88,12 @@ return [
 
     'prefix' => '',
 
-    'domain' => null,
+    // Agent auth (login/register/logout/2FA/password) belongs to the platform
+    // domain only, so /login and "become an agent" cannot be reached from the
+    // agent-store or subagent-store domains. Null in local dev (path-prefix
+    // mode) means no host constraint — no collision there because the subagent
+    // login sits under the /agent-store prefix.
+    'domain' => env('SURFACE_ADMIN_AGENTS_DOMAIN'),
 
     /*
     |--------------------------------------------------------------------------
@@ -117,7 +122,6 @@ return [
     'limiters' => [
         'login' => 'login',
         'two-factor' => 'two-factor',
-        'passkeys' => 'passkeys',
     ],
 
     /*
@@ -135,22 +139,6 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Passkeys
-    |--------------------------------------------------------------------------
-    |
-    | These settings configure Fortify's passkey (WebAuthn) support.
-    |
-    */
-
-    'passkeys' => [
-        'relying_party_id' => parse_url(config('app.url'), PHP_URL_HOST),
-        'allowed_origins' => [config('app.url')],
-        'user_handle_secret' => env('PASSKEYS_USER_HANDLE_SECRET', config('app.key')),
-        'timeout' => 60000,
-    ],
-
-    /*
-    |--------------------------------------------------------------------------
     | Features
     |--------------------------------------------------------------------------
     |
@@ -163,14 +151,14 @@ return [
     'features' => [
         Features::registration(),
         Features::resetPasswords(),
-        Features::emailVerification(),
+        // Email verification is intentionally OFF for now (Ghanaian agents sign
+        // up with a phone as the primary id; email is optional). The scaffolding
+        // stays — re-enable this line if we decide to verify emails later.
+        // Features::emailVerification(),
         Features::twoFactorAuthentication([
             'confirm' => true,
             'confirmPassword' => true,
             // 'window' => 0
-        ]),
-        Features::passkeys([
-            'confirmPassword' => true,
         ]),
     ],
 

@@ -10,6 +10,12 @@ class SettingsConnectionTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->actingAsAdmin();
+    }
+
     public function test_saves_a_new_connection(): void
     {
         $this->put('/admin/settings/connection', [

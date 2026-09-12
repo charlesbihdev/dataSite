@@ -40,7 +40,7 @@ use Illuminate\Support\Facades\Route;
 
 Route::inertia('/', 'welcome')->name('home');
 
-Route::middleware(['auth:agent', 'verified'])->group(function () {
+Route::middleware(['auth:agent'])->group(function () {
     Route::inertia('dashboard', 'dashboard')->name('agent.dashboard');
     Route::inertia('wallet', 'agent/wallet')->name('agent.wallet');
     Route::get('orders', [App\Http\Controllers\Agent\OrdersController::class, 'index'])->name('agent.orders');

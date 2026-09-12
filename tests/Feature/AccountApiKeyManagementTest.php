@@ -22,6 +22,7 @@ class AccountApiKeyManagementTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        $this->actingAsAdmin();
 
         $this->tier = PricingTier::create(['name' => 'Gold Tier', 'is_active' => true]);
         $this->agent = Agent::create([

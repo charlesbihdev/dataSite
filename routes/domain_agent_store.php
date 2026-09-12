@@ -26,9 +26,20 @@
 |
 */
 
+use App\Http\Controllers\Subagent\AuthController;
 use Illuminate\Support\Facades\Route;
 
-Route::middleware(['auth:subagent', 'verified'])->group(function () {
+// Subagent auth lives ONLY on this domain and uses its own guard + controller —
+// never Fortify's (agent) login. Guests land here; the guest redirect for the
+// agent_store surface points at subagent.login (see bootstrap/app.php).
+Route::middleware(['guest:subagent'])->group(function () {
+    Route::get('login', [AuthController::class, 'showLoginForm'])->name('subagent.login');
+    Route::post('login', [AuthController::class, 'login'])->name('subagent.login.store');
+});
+
+Route::middleware(['auth:subagent'])->group(function () {
+    Route::post('logout', [AuthController::class, 'logout'])->name('subagent.logout');
+
     // Subagent dashboard. Path is /dashboard on THIS domain (distinct route
     // from the agent dashboard on domain 1, which shares the /dashboard path).
     Route::get('dashboard', fn () => response('Subagent portal — TODO'))

@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
 /**
- * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\Agent>
+ * @extends Factory<Agent>
  */
 class AgentFactory extends Factory
 {
@@ -34,7 +34,7 @@ class AgentFactory extends Factory
             'phone' => fake()->unique()->phoneNumber(),
             'slug' => fake()->unique()->slug(),
             'is_active' => true,
-            'tier_id' => 1,
+            'pricing_tier_id' => null,
             'two_factor_secret' => null,
             'two_factor_recovery_codes' => null,
             'two_factor_confirmed_at' => null,
@@ -46,7 +46,7 @@ class AgentFactory extends Factory
      */
     public function unverified(): static
     {
-        return $this->state(fn(array $attributes) => [
+        return $this->state(fn (array $attributes) => [
             'email_verified_at' => null,
         ]);
     }
@@ -56,7 +56,7 @@ class AgentFactory extends Factory
      */
     public function withTwoFactor(): static
     {
-        return $this->state(fn(array $attributes) => [
+        return $this->state(fn (array $attributes) => [
             'two_factor_secret' => encrypt('secret'),
             'two_factor_recovery_codes' => encrypt(json_encode(['recovery-code-1'])),
             'two_factor_confirmed_at' => now(),

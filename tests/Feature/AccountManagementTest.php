@@ -13,6 +13,12 @@ class AccountManagementTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->actingAsAdmin();
+    }
+
     private function agent(string $phone = '0551000001'): Agent
     {
         return Agent::create(['name' => 'Kofi', 'phone' => $phone, 'password' => 'secret-1234', 'is_active' => true]);
@@ -134,7 +140,7 @@ class AccountManagementTest extends TestCase
         Agent::create(['name' => 'Zara', 'phone' => '0551000002', 'password' => 'secret-1234', 'is_active' => true]);
 
         $this->get('/admin/accounts?type=agents&q=Zara')
-            ->assertInertia(fn($page) => $page->has('accounts', 1)->where('accounts.0.name', 'Zara'));
+            ->assertInertia(fn ($page) => $page->has('accounts', 1)->where('accounts.0.name', 'Zara'));
     }
 
     public function test_index_renders_last_activity_for_accounts_with_orders(): void
@@ -144,14 +150,14 @@ class AccountManagementTest extends TestCase
 
         $this->get('/admin/accounts?type=agents')
             ->assertOk()
-            ->assertInertia(fn($page) => $page->where('accounts.0.ordersCount', 1)
+            ->assertInertia(fn ($page) => $page->where('accounts.0.ordersCount', 1)
                 ->whereNot('accounts.0.lastActivity', null));
     }
 
     private function orderFor(Agent $agent): Order
     {
         return $agent->orders()->create([
-            'reference' => 'DS-' . strtoupper(uniqid()),
+            'reference' => 'DS-'.strtoupper(uniqid()),
             'network' => 'mtn',
             'capacity_gb' => 5,
             'beneficiary_phone' => '0209000000',

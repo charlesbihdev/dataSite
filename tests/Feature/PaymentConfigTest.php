@@ -12,6 +12,12 @@ class PaymentConfigTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->actingAsAdmin();
+    }
+
     public function test_page_loads(): void
     {
         $this->get('/admin/payment-config')->assertOk();

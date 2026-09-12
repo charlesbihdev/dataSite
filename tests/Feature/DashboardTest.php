@@ -19,7 +19,7 @@ class DashboardTest extends TestCase
     public function test_authenticated_users_can_visit_the_dashboard()
     {
         $user = Agent::factory()->create();
-        $this->actingAs($user);
+        $this->actingAs($user, 'agent');
 
         $response = $this->get(route('agent.dashboard'));
         $response->assertOk();

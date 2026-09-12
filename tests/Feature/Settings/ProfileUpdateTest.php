@@ -15,7 +15,7 @@ class ProfileUpdateTest extends TestCase
         $user = Agent::factory()->create();
 
         $response = $this
-            ->actingAs($user)
+            ->actingAs($user, 'agent')
             ->get(route('profile.edit'));
 
         $response->assertOk();
@@ -26,7 +26,7 @@ class ProfileUpdateTest extends TestCase
         $user = Agent::factory()->create();
 
         $response = $this
-            ->actingAs($user)
+            ->actingAs($user, 'agent')
             ->patch(route('profile.update'), [
                 'name' => 'Test Agent',
                 'email' => 'test@example.com',
@@ -48,7 +48,7 @@ class ProfileUpdateTest extends TestCase
         $user = Agent::factory()->create();
 
         $response = $this
-            ->actingAs($user)
+            ->actingAs($user, 'agent')
             ->patch(route('profile.update'), [
                 'name' => 'Test Agent',
                 'email' => $user->email,
@@ -66,7 +66,7 @@ class ProfileUpdateTest extends TestCase
         $user = Agent::factory()->create();
 
         $response = $this
-            ->actingAs($user)
+            ->actingAs($user, 'agent')
             ->delete(route('profile.destroy'), [
                 'password' => 'password',
             ]);
@@ -84,7 +84,7 @@ class ProfileUpdateTest extends TestCase
         $user = Agent::factory()->create();
 
         $response = $this
-            ->actingAs($user)
+            ->actingAs($user, 'agent')
             ->from(route('profile.edit'))
             ->delete(route('profile.destroy'), [
                 'password' => 'wrong-password',
