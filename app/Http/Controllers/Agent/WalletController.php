@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Agent;
 
 use App\Http\Controllers\Controller;
 use App\Models\WalletTransaction;
+use App\Support\DateRange;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -38,6 +39,17 @@ class WalletController extends Controller
         'user' => ['order_purchase', 'order_refund', 'reversal', 'commission'],
     ];
 
+    /**
+     * Payment rail the money moved on: gateway top-ups vs balance movements. We don't record the
+     * gateway on the ledger yet, so every top-up reads "Paystack"; everything else is "Wallet".
+     *
+     * @var array<string, list<string>>
+     */
+    private const PAYMENT_FILTERS = [
+        'paystack' => ['topup'],
+        'wallet' => ['order_purchase', 'adjustment', 'reversal', 'order_refund', 'commission'],
+    ];
+
     public function index(Request $request): Response
     {
         $agent = $request->user();
@@ -45,6 +57,10 @@ class WalletController extends Controller
 
         $type = (string) $request->query('type', 'all');
         $source = (string) $request->query('source', 'all');
+        $payment = (string) $request->query('payment', 'all');
+        $search = trim((string) $request->query('q', ''));
+        $range = (string) $request->query('range', 'all');
+        [$from, $to] = DateRange::resolve($request, $range);
 
         $query = $wallet->transactions()->latest('id');
         if (isset(self::TYPE_FILTERS[$type])) {
@@ -53,15 +69,36 @@ class WalletController extends Controller
         if (isset(self::SOURCE_FILTERS[$source])) {
             $query->whereIn('type', self::SOURCE_FILTERS[$source]);
         }
+        if (isset(self::PAYMENT_FILTERS[$payment])) {
+            $query->whereIn('type', self::PAYMENT_FILTERS[$payment]);
+        }
+        if ($search !== '') {
+            $query->where(function ($q) use ($search) {
+                $like = "%{$search}%";
+                $q->where('reference', 'like', $like)
+                    ->orWhere('description', 'like', $like)
+                    ->orWhere('type', 'like', $like);
+            });
+        }
+        $query->when($from, fn ($q) => $q->where('created_at', '>=', $from))
+            ->when($to, fn ($q) => $q->where('created_at', '<=', $to));
 
-        $transactions = $query->paginate(20)
+        $transactions = $query->paginate(30)
             ->withQueryString()
             ->through(fn (WalletTransaction $t): array => $this->present($t));
 
         return Inertia::render('agent/transactions', [
             'balance' => (float) $wallet->balance,
             'transactions' => $transactions,
-            'filters' => ['type' => $type, 'source' => $source],
+            'filters' => [
+                'type' => $type,
+                'source' => $source,
+                'payment' => $payment,
+                'q' => $search,
+                'range' => $range,
+                'from' => $request->query('from'),
+                'to' => $request->query('to'),
+            ],
         ]);
     }
 
@@ -82,8 +119,9 @@ class WalletController extends Controller
             'source' => in_array($t->type, $adminTypes, true) ? 'admin' : 'user',
             'amount' => (float) $t->amount,
             'orderReference' => in_array($t->type, $orderTypes, true) ? $t->reference : null,
-            // No gateway is recorded on the ledger yet (top-up gateway is roadmap item #1).
-            'paymentSource' => $t->type === 'topup' ? 'Top-up' : null,
+            // No gateway is recorded on the ledger yet (top-up gateway is roadmap item #1), so
+            // top-ups read "Paystack" and every balance movement reads "Wallet".
+            'paymentSource' => $t->type === 'topup' ? 'Paystack' : 'Wallet',
             'status' => 'completed',
             'balanceBefore' => (float) $t->balance_before,
             'balanceAfter' => (float) $t->balance_after,

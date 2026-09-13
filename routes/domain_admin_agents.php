@@ -37,7 +37,11 @@ use App\Http\Controllers\Admin\SettingsController;
 use App\Http\Controllers\Admin\TransactionsController;
 use App\Http\Controllers\Admin\WithdrawalsController;
 use App\Http\Controllers\Agent\CartController;
+use App\Http\Controllers\Agent\PackagesController;
+use App\Http\Controllers\Agent\SubagentSalesController;
+use App\Http\Controllers\Agent\SubagentsController;
 use App\Http\Controllers\Agent\WalletController;
+use App\Http\Controllers\Agent\WithdrawalController;
 use Illuminate\Support\Facades\Route;
 
 Route::inertia('/', 'welcome')->name('home');
@@ -46,7 +50,17 @@ Route::middleware(['auth:agent'])->group(function () {
     Route::get('dashboard', [App\Http\Controllers\Agent\DashboardController::class, 'index'])->name('agent.dashboard');
     Route::get('transactions', [WalletController::class, 'index'])->name('agent.transactions');
     Route::get('orders', [App\Http\Controllers\Agent\OrdersController::class, 'index'])->name('agent.orders');
-    Route::inertia('subagents', 'agent/subagents')->name('agent.subagents');
+    Route::get('packages', [PackagesController::class, 'index'])->name('agent.packages');
+    Route::post('packages', [PackagesController::class, 'store'])->name('agent.packages.store');
+    Route::post('packages/{package}/toggle', [PackagesController::class, 'toggle'])->name('agent.packages.toggle');
+    Route::delete('packages/{package}', [PackagesController::class, 'destroy'])->name('agent.packages.destroy');
+
+    Route::get('subagents', [SubagentsController::class, 'index'])->name('agent.subagents');
+    Route::get('subagent-sales', [SubagentSalesController::class, 'index'])->name('agent.subagent-sales');
+
+    Route::get('withdrawals', [WithdrawalController::class, 'index'])->name('agent.withdrawals');
+    Route::post('withdrawals', [WithdrawalController::class, 'store'])->name('agent.withdrawals.store');
+    Route::post('withdrawals/{withdrawal}/cancel', [WithdrawalController::class, 'cancel'])->name('agent.withdrawals.cancel');
 
     // Place-Order cart (session-backed): add one, add many (paste/upload), remove, checkout.
     Route::post('cart', [CartController::class, 'store'])->name('agent.cart.store');

@@ -11,11 +11,13 @@ use Illuminate\Support\Carbon;
  * @property int $id
  * @property string $amount
  * @property string $status
+ * @property string|null $method
+ * @property string|null $destination
  * @property string|null $reference
  * @property string|null $admin_notes
  * @property Carbon|null $processed_at
  */
-#[Fillable(['amount', 'status', 'reference', 'admin_notes', 'processed_at'])]
+#[Fillable(['amount', 'method', 'destination', 'status', 'reference', 'admin_notes', 'processed_at'])]
 class Withdrawal extends Model
 {
     public const STATUS_PENDING = 'pending';

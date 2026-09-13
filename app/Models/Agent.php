@@ -58,4 +58,10 @@ class Agent extends Authenticatable
     {
         return $this->hasMany(Subagent::class);
     }
+
+    /** @return HasMany<AgentPackagePrice, $this> */
+    public function packagePrices(): HasMany
+    {
+        return $this->hasMany(AgentPackagePrice::class);
+    }
 }

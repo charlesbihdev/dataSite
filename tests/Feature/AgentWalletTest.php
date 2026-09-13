@@ -59,6 +59,17 @@ class AgentWalletTest extends TestCase
         );
     }
 
+    public function test_payment_filter_scopes_to_paystack_topups(): void
+    {
+        // Paystack = the topup only; the purchase + adjustment are Wallet-rail.
+        $this->get(route('agent.transactions', ['payment' => 'paystack']))->assertInertia(
+            fn (Assert $page) => $page
+                ->where('filters.payment', 'paystack')
+                ->has('transactions.data', 1)
+                ->where('transactions.data.0.paymentSource', 'Paystack')
+        );
+    }
+
     public function test_source_filter_scopes_to_admin_movements(): void
     {
         // ADMIN = the topup + the adjustment; the purchase (USER) is excluded.

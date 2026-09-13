@@ -18,6 +18,8 @@ class OrdersController extends Controller
         $range = (string) $request->query('range', 'all');
         [$from, $to] = DateRange::resolve($request, $range);
         $search = trim((string) $request->query('q', ''));
+        $status = (string) $request->query('status', 'all');
+        $network = (string) $request->query('network', 'all');
 
         $query = $user->orders()
             ->when($search !== '', fn ($q) => $q->where(function ($inner) use ($search) {
@@ -28,6 +30,8 @@ class OrdersController extends Controller
                     ->orWhere('network', 'like', $like)
                     ->orWhere('status', 'like', $like);
             }))
+            ->when($status !== 'all', fn ($q) => $q->where('status', $status))
+            ->when($network !== 'all', fn ($q) => $q->where('network', $network))
             ->when($from, fn ($q) => $q->where('created_at', '>=', $from))
             ->when($to, fn ($q) => $q->where('created_at', '<=', $to))
             ->latest();
@@ -38,7 +42,7 @@ class OrdersController extends Controller
             ->selectRaw('SUM(customer_price - seller_cost) as profit')
             ->value('profit') ?? 0;
 
-        $orders = $query->paginate(15)->withQueryString();
+        $orders = $query->paginate(30)->withQueryString();
 
         return Inertia::render('agent/orders', [
             'orders' => $orders,
@@ -52,6 +56,8 @@ class OrdersController extends Controller
                 'from' => $request->query('from'),
                 'to' => $request->query('to'),
                 'q' => $search,
+                'status' => $status,
+                'network' => $network,
             ],
         ]);
     }

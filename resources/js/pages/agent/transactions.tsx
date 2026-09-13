@@ -1,35 +1,25 @@
-import { Head, Link, router } from "@inertiajs/react";
+import { Head, router } from "@inertiajs/react";
+import { useEffect, useRef, useState } from "react";
 import { Wallet as WalletIcon } from "lucide-react";
+import { TransactionDetailDialog, Txn } from "@/components/agent/transaction-detail-dialog";
 import { Amount } from "@/components/common/amount";
 import { Column, DataTable } from "@/components/common/data-table";
+import { DateRangePicker, DateRangeValue } from "@/components/common/date-range-picker";
 import { PageHeader } from "@/components/common/page-header";
 import { PageLink, Pagination } from "@/components/common/pagination";
 import { StatTile } from "@/components/common/stat-tile";
 import { StatusBadge } from "@/components/common/status-badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cedis } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { transactions as transactionsRoute } from "@/routes/agent";
 
-interface Txn {
-    id: number;
-    type: string;
-    direction: "credit" | "debit";
-    source: "user" | "admin";
-    amount: number;
-    orderReference: string | null;
-    paymentSource: string | null;
-    status: string;
-    balanceBefore: number;
-    balanceAfter: number;
-    code: string | null;
-    date: string | null;
-}
-
 interface Props {
     balance: number;
     transactions: { data: Txn[]; links: PageLink[] };
-    filters: { type: string; source: string };
+    filters: { type: string; source: string; payment: string; q: string; range: string; from: string | null; to: string | null };
 }
 
 const TYPE_FILTERS: { value: string; label: string }[] = [
@@ -45,9 +35,15 @@ const SOURCE_FILTERS: { value: string; label: string }[] = [
     { value: "admin", label: "Admin" },
 ];
 
+const PAYMENT_FILTERS: { value: string; label: string }[] = [
+    { value: "all", label: "All payment sources" },
+    { value: "paystack", label: "Paystack" },
+    { value: "wallet", label: "Wallet" },
+];
+
 const dash = <span className="text-muted-foreground">—</span>;
 
-const columns: Column<Txn>[] = [
+const makeColumns = (onView: (t: Txn) => void): Column<Txn>[] => [
     { key: "type", header: "Type", render: (t) => <span className="font-medium">{t.type}</span> },
     {
         key: "source",
@@ -73,29 +69,59 @@ const columns: Column<Txn>[] = [
         key: "action",
         header: "Action",
         align: "right",
-        render: (t) =>
-            t.orderReference ? (
-                <Link href={`/orders?q=${t.orderReference}`} className="text-sm font-medium text-brand hover:underline">
-                    View
-                </Link>
-            ) : dash,
+        render: (t) => (
+            <Button variant="ghost" size="sm" onClick={() => onView(t)}>
+                View
+            </Button>
+        ),
     },
 ];
 
 export default function AgentTransactions({ balance, transactions, filters }: Props) {
-    // Both selects reload the page carrying the other's value, so filtering by one never resets the other.
-    const apply = (patch: { type?: string; source?: string }) =>
+    const [selected, setSelected] = useState<Txn | null>(null);
+    const [search, setSearch] = useState(filters.q ?? "");
+    const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const columns = makeColumns(setSelected);
+
+    // Every control reloads this route carrying the others' current values, so applying one never resets another.
+    const apply = (patch: Record<string, string | null>) =>
         router.get(
             transactionsRoute.url(),
-            { type: filters.type, source: filters.source, ...patch },
+            {
+                type: filters.type,
+                source: filters.source,
+                payment: filters.payment,
+                q: search,
+                range: filters.range,
+                from: filters.from ?? null,
+                to: filters.to ?? null,
+                ...patch,
+            },
             { preserveState: true, preserveScroll: true, replace: true },
         );
+
+    const applyRange = (next: DateRangeValue) =>
+        apply({ range: next.range, from: next.from ?? null, to: next.to ?? null });
+
+    useEffect(() => setSearch(filters.q ?? ""), [filters.q]);
+
+    const onSearchChange = (value: string) => {
+        setSearch(value);
+        if (debounce.current) {
+            clearTimeout(debounce.current);
+        }
+        debounce.current = setTimeout(() => apply({ q: value }), 400);
+    };
 
     return (
         <>
             <Head title="Transactions" />
             <div className="flex h-full flex-1 flex-col gap-6 p-4 lg:p-8">
-                <PageHeader title="Transactions" description="Your balance and full transaction history." />
+                <PageHeader
+                    title="Transactions"
+                    description="Your balance and full transaction history."
+                    actions={<DateRangePicker value={{ range: filters.range, from: filters.from, to: filters.to }} onChange={applyRange} />}
+                />
 
                 <div className="grid gap-4 sm:grid-cols-3">
                     <StatTile
@@ -128,6 +154,22 @@ export default function AgentTransactions({ balance, transactions, filters }: Pr
                                 ))}
                             </SelectContent>
                         </Select>
+                        <Select value={filters.payment} onValueChange={(v) => apply({ payment: v })}>
+                            <SelectTrigger className="w-48">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {PAYMENT_FILTERS.map((f) => (
+                                    <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        <Input
+                            value={search}
+                            onChange={(e) => onSearchChange(e.target.value)}
+                            placeholder="Search code, description, or type…"
+                            className="ml-auto w-full bg-background sm:w-80"
+                        />
                     </div>
                     <DataTable
                         columns={columns}
@@ -142,6 +184,8 @@ export default function AgentTransactions({ balance, transactions, filters }: Pr
                     )}
                 </div>
             </div>
+
+            <TransactionDetailDialog transaction={selected} onClose={() => setSelected(null)} />
         </>
     );
 }
