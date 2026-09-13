@@ -5,7 +5,9 @@ namespace Database\Seeders;
 use App\Models\Agent;
 use App\Models\Earning;
 use App\Models\Order;
+use App\Models\Subagent;
 use App\Models\Withdrawal;
+use App\Services\Orders\ProfitSplit;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Str;
 
@@ -52,8 +54,8 @@ class AgentPortalDemoSeeder extends Seeder
             $this->seedOrders($agent);
         }
 
-        $this->seedEarningsAndWithdrawal($agent);
         $this->seedSubagentSales($agent);
+        $this->seedEarningsAndWithdrawal($agent);
 
         $this->command?->info("Seeded agent [{$agent->username}]. Wallet: ".number_format((float) $agent->walletOrCreate()->fresh()->balance, 2).' · Available earnings: '.number_format($agent->earningsBalance(), 2));
     }
@@ -110,8 +112,9 @@ class AgentPortalDemoSeeder extends Seeder
     }
 
     /**
-     * Credited commission + one pending withdrawal so the Withdrawal page has matured earnings and
-     * a history row. Earnings hang off an existing seeded order (order_id is required).
+     * Real earnings derived from delivered orders via ProfitSplit (the agent's own shop profit plus
+     * commission from sub-agent sales), so Total Earnings reflects actual margin — not an invented
+     * figure. Plus one pending withdrawal for the history. Runs after orders + sub-agent sales exist.
      */
     private function seedEarningsAndWithdrawal(Agent $agent): void
     {
@@ -119,30 +122,34 @@ class AgentPortalDemoSeeder extends Seeder
             return;
         }
 
-        // One commission per distinct order (earnings are unique per order+earner+type).
-        $amounts = [60.0, 40.0, 20.0];
-        $orders = $agent->orders()->take(count($amounts))->get();
-        if ($orders->isEmpty()) {
-            return;
+        $subIds = $agent->subagents()->pluck('id');
+        $orders = Order::query()
+            ->where('status', Order::STATUS_COMPLETED)
+            ->where(function ($q) use ($agent, $subIds) {
+                $q->where(fn ($a) => $a->where('seller_type', $agent->getMorphClass())->where('seller_id', $agent->id))
+                    ->orWhere(fn ($s) => $s->where('seller_type', (new Subagent)->getMorphClass())->whereIn('seller_id', $subIds));
+            })
+            ->get();
+
+        $split = new ProfitSplit;
+        foreach ($orders as $order) {
+            foreach ($split->for($order) as $share) {
+                $share['earner']->earnings()->firstOrCreate(
+                    ['order_id' => $order->id, 'type' => $share['type']],
+                    ['amount' => $share['amount'], 'status' => Earning::STATUS_CREDITED, 'credited_at' => now()],
+                );
+            }
         }
 
-        foreach ($orders as $i => $order) {
-            $agent->earnings()->create([
-                'order_id' => $order->id,
-                'type' => Earning::TYPE_COMMISSION,
-                'amount' => $amounts[$i] ?? 20.0,
-                'status' => Earning::STATUS_CREDITED,
-                'credited_at' => now(),
+        if ($agent->earningsBalance() >= 10) {
+            $agent->withdrawals()->create([
+                'amount' => 10.0,
+                'method' => 'momo',
+                'destination' => $agent->phone,
+                'status' => Withdrawal::STATUS_PENDING,
+                'reference' => 'WD-'.strtoupper(Str::random(8)),
             ]);
         }
-
-        $agent->withdrawals()->create([
-            'amount' => 30.0,
-            'method' => 'momo',
-            'destination' => $agent->phone,
-            'status' => Withdrawal::STATUS_PENDING,
-            'reference' => 'WD-'.strtoupper(Str::random(8)),
-        ]);
     }
 
     /**

@@ -182,7 +182,7 @@ export default function Dashboard({
                         <CardContent>
                             <div className="text-2xl font-bold">{cedis(stats.revenue)}</div>
                             <p className="text-xs text-muted-foreground mt-1">
-                                From delivered orders in range
+                                Gross sales · delivered orders in range
                             </p>
                         </CardContent>
                     </Card>

@@ -59,7 +59,7 @@ export default function AgentWithdrawals({ stats, methods, withdrawals }: Props)
                 <PageHeader title="Withdrawal" description="Withdraw your matured earnings and track past requests." />
 
                 <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                    <StatTile label="Total Earnings" value={cedis(stats.totalEarnings)} hint="Lifetime credited" />
+                    <StatTile label="Total Earnings" value={cedis(stats.totalEarnings)} hint="Your profit & commission (lifetime)" />
                     <StatTile label="Available Balance" value={cedis(stats.available)} hint="Ready to withdraw" />
                     <StatTile label="Pending Withdrawal" value={cedis(stats.pending)} hint="Awaiting payout" />
                     <StatTile label="Withdrawn" value={cedis(stats.withdrawn)} hint="Paid out" />
