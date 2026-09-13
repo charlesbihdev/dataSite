@@ -15,9 +15,14 @@ trait ProfileValidationRules
      */
     protected function profileRules(?int $userId = null): array
     {
+        $ignore = fn () => $userId === null ? Rule::unique(Agent::class) : Rule::unique(Agent::class)->ignore($userId);
+
         return [
             'name' => $this->nameRules(),
             'email' => $this->emailRules($userId),
+            'phone' => ['required', 'string', 'max:20', $ignore()],
+            'username' => ['nullable', 'string', 'max:255', $ignore()],
+            'slug' => ['nullable', 'string', 'max:255', 'alpha_dash', $ignore()],
         ];
     }
 

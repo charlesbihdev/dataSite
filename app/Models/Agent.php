@@ -30,7 +30,7 @@ use Laravel\Fortify\TwoFactorAuthenticatable;
  * @property Carbon|null $last_login_at
  * @property string|null $remember_token
  */
-#[Fillable(['name', 'phone', 'email', 'username', 'slug', 'password', 'pricing_tier_id', 'is_active'])]
+#[Fillable(['name', 'phone', 'email', 'username', 'slug', 'store_name', 'whatsapp_number', 'whatsapp_group_link', 'password', 'pricing_tier_id', 'is_active'])]
 #[Hidden(['password', 'remember_token', 'two_factor_secret', 'two_factor_recovery_codes'])]
 class Agent extends Authenticatable
 {

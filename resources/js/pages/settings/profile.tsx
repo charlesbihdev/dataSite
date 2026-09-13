@@ -1,6 +1,5 @@
 import { Form, Head, usePage } from '@inertiajs/react';
 import ProfileController from '@/actions/App/Http/Controllers/Settings/ProfileController';
-import DeleteUser from '@/components/delete-user';
 import Heading from '@/components/heading';
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
@@ -26,7 +25,7 @@ export default function Profile() {
                 <Heading
                     variant="small"
                     title="Profile"
-                    description="Update your name and email address"
+                    description="Update your account and storefront details"
                 />
 
                 <Form
@@ -77,6 +76,55 @@ export default function Profile() {
                                 />
                             </div>
 
+                            <div className="grid gap-2">
+                                <Label htmlFor="phone">Phone number</Label>
+
+                                <Input
+                                    id="phone"
+                                    className="mt-1 block w-full"
+                                    defaultValue={auth.user.phone ?? ''}
+                                    name="phone"
+                                    required
+                                    autoComplete="tel"
+                                    placeholder="0551234567"
+                                />
+
+                                <InputError className="mt-2" message={errors.phone} />
+                            </div>
+
+                            <div className="grid gap-2">
+                                <Label htmlFor="username">Username</Label>
+
+                                <Input
+                                    id="username"
+                                    className="mt-1 block w-full"
+                                    defaultValue={auth.user.username ?? ''}
+                                    name="username"
+                                    autoComplete="username"
+                                    placeholder="Username"
+                                />
+
+                                <InputError className="mt-2" message={errors.username} />
+                            </div>
+
+                            <div className="grid gap-2">
+                                <Label htmlFor="slug">Storefront handle</Label>
+
+                                <Input
+                                    id="slug"
+                                    className="mt-1 block w-full"
+                                    defaultValue={auth.user.slug ?? ''}
+                                    name="slug"
+                                    placeholder="your-store"
+                                />
+
+                                <p className="text-xs text-muted-foreground">
+                                    Used in your storefront link — letters, numbers, and hyphens only.
+                                </p>
+
+                                <InputError className="mt-2" message={errors.slug} />
+                            </div>
+
                             <div className="flex items-center gap-4">
                                 <Button
                                     disabled={processing}
@@ -89,8 +137,6 @@ export default function Profile() {
                     )}
                 </Form>
             </div>
-
-            <DeleteUser />
         </>
     );
 }

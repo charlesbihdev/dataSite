@@ -1,5 +1,5 @@
 import { Link } from "@inertiajs/react";
-import { LayoutGrid, ArrowLeftRight, Banknote, Package, ShoppingBag, TrendingUp, Users } from "lucide-react";
+import { LayoutGrid, ArrowLeftRight, Banknote, Link2, Package, ShoppingBag, TrendingUp, Users } from "lucide-react";
 import AppLogo from "@/components/app-logo";
 import { NavMain } from "@/components/nav-main";
 import { NavUser } from "@/components/nav-user";
@@ -35,6 +35,11 @@ const mainNavItems: NavItem[] = [
         title: "Packages",
         href: "/packages",
         icon: Package,
+    },
+    {
+        title: "Referral Link",
+        href: "/referral",
+        icon: Link2,
     },
     {
         title: "My Subagents",

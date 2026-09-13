@@ -38,6 +38,7 @@ use App\Http\Controllers\Admin\TransactionsController;
 use App\Http\Controllers\Admin\WithdrawalsController;
 use App\Http\Controllers\Agent\CartController;
 use App\Http\Controllers\Agent\PackagesController;
+use App\Http\Controllers\Agent\ReferralController;
 use App\Http\Controllers\Agent\SubagentSalesController;
 use App\Http\Controllers\Agent\SubagentsController;
 use App\Http\Controllers\Agent\WalletController;
@@ -57,6 +58,10 @@ Route::middleware(['auth:agent'])->group(function () {
 
     Route::get('subagents', [SubagentsController::class, 'index'])->name('agent.subagents');
     Route::get('subagent-sales', [SubagentSalesController::class, 'index'])->name('agent.subagent-sales');
+
+    Route::get('referral', [ReferralController::class, 'index'])->name('agent.referral');
+    Route::put('referral/contact', [ReferralController::class, 'updateContact'])->name('agent.referral.contact');
+    Route::post('referral/qr', [ReferralController::class, 'generateQr'])->name('agent.referral.qr');
 
     Route::get('withdrawals', [WithdrawalController::class, 'index'])->name('agent.withdrawals');
     Route::post('withdrawals', [WithdrawalController::class, 'store'])->name('agent.withdrawals.store');

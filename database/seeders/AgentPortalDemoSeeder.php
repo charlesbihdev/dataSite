@@ -57,6 +57,16 @@ class AgentPortalDemoSeeder extends Seeder
         $this->seedSubagentSales($agent);
         $this->seedEarningsAndWithdrawal($agent);
 
+        // Referral link demo: some clicks + contact details so the page isn't empty.
+        if ((int) $agent->referral_clicks === 0) {
+            $agent->update([
+                'referral_clicks' => 34,
+                'store_name' => $agent->name."'s Data Store",
+                'whatsapp_number' => $agent->phone,
+                'whatsapp_group_link' => 'https://chat.whatsapp.com/demo'.$agent->id,
+            ]);
+        }
+
         $this->command?->info("Seeded agent [{$agent->username}]. Wallet: ".number_format((float) $agent->walletOrCreate()->fresh()->balance, 2).' · Available earnings: '.number_format($agent->earningsBalance(), 2));
     }
 

@@ -36,6 +36,12 @@ class ProfileController extends Controller
             $request->user()->email_verified_at = null;
         }
 
+        // The referral QR encodes the /buy/{slug} link, so a slug change stales it — clear it and it
+        // regenerates on the next visit to the referral page.
+        if ($request->user()->isDirty('slug')) {
+            $request->user()->referral_qr = null;
+        }
+
         $request->user()->save();
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Profile updated.')]);
