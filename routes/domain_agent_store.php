@@ -26,6 +26,7 @@
 |
 */
 
+use App\Http\Controllers\Storefront\StorefrontController;
 use App\Http\Controllers\Subagent\AuthController;
 use Illuminate\Support\Facades\Route;
 
@@ -46,7 +47,11 @@ Route::middleware(['auth:subagent'])->group(function () {
         ->name('subagent.dashboard');
 });
 
-// Agent public storefront — buy bundles + recruit subagents. Registered last.
-Route::get('{agentSlug}', fn (string $agentSlug) => response("Agent storefront for [{$agentSlug}] — buy bundles + become a subagent — TODO"))
-    ->where('agentSlug', '[A-Za-z0-9\-]+')
-    ->name('agent.storefront');
+// Agent public storefront — buy bundles from an agent's retail store. The customer link is
+// /buy/{slug} (what the referral QR encodes). Public: no auth. Registered last so it never shadows
+// the fixed routes above; the slug constraint keeps reserved paths out.
+Route::prefix('buy/{agentSlug}')->where(['agentSlug' => '[A-Za-z0-9\-]+', 'order' => '[A-Za-z0-9\-]+'])->group(function () {
+    Route::get('/', [StorefrontController::class, 'show'])->name('agent.storefront');
+    Route::post('checkout', [StorefrontController::class, 'checkout'])->name('agent.storefront.checkout');
+    Route::get('receipt/{order}', [StorefrontController::class, 'receipt'])->name('agent.storefront.receipt');
+});

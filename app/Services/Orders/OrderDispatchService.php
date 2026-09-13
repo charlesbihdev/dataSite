@@ -40,6 +40,34 @@ class OrderDispatchService
     }
 
     /**
+     * Create a storefront order that is waiting on the customer's gateway payment. Unlike a prepaid
+     * dispatch, NO money moves and nothing is sent upstream yet: the order sits AWAITING / PENDING
+     * with no wallet debit and no earnings, until the payment is confirmed and {@see fulfillPaid()}
+     * takes over (decision #12). The cascade is already frozen by the caller (StorefrontCheckoutService).
+     */
+    public function createStorefrontAwaiting(NewOrderData $data): Order
+    {
+        /** @var Order $order */
+        $order = $data->seller->orders()->create([
+            'reference' => $this->uniqueReference(),
+            'idempotency_key' => $data->idempotencyKey,
+            'source' => Order::SOURCE_STOREFRONT,
+            'payment_status' => Order::PAYMENT_AWAITING,
+            'network' => $data->network,
+            'capacity_gb' => $data->capacityGb,
+            'beneficiary_phone' => $data->beneficiaryPhone,
+            'channel' => Order::CHANNEL_ONLINE,
+            'customer_price' => $data->customerPrice,
+            'seller_cost' => $data->sellerCost,
+            'agent_cost' => $data->agentCost,
+            'base_cost' => $data->baseCost,
+            'status' => Order::STATUS_PENDING,
+        ]);
+
+        return $order;
+    }
+
+    /**
      * Fulfill an order whose payment just cleared (the storefront/gateway path). The order
      * already exists — created AWAITING with no wallet debit — so now that an admin has verified
      * the money, record its earnings (if not already), move it to processing, and push upstream.

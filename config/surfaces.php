@@ -28,4 +28,23 @@ return [
 
     'subagent_store' => env('SURFACE_SUBAGENT_STORE_DOMAIN'),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Local path prefixes
+    |--------------------------------------------------------------------------
+    |
+    | When a surface has no domain (local dev), it is served under these path
+    | prefixes on the single dev host. This is the ONE source of truth — both the
+    | route dispatcher (routes/web.php) and cross-surface URL building
+    | (App\Support\SurfaceUrl) read it, so a link is correct in BOTH modes:
+    | the real domain in prod, the prefixed path in dev. Never hardcode a prefix.
+    |
+    */
+
+    'local_prefixes' => [
+        'admin_agents' => '',
+        'agent_store' => 'agent-store',
+        'subagent_store' => 'subagent-store',
+    ],
+
 ];

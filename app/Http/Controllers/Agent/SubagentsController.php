@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Agent;
 
 use App\Http\Controllers\Controller;
 use App\Models\Subagent;
+use App\Support\SurfaceUrl;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -43,22 +44,18 @@ class SubagentsController extends Controller
     }
 
     /**
-     * Recruitment link on the agent-store domain (D2): anyone who signs up through it becomes this
-     * agent's sub-agent. Falls back to a relative URL when the domain isn't configured (local dev).
+     * Recruitment link on the agent-store surface (D2): anyone who signs up through it becomes this
+     * agent's sub-agent. SurfaceUrl keeps it correct in both modes — real domain in prod, path prefix
+     * in dev (register is not a named route yet).
      */
     private function referralUrl(string $ref): string
     {
-        $domain = config('surfaces.agent_store');
-
-        return $domain
-            ? "https://{$domain}/register?ref={$ref}"
-            : url("/register?ref={$ref}");
+        return SurfaceUrl::to('agent_store', "/register?ref={$ref}");
     }
 
+    /** The sub-agent's public storefront (D3). Named route → Laravel resolves its domain/prefix. */
     private function storeUrl(string $slug): string
     {
-        $domain = config('surfaces.subagent_store');
-
-        return $domain ? "https://{$domain}/{$slug}" : url("/{$slug}");
+        return route('subagent.storefront', ['subagentSlug' => $slug]);
     }
 }

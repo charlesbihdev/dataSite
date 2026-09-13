@@ -1,7 +1,7 @@
 import { Deferred, Head, router, useForm } from "@inertiajs/react";
 import { useState } from "react";
-import { Check, Copy, Download, RefreshCw, Share2 } from "lucide-react";
-import { generateQr, updateContact } from "@/actions/App/Http/Controllers/Agent/ReferralController";
+import { Check, Copy, Download, Power, RefreshCw, Share2 } from "lucide-react";
+import { generateQr, toggleStore, updateContact } from "@/actions/App/Http/Controllers/Agent/ReferralController";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Amount } from "@/components/common/amount";
 import { Column, DataTable } from "@/components/common/data-table";
@@ -17,6 +17,7 @@ import { cedis } from "@/lib/format";
 interface Pkg { id: number; network: string; capacityGb: number; price: number; profit: number }
 interface Props {
     referralUrl: string;
+    storeActive: boolean;
     referralQr?: string; // deferred — undefined until it streams in
     contact: { store_name: string | null; whatsapp_number: string | null; whatsapp_group_link: string | null };
     stats: { clicks: number; sales: number; revenue: number; activePackages: number; conversion: number };
@@ -31,7 +32,7 @@ const columns: Column<Pkg>[] = [
     { key: "status", header: "Status", render: () => <StatusBadge status="active" /> },
 ];
 
-export default function AgentReferral({ referralUrl, referralQr, contact, stats, packages }: Props) {
+export default function AgentReferral({ referralUrl, storeActive, referralQr, contact, stats, packages }: Props) {
     const [copied, setCopied] = useState(false);
     const form = useForm({
         store_name: contact.store_name ?? "",
@@ -65,9 +66,30 @@ export default function AgentReferral({ referralUrl, referralQr, contact, stats,
 
                 <div className="grid items-start gap-6 lg:grid-cols-5">
                     <Card className="lg:col-span-3">
-                        <CardHeader>
-                            <CardTitle className="text-base">Your Referral Link</CardTitle>
-                            <CardDescription>Share this link — customers buy directly from your store.</CardDescription>
+                        <CardHeader className="flex-row items-start justify-between gap-3 space-y-0">
+                            <div className="space-y-1.5">
+                                <CardTitle className="text-base">Your Referral Link</CardTitle>
+                                <CardDescription>Share this link — customers buy directly from your store.</CardDescription>
+                            </div>
+                            <div className="flex shrink-0 flex-col items-end gap-2">
+                                <span
+                                    className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${
+                                        storeActive ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"
+                                    }`}
+                                >
+                                    <span className={`size-1.5 rounded-full ${storeActive ? "bg-success" : "bg-muted-foreground"}`} />
+                                    {storeActive ? "Store live" : "Store off"}
+                                </span>
+                                <Button
+                                    type="button"
+                                    variant={storeActive ? "outline" : "default"}
+                                    size="sm"
+                                    onClick={() => router.post(toggleStore.url(), {}, { preserveScroll: true })}
+                                >
+                                    <Power className="size-4" />
+                                    {storeActive ? "Deactivate store" : "Activate store"}
+                                </Button>
+                            </div>
                         </CardHeader>
                         <CardContent className="flex flex-col gap-4 sm:flex-row sm:items-center">
                             <Deferred data="referralQr" fallback={<Skeleton className="size-32 shrink-0 rounded-lg" />}>

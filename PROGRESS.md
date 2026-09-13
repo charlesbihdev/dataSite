@@ -40,6 +40,7 @@ Key architecture rules:
 15. **Agent Package Pricing is management-only**: `agent_package_prices` stores an agent's own selling/sub-agent prices with `cost_price` frozen from their tier at save time. It does **not** yet drive live checkout — orders still price through the tier cascade. Wiring it in is a deliberate future change (open #3).
 16. **Withdrawals draw from the earnings pool**, never the deposit wallet. Available = `earningsBalance()` (credited earnings − non-rejected withdrawals). Per-method minimums in `config/withdrawals.php` (momo/credit = GHS 20). A request is a `pending` row (already reserved); admin settles via `WithdrawalService`; the agent may cancel while pending (→ `rejected`, frees the reservation).
 17. **Referral QR** is a **PNG data URI** (`endroid/qr-code` + GD) cached in `agents.referral_qr`, generated once and **deferred-loaded** (`Inertia::defer` + `<Deferred>` skeleton). Regenerated on demand and auto-invalidated (nulled) when the agent's `slug` changes, since it encodes `/buy/{slug}`.
+18. **Storefront pricing & payment (D2)**: the public `/buy/{slug}` store sells the agent's **active `agent_package_prices` at `selling_price`** (this is where package pricing DOES drive checkout — the customer's retail price, distinct from decision #15's agent-portal cascade). A checkout freezes `customer_price = selling_price`, `seller_cost = agent_cost = cost_price`, `base_cost` from `PriceQuote`, then creates an order **`awaiting`/`pending`/online, source=storefront, no wallet debit** (`OrderDispatchService::createStorefrontAwaiting`). It only fulfils once the payment is confirmed from the admin **Regular Orders** verify flow (`fulfillPaid`) — real gateway init/verify is still open #1. The store has its own on/off switch: `agents.store_active` (separate from `is_active` login); an off/suspended store 404s.
 
 ---
 
@@ -53,7 +54,7 @@ Key architecture rules:
 - `orders` (polymorphic `seller`, cascade snapshot, status + `upstream_*` tracking; includes `refunded`). Plus `source`, `idempotency_key` (unique per seller), and `payment_status` (`paid|awaiting|failed`).
 - `earnings` (per-`(order,earner)`) + `withdrawals` (now w/ `method` `momo|credit` + `destination`).
 - `agent_package_prices` (per `agent × network × capacity_gb`: `cost_price` frozen from tier, `selling_price`, `subagent_price`, `is_active`).
-- `agents` gained referral fields: `store_name`, `whatsapp_number`, `whatsapp_group_link`, `referral_clicks`, `referral_qr` (PNG data URI cached).
+- `agents` gained referral fields: `store_name`, `whatsapp_number`, `whatsapp_group_link`, `referral_clicks`, `referral_qr` (PNG data URI cached), and `store_active` (storefront on/off switch, default true).
 - `dbh_config`, `login_logs`, `api_keys`.
 - `payment_gateways` (one row per gateway `paystack|moolre`; `secret_key`/`webhook_secret` encrypted; topup min/max, `charge_percent`, moolre creds).
 - `email_configs` (single-row SMTP; `smtp_password` encrypted), `registration_configs` (fee + `is_enabled`).
@@ -69,6 +70,7 @@ Key architecture rules:
 - `Accounts/AccountsPresenter`.
 - `Withdrawals/WithdrawalService`.
 - `Cart/CartService` (session-backed Place-Order basket), `Cart/CartCheckoutService` (re-prices each line and dispatches through `OrderDispatchService`), `Cart/OrderFileParser` (CSV natively + XLSX/XLS via `phpoffice/phpspreadsheet`).
+- `Storefront/StorefrontCheckoutService` (public storefront purchase → validates number/network/package, freezes the retail cascade, creates an AWAITING order via `OrderDispatchService::createStorefrontAwaiting`) + `Storefront/CheckoutException` (buyer-safe error).
 - Support helpers: `Support/GhanaMobileNetwork` (prefix→network detect + agent size validation; `mtn/telecel/at`), `Support/DateRange` (shared `?range/from/to` resolver), `Support/QrCodeGenerator` (PNG data-URI QR via `endroid/qr-code` + GD).
 
 **Developer API & Admin Key Minting:**
@@ -97,12 +99,18 @@ Key architecture rules:
 - **Orders** (`OrdersController`): the agent's own orders, filters (status · network · debounced search · header date-range), `StatusBadge`, **View → `OrderDetailDialog`** modal. Mirrors the admin orders page arrangement.
 - **Transactions** (`/transactions`, `WalletController`): the wallet's signed ledger with columns Type · **Source (USER/ADMIN)** · Amount · Order ID · **Payment Src (Paystack/Wallet)** · Status · Balances · Code · Date · **View → `TransactionDetailDialog`**. Filters: Source · Payment Source · Type · Search · header date-range. (Was the "Wallet & Top-ups" stub — renamed slug + route.)
 - **Packages** (`PackagesController`): agent sets a **selling + optional sub-agent price** per package. Select package → **cost auto-fills from their tier** (`PriceQuote`, frozen on save) → profit/margin computed. Stats via SQL aggregates; toggle/delete via row menu. **Management-only — does NOT drive live checkout pricing yet** (see decision #15).
-- **Referral Link** (`ReferralController`): the customer `/buy/{slug}` storefront link with **PNG QR** (`QrCodeGenerator`, cached in `agents.referral_qr`, **deferred-loaded** behind a skeleton, **Download PNG** + **Regenerate**; auto-invalidated when the slug changes), copy/WhatsApp share, **Performance** (clicks/sales/revenue/conversion), **Referral Contact Details** form (store name, WhatsApp number/group), and the **active packages customers will see**.
+- **Referral Link** (`ReferralController`): the customer `/buy/{slug}` storefront link with **PNG QR** (`QrCodeGenerator`, cached in `agents.referral_qr`, **deferred-loaded** behind a skeleton, **Download PNG** + **Regenerate**; auto-invalidated when the slug changes), copy/WhatsApp share, **Performance** (clicks/sales/revenue/conversion), **Referral Contact Details** form (store name, WhatsApp number/group), a **Store live / Deactivate store** toggle (`store_active` via `ReferralController@toggleStore`), and the **active packages customers will see**. The link is now built from the named route `agent.storefront` so it resolves in both prod (domain) and local (path-prefix) modes.
 - **My Subagents** (`SubagentsController`): recruitment link (`/register?ref=slug`) + copy, roster table (Store vs Account status, wallet, Visit-store action).
 - **Sub-agent Sales** (`SubagentSalesController`): orders sold through the agent's sub-agents, the **agent margin** per order (`seller_cost − agent_cost`), filters (sub-agent · status · network · search), 30-day margin KPI. Scoped so one agent never sees another's.
 - **Withdrawals** (`WithdrawalController`): payout of **matured earnings** (the earnings pool via `earningsBalance()`, not the deposit wallet). Request form (method momo/credit w/ per-method minimums from `config/withdrawals.php`, amount, destination) + **history** (paginated, agent-cancellable while pending) shown side-by-side. `StoreWithdrawalRequest`; settlement still via admin `WithdrawalService`.
 - **Settings → Profile**: added **phone / username / storefront-handle (slug)** fields; **Security & Appearance nav removed**, **Delete-account section removed** (routes still exist, just unlinked).
 - Shared UI added: `common/Amount` (signed, colored money cell — reused by admin ledger too), `ui/textarea` primitive, `components/agent/{order,transaction}-detail-dialog.tsx`.
+
+**Agent storefront (D2)** — public, no auth — under `routes/domain_agent_store.php`, served on the `agent_store` surface (prod domain / local `/agent-store` prefix). `StorefrontController` (namespace `Http\Controllers\Storefront`). Standalone Inertia pages (no app shell — `app.tsx` maps `storefront/*` to `layout: null`), styled in the clean marketing look from `ui_inspo` (Laravel-Boost aesthetic) adapted to our blue/white **brand** tokens.
+
+- **Buy page** (`GET /buy/{slug}` → `storefront/buy`): store header (name/WhatsApp), gradient hero, phone input with **live network detection** (`lib/networks.ts`), auto-filtered package grid (agent's active packages at `selling_price`), sticky order summary, and a **Pay** button. Increments `referral_clicks`. A deactivated (`store_active=false`) or suspended (`is_active=false`) store, or an unknown slug, **404s**.
+- **Checkout** (`POST /buy/{slug}/checkout`): `CheckoutRequest` + `StorefrontCheckoutService` → creates the AWAITING storefront order (decision #18), redirects to the receipt. Errors surface as a flash toast (buyer-safe `CheckoutException`).
+- **Receipt** (`GET /buy/{slug}/receipt/{order}` → `storefront/receipt`): order status card (awaiting/paid/failed states), reference/bundle/recipient/amount, "buy another" + contact links.
 
 **Seeders & Dev Data:**
 
@@ -111,14 +119,14 @@ Key architecture rules:
 - `AgentPortalDemoSeeder.php` (Local dev only): Fills ONE agent's whole portal (target via `SEED_AGENT`, else newest) — funded wallet + orders + matching wallet ledger, a sub-agent, sub-agent sales, **earnings derived via `ProfitSplit`** (real margin, not invented), a pending withdrawal, a package price, and referral clicks/contact. Idempotent, skips in production. Run: `php artisan db:seed --class=AgentPortalDemoSeeder`.
 
 **Tests (`php artisan test`):**
-Admin/core: upstream client, order dispatch, pricing floor, withdrawal workflow, settings connection, dashboard, `AccountManagementTest`, `AccountApiKeyManagementTest`, `MultiGuardAuthTest`, `DeveloperApiOrderTest`. Agent portal: `PlaceOrderCartTest`, `AgentOrdersTest`, `AgentWalletTest`, `AgentSubagentsTest`, `AgentSubagentSalesTest`, `AgentWithdrawalTest`, `AgentPackagesTest`, `AgentReferralTest`, updated `Settings/ProfileUpdateTest`. **142 tests green** as of this session.
+Admin/core: upstream client, order dispatch, pricing floor, withdrawal workflow, settings connection, dashboard, `AccountManagementTest`, `AccountApiKeyManagementTest`, `MultiGuardAuthTest`, `DeveloperApiOrderTest`. Agent portal: `PlaceOrderCartTest`, `AgentOrdersTest`, `AgentWalletTest`, `AgentSubagentsTest`, `AgentSubagentSalesTest`, `AgentWithdrawalTest`, `AgentPackagesTest`, `AgentReferralTest`, updated `Settings/ProfileUpdateTest`. Storefront: `StorefrontTest` (lists active packages, deactivated/suspended/unknown store 404, checkout creates an awaiting order, rejects off-store package / mismatched network, agent store toggle). **149 tests green** as of this session.
 
 ---
 
 ## Next / open (not built)
 
 1. **Wallet top-ups (real money in)** — DataSite's own Paystack/MoMo init + webhook (may port DBH's `PaymentInitController`/`CallbackController`/webhook handlers — logic only, not UI). Until then the Transactions "Payment Src" column derives **every top-up as "Paystack"** and top-ups are admin-funded only.
-2. **Subagent portal (D2)** + **storefronts** — the **D2 agent buy page (`/buy/{slug}`) and D3 subagent storefront are NOT built**: the referral QR/link and `referral_clicks` counter point at a page that doesn't exist yet (clicks aren't incremented live). Subagents can't log in and sell yet.
+2. **Subagent portal + D3 storefront** — the **D2 agent buy page (`/buy/{slug}`) is now built** (referral link/QR resolve to it; `referral_clicks` increments on visit). Still open: the **subagent portal login/dashboard** and the **D3 subagent buy-only storefront** (`subagent.storefront` is still a stub), plus the `/register?ref=` recruitment flow. Subagents can't log in and sell yet.
 3. **Wire Package pricing into live checkout** — `agent_package_prices` is management-only; make `PriceQuote`/`OrderDispatchService` prefer an agent's saved package price (and the sub-agent price for their sub-agents), falling back to the tier cascade. Own change + fresh money-path tests.
 4. **Agent-facing profile deletion / 2FA / appearance** — routes still exist but are unlinked from the settings nav; decide whether to restore or delete.
 

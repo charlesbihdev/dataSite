@@ -62,6 +62,7 @@ Route::middleware(['auth:agent'])->group(function () {
     Route::get('referral', [ReferralController::class, 'index'])->name('agent.referral');
     Route::put('referral/contact', [ReferralController::class, 'updateContact'])->name('agent.referral.contact');
     Route::post('referral/qr', [ReferralController::class, 'generateQr'])->name('agent.referral.qr');
+    Route::post('referral/store', [ReferralController::class, 'toggleStore'])->name('agent.referral.store');
 
     Route::get('withdrawals', [WithdrawalController::class, 'index'])->name('agent.withdrawals');
     Route::post('withdrawals', [WithdrawalController::class, 'store'])->name('agent.withdrawals.store');

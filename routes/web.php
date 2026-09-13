@@ -14,21 +14,21 @@ use Illuminate\Support\Facades\Route;
 |        /subagent-store) so the whole app is reachable on one host in dev.
 */
 
-$surface = function (string $key, string $file, string $localPrefix): void {
+$surface = function (string $key, string $file): void {
     $domain = config("surfaces.{$key}");
 
     $group = $domain
         ? Route::domain($domain)
-        : Route::prefix($localPrefix);
+        : Route::prefix((string) config("surfaces.local_prefixes.{$key}", ''));
 
     $group->middleware("surface:{$key}")->group(base_path("routes/{$file}"));
 };
 
-$surface('admin_agents', 'domain_admin_agents.php', '');
-$surface('agent_store', 'domain_agent_store.php', 'agent-store');
-$surface('subagent_store', 'domain_subagent_store.php', 'subagent-store');
+$surface('admin_agents', 'domain_admin_agents.php');
+$surface('agent_store', 'domain_agent_store.php');
+$surface('subagent_store', 'domain_subagent_store.php');
 
 // Agent account settings (profile/security/password/appearance) belong to the
 // platform domain too — bind them through the same dispatcher so they are NOT
 // reachable from the store domains in prod.
-$surface('admin_agents', 'settings.php', '');
+$surface('admin_agents', 'settings.php');

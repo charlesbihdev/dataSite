@@ -15,6 +15,8 @@ void createInertiaApp({
         switch (true) {
             case name === "welcome":
                 return null;
+            case name.startsWith("storefront/"):
+                return null; // public customer shop — its own standalone chrome, no app shell
             case name.startsWith("admin/auth/"):
                 return AuthLayout;
             case name.startsWith("admin/"):

@@ -32,6 +32,7 @@ class ReferralController extends Controller
 
         return Inertia::render('agent/referral', [
             'referralUrl' => $referralUrl,
+            'storeActive' => (bool) $agent->store_active,
             // Deferred: generating the QR on first load is the slow part, so the page renders
             // immediately and the QR streams in (behind a skeleton). Cached thereafter.
             'referralQr' => Inertia::defer(fn () => $this->resolveQr($agent, $referralUrl)),
@@ -66,6 +67,20 @@ class ReferralController extends Controller
         return to_route('agent.referral');
     }
 
+    /** Take the agent's public storefront on/off without touching their portal login (store_active). */
+    public function toggleStore(Request $request): RedirectResponse
+    {
+        $agent = $request->user();
+        $agent->update(['store_active' => ! $agent->store_active]);
+
+        Inertia::flash('toast', [
+            'type' => 'success',
+            'message' => $agent->store_active ? 'Your store is now live.' : 'Your store has been deactivated.',
+        ]);
+
+        return to_route('agent.referral');
+    }
+
     public function generateQr(Request $request): RedirectResponse
     {
         $agent = $request->user();
@@ -92,10 +107,12 @@ class ReferralController extends Controller
         $agent->save();
     }
 
+    /**
+     * The public storefront link. Built from the named route so it resolves correctly in both modes:
+     * the agent_store domain in production, and the /agent-store path prefix in local dev.
+     */
     private function referralUrl(string $handle): string
     {
-        $domain = config('surfaces.agent_store');
-
-        return $domain ? "https://{$domain}/buy/{$handle}" : url("/buy/{$handle}");
+        return route('agent.storefront', ['agentSlug' => $handle]);
     }
 }
