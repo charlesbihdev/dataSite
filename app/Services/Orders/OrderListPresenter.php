@@ -5,9 +5,10 @@ namespace App\Services\Orders;
 use App\Models\Agent;
 use App\Models\Order;
 use App\Models\Subagent;
+use App\Support\DateRange;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
-use Illuminate\Support\Carbon;
 
 /**
  * Builds the paginator, summary cards, and echoed filters for the admin order lists. One table,
@@ -22,7 +23,7 @@ class OrderListPresenter
     public const SEGMENT_REGULAR = 'regular';
 
     /**
-     * @return array{orders: \Illuminate\Contracts\Pagination\LengthAwarePaginator, stats: array<string, int|float|null>, filters: array<string, mixed>}
+     * @return array{orders: LengthAwarePaginator, stats: array<string, int|float|null>, filters: array<string, mixed>}
      */
     public function listing(Request $request, string $segment): array
     {
@@ -33,7 +34,7 @@ class OrderListPresenter
         $payment = (string) $request->query('payment', 'all');
         $search = trim((string) $request->query('q', ''));
         $range = (string) $request->query('range', 'all');
-        [$from, $to] = $this->resolveDateRange($request, $range);
+        [$from, $to] = DateRange::resolve($request, $range);
 
         // Everything except the status dropdown — shared by the table and the summary cards, so
         // switching status doesn't zero out the breakdown.
@@ -77,7 +78,7 @@ class OrderListPresenter
         $source = (string) $request->query('source', 'all');
         $payment = (string) $request->query('payment', 'all');
         $search = trim((string) $request->query('q', ''));
-        [$from, $to] = $this->resolveDateRange($request, (string) $request->query('range', 'all'));
+        [$from, $to] = DateRange::resolve($request, (string) $request->query('range', 'all'));
 
         $sellerType = match ($seller) {
             'agent' => Agent::class,
@@ -145,46 +146,6 @@ class OrderListPresenter
                 ->whereDate('created_at', today())
                 ->sum('customer_price'),
         ];
-    }
-
-    /**
-     * @return array{0: ?Carbon, 1: ?Carbon}
-     */
-    private function resolveDateRange(Request $request, string $range): array
-    {
-        $now = now();
-
-        return match ($range) {
-            'today' => [$now->copy()->startOfDay(), $now->copy()->endOfDay()],
-            'yesterday' => [$now->copy()->subDay()->startOfDay(), $now->copy()->subDay()->endOfDay()],
-            'last_7_days' => [$now->copy()->subDays(6)->startOfDay(), $now->copy()->endOfDay()],
-            'last_30_days' => [$now->copy()->subDays(29)->startOfDay(), $now->copy()->endOfDay()],
-            'last_90_days' => [$now->copy()->subDays(89)->startOfDay(), $now->copy()->endOfDay()],
-            'this_week' => [$now->copy()->startOfWeek(), $now->copy()->endOfWeek()],
-            'last_week' => [$now->copy()->subWeek()->startOfWeek(), $now->copy()->subWeek()->endOfWeek()],
-            'this_month' => [$now->copy()->startOfMonth(), $now->copy()->endOfMonth()],
-            'last_month' => [$now->copy()->subMonthNoOverflow()->startOfMonth(), $now->copy()->subMonthNoOverflow()->endOfMonth()],
-            'this_year' => [$now->copy()->startOfYear(), $now->copy()->endOfYear()],
-            'last_year' => [$now->copy()->subYear()->startOfYear(), $now->copy()->subYear()->endOfYear()],
-            'custom' => [
-                $this->parseDate((string) $request->query('from'))?->startOfDay(),
-                $this->parseDate((string) $request->query('to'))?->endOfDay(),
-            ],
-            default => [null, null],
-        };
-    }
-
-    private function parseDate(string $value): ?Carbon
-    {
-        if ($value === '') {
-            return null;
-        }
-
-        try {
-            return Carbon::parse($value);
-        } catch (\Throwable) {
-            return null;
-        }
     }
 
     /**

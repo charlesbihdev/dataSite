@@ -1,5 +1,5 @@
 import { Link } from "@inertiajs/react";
-import { LayoutGrid, Wallet, ShoppingBag, Users } from "lucide-react";
+import { LayoutGrid, ArrowLeftRight, ShoppingBag, Users } from "lucide-react";
 import AppLogo from "@/components/app-logo";
 import { NavMain } from "@/components/nav-main";
 import { NavUser } from "@/components/nav-user";
@@ -22,14 +22,14 @@ const mainNavItems: NavItem[] = [
         icon: LayoutGrid,
     },
     {
-        title: "Wallet & Top-ups",
-        href: "/wallet",
-        icon: Wallet,
-    },
-    {
-        title: "Store Orders",
+        title: "Orders",
         href: "/orders",
         icon: ShoppingBag,
+    },
+    {
+        title: "Transactions",
+        href: "/transactions",
+        icon: ArrowLeftRight,
     },
     {
         title: "My Subagents",

@@ -1,6 +1,7 @@
 import { Head, router } from "@inertiajs/react";
 import { useState } from "react";
 import { ledger as ledgerRoute } from "@/actions/App/Http/Controllers/Admin/TransactionsController";
+import { Amount } from "@/components/common/amount";
 import { Column, DataTable } from "@/components/common/data-table";
 import { PageHeader } from "@/components/common/page-header";
 import { PageLink, Pagination } from "@/components/common/pagination";
@@ -15,7 +16,6 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { cedis } from "@/lib/format";
-import { cn } from "@/lib/utils";
 
 interface Txn {
     id: number;
@@ -62,15 +62,7 @@ export default function AdminLedger({ transactions, filters, stats }: Props) {
             key: "amount",
             header: "Amount",
             align: "right",
-            render: (t) => (
-                <span
-                    className={cn(
-                        t.amount < 0 ? "text-danger" : "text-success",
-                    )}
-                >
-                    {cedis(t.amount)}
-                </span>
-            ),
+            render: (t) => <Amount value={t.amount} />,
         },
         {
             key: "balanceAfter",

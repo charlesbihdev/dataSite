@@ -1,10 +1,10 @@
 import { Head, router } from "@inertiajs/react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Column, DataTable } from "@/components/common/data-table";
+import { DateRangePicker, DateRangeValue } from "@/components/common/date-range-picker";
 import { PageHeader } from "@/components/common/page-header";
 import { PageLink, Pagination } from "@/components/common/pagination";
 import { StatTile } from "@/components/common/stat-tile";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { cedis } from "@/lib/format";
@@ -26,16 +26,48 @@ interface Stats {
     profit: number;
 }
 
+interface Filters {
+    q?: string;
+    range?: string;
+    from?: string | null;
+    to?: string | null;
+}
+
 interface Props {
     orders: { data: Order[]; links: PageLink[] };
-    filters: { q?: string; date_from?: string; date_to?: string };
+    filters: Filters;
     stats: Stats;
 }
 
 export default function AgentOrders({ orders, filters, stats }: Props) {
-    const [search, setSearch] = useState(filters.q || "");
-    const [dateFrom, setDateFrom] = useState(filters.date_from || "");
-    const [dateTo, setDateTo] = useState(filters.date_to || "");
+    const [search, setSearch] = useState(filters.q ?? "");
+    const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const range = filters.range ?? "all";
+    const inRange = range !== "all";
+
+    // Both the search box and the DateRangePicker reload this same route carrying
+    // the other's current value, so applying one never drops the other. The stats
+    // are computed from the same filtered query server-side, so the cards always
+    // reflect exactly what the table shows.
+    const apply = (patch: Record<string, string | null>) =>
+        router.get(
+            "/orders",
+            { q: search, range, from: filters.from ?? null, to: filters.to ?? null, ...patch },
+            { preserveState: true, preserveScroll: true, replace: true },
+        );
+
+    useEffect(() => setSearch(filters.q ?? ""), [filters.q]);
+
+    const onSearchChange = (value: string) => {
+        setSearch(value);
+        if (debounce.current) {
+            clearTimeout(debounce.current);
+        }
+        debounce.current = setTimeout(() => apply({ q: value }), 400);
+    };
+
+    const applyRange = (next: DateRangeValue) =>
+        apply({ range: next.range, from: next.from ?? null, to: next.to ?? null });
 
     const columns: Column<Order>[] = [
         {
@@ -70,93 +102,32 @@ export default function AgentOrders({ orders, filters, stats }: Props) {
         },
     ];
 
-    const applyFilter = (e: React.FormEvent) => {
-        e.preventDefault();
-        router.get(
-            '/orders',
-            {
-                q: search,
-                date_from: dateFrom,
-                date_to: dateTo,
-            },
-            { preserveState: true, replace: true }
-        );
-    };
-
-    const clearFilter = () => {
-        setSearch("");
-        setDateFrom("");
-        setDateTo("");
-        router.get('/orders', {}, { preserveState: true, replace: true });
-    };
-
     return (
         <>
             <Head title="Store Orders" />
             <div className="flex h-full flex-1 flex-col gap-6 p-4 lg:p-8">
-                <PageHeader title="Store Orders" description="Track purchases and view your sales value over time." />
+                <PageHeader
+                    title="Store Orders"
+                    description="Track purchases and view your sales value over time."
+                    actions={<DateRangePicker value={{ range, from: filters.from, to: filters.to }} onChange={applyRange} />}
+                />
 
                 <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                    <StatTile
-                        label="Total Revenue"
-                        value={cedis(stats.sales)}
-                        hint={dateFrom || dateTo ? "For selected period" : "All time"}
-                    />
-                    <StatTile
-                        label="Net Profit"
-                        value={cedis(stats.profit)}
-                        hint={dateFrom || dateTo ? "For selected period" : "All time"}
-                    />
-                    <StatTile
-                        label="Orders Count"
-                        value={String(stats.count)}
-                        hint={dateFrom || dateTo ? "For selected period" : "All time"}
-                    />
+                    <StatTile label="Total Revenue" value={cedis(stats.sales)} hint={inRange ? "For selected period" : "All time"} />
+                    <StatTile label="Net Profit" value={cedis(stats.profit)} hint={inRange ? "For selected period" : "All time"} />
+                    <StatTile label="Orders Count" value={String(stats.count)} hint={inRange ? "For selected period" : "All time"} />
                 </div>
 
-                <form
-                    className="flex flex-wrap items-center gap-2 bg-background/50 backdrop-blur-xl border border-border/50 p-2 rounded-lg"
-                    onSubmit={applyFilter}
-                >
-                    <Input
-                        placeholder="Search ref or phone..."
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                        className="w-48 bg-background"
-                    />
-                    <div className="flex items-center gap-1">
-                        <label className="text-xs text-muted-foreground ml-1">From:</label>
+                <div className="flex-1 rounded-xl border border-border bg-card shadow-sm">
+                    {/* Search bar — scopes the table below only. */}
+                    <div className="border-b border-border p-4">
                         <Input
-                            type="date"
-                            value={dateFrom}
-                            onChange={(e) => setDateFrom(e.target.value)}
-                            className="w-auto bg-background"
+                            value={search}
+                            onChange={(e) => onSearchChange(e.target.value)}
+                            placeholder="Search by reference, phone, network, status, or upstream ref…"
+                            className="w-full bg-background sm:w-96"
                         />
                     </div>
-                    <div className="flex items-center gap-1">
-                        <label className="text-xs text-muted-foreground ml-1">To:</label>
-                        <Input
-                            type="date"
-                            value={dateTo}
-                            onChange={(e) => setDateTo(e.target.value)}
-                            className="w-auto bg-background"
-                        />
-                    </div>
-                    <Button type="submit" variant="default">
-                        Filter
-                    </Button>
-                    {(filters.q || filters.date_from || filters.date_to) && (
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            onClick={clearFilter}
-                        >
-                            Clear
-                        </Button>
-                    )}
-                </form>
-
-                <div className="flex-1 rounded-xl border border-zinc-200/50 bg-white/50 shadow-sm backdrop-blur-sm dark:border-zinc-800 dark:bg-zinc-900/50">
                     <DataTable
                         columns={columns}
                         rows={orders.data || []}
@@ -164,7 +135,7 @@ export default function AgentOrders({ orders, filters, stats }: Props) {
                         emptyMessage="No orders found."
                     />
                     {orders.links.length > 3 && (
-                        <div className="border-t border-zinc-200/50 p-4 dark:border-zinc-800">
+                        <div className="border-t border-border p-4">
                             <Pagination links={orders.links} />
                         </div>
                     )}

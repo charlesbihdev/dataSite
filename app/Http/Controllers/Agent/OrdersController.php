@@ -3,8 +3,8 @@
 namespace App\Http\Controllers\Agent;
 
 use App\Http\Controllers\Controller;
+use App\Support\DateRange;
 use Illuminate\Http\Request;
-use Illuminate\Support\Carbon;
 use Inertia\Inertia;
 
 class OrdersController extends Controller
@@ -13,22 +13,24 @@ class OrdersController extends Controller
     {
         $user = $request->user();
 
-        $query = $user->orders()->latest();
+        // Shares the DateRangePicker's ?range/from/to contract with the agent
+        // dashboard, resolved once through DateRange so both surfaces filter identically.
+        $range = (string) $request->query('range', 'all');
+        [$from, $to] = DateRange::resolve($request, $range);
+        $search = trim((string) $request->query('q', ''));
 
-        if ($request->filled('q')) {
-            $query->where(function ($q) use ($request) {
-                $q->where('reference', 'like', "%{$request->q}%")
-                    ->orWhere('beneficiary_phone', 'like', "%{$request->q}%");
-            });
-        }
-
-        if ($request->filled('date_from')) {
-            $query->whereDate('created_at', '>=', Carbon::parse($request->date_from));
-        }
-
-        if ($request->filled('date_to')) {
-            $query->whereDate('created_at', '<=', Carbon::parse($request->date_to));
-        }
+        $query = $user->orders()
+            ->when($search !== '', fn ($q) => $q->where(function ($inner) use ($search) {
+                $like = "%{$search}%";
+                $inner->where('reference', 'like', $like)
+                    ->orWhere('beneficiary_phone', 'like', $like)
+                    ->orWhere('upstream_reference', 'like', $like)
+                    ->orWhere('network', 'like', $like)
+                    ->orWhere('status', 'like', $like);
+            }))
+            ->when($from, fn ($q) => $q->where('created_at', '>=', $from))
+            ->when($to, fn ($q) => $q->where('created_at', '<=', $to))
+            ->latest();
 
         $ordersCount = (clone $query)->count();
         $totalSales = (clone $query)->where('payment_status', 'paid')->sum('customer_price');
@@ -45,7 +47,12 @@ class OrdersController extends Controller
                 'sales' => (float) $totalSales,
                 'profit' => (float) $totalProfit,
             ],
-            'filters' => $request->only(['q', 'date_from', 'date_to']),
+            'filters' => [
+                'range' => $range,
+                'from' => $request->query('from'),
+                'to' => $request->query('to'),
+                'q' => $search,
+            ],
         ]);
     }
 }

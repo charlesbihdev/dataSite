@@ -36,15 +36,24 @@ use App\Http\Controllers\Admin\PricingController;
 use App\Http\Controllers\Admin\SettingsController;
 use App\Http\Controllers\Admin\TransactionsController;
 use App\Http\Controllers\Admin\WithdrawalsController;
+use App\Http\Controllers\Agent\CartController;
+use App\Http\Controllers\Agent\WalletController;
 use Illuminate\Support\Facades\Route;
 
 Route::inertia('/', 'welcome')->name('home');
 
 Route::middleware(['auth:agent'])->group(function () {
-    Route::inertia('dashboard', 'dashboard')->name('agent.dashboard');
-    Route::inertia('wallet', 'agent/wallet')->name('agent.wallet');
+    Route::get('dashboard', [App\Http\Controllers\Agent\DashboardController::class, 'index'])->name('agent.dashboard');
+    Route::get('transactions', [WalletController::class, 'index'])->name('agent.transactions');
     Route::get('orders', [App\Http\Controllers\Agent\OrdersController::class, 'index'])->name('agent.orders');
     Route::inertia('subagents', 'agent/subagents')->name('agent.subagents');
+
+    // Place-Order cart (session-backed): add one, add many (paste/upload), remove, checkout.
+    Route::post('cart', [CartController::class, 'store'])->name('agent.cart.store');
+    Route::post('cart/bulk', [CartController::class, 'storeBulk'])->name('agent.cart.bulk');
+    Route::post('cart/upload', [CartController::class, 'upload'])->name('agent.cart.upload');
+    Route::delete('cart/{id}', [CartController::class, 'destroy'])->name('agent.cart.destroy');
+    Route::post('cart/checkout', [CartController::class, 'checkout'])->name('agent.cart.checkout');
 });
 
 use App\Http\Controllers\Admin\AnalyticsController;
