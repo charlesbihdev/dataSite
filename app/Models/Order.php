@@ -32,7 +32,8 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $refunded_at
  */
 #[Fillable([
-    'reference', 'idempotency_key', 'source', 'payment_status', 'network', 'capacity_gb', 'beneficiary_phone',
+    'reference', 'idempotency_key', 'source', 'payment_status', 'gateway', 'gateway_reference',
+    'network', 'capacity_gb', 'beneficiary_phone', 'customer_email',
     'channel', 'customer_price', 'seller_cost', 'agent_cost', 'base_cost',
     'status', 'upstream_request_id', 'upstream_reference', 'upstream_status', 'upstream_cost',
     'failure_reason', 'last_polled_at', 'completed_at', 'failed_at', 'refunded_at',

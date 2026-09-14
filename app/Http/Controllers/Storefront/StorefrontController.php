@@ -6,11 +6,15 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Storefront\CheckoutRequest;
 use App\Models\Agent;
 use App\Models\AgentPackagePrice;
+use App\Models\Order;
+use App\Services\Payments\OrderPaymentConfirmer;
+use App\Services\Payments\OrderPaymentInitiator;
 use App\Services\Storefront\CheckoutException;
 use App\Services\Storefront\StorefrontCheckoutService;
 use App\Support\GhanaMobileNetwork;
 use App\Support\SurfaceUrl;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -28,7 +32,7 @@ class StorefrontController extends Controller
         // Count the visit for the agent's referral stats (best-effort, storefront is the buy link).
         $agent->increment('referral_clicks');
 
-        return Inertia::render('storefront/buy', [
+        return Inertia::render('agent/storefront/buy', [
             'agentSlug' => $slug,
             'store' => $this->storeProps($agent),
             'packages' => $this->packages($agent),
@@ -39,7 +43,7 @@ class StorefrontController extends Controller
         ]);
     }
 
-    public function checkout(CheckoutRequest $request, string $slug, StorefrontCheckoutService $checkout): RedirectResponse
+    public function checkout(CheckoutRequest $request, string $slug, StorefrontCheckoutService $checkout, OrderPaymentInitiator $payments): RedirectResponse
     {
         $agent = $this->resolveAgent($slug);
 
@@ -50,13 +54,39 @@ class StorefrontController extends Controller
                 (string) $request->input('network'),
                 (int) $request->integer('capacity_gb'),
             );
+
+            $payment = $payments->initiate(
+                $order,
+                route('agent.storefront.callback', ['agentSlug' => $slug]),
+            );
         } catch (CheckoutException $e) {
             Inertia::flash('toast', ['type' => 'error', 'message' => $e->getMessage()]);
 
             return back();
         }
 
-        return to_route('agent.storefront.receipt', ['agentSlug' => $slug, 'order' => $order->reference]);
+        // Hand the customer off to the gateway's hosted checkout; they return to the callback below.
+        return Inertia::location($payment['authorization_url']);
+    }
+
+    public function paymentCallback(Request $request, string $slug, OrderPaymentConfirmer $confirmer): RedirectResponse
+    {
+        $agent = $this->resolveAgent($slug);
+        $reference = trim((string) $request->query('reference', ''));
+
+        $order = $agent->orders()
+            ->where('source', Order::SOURCE_STOREFRONT)
+            ->where(fn ($q) => $q->where('reference', $reference)->orWhere('gateway_reference', $reference))
+            ->first();
+
+        if ($order !== null) {
+            $confirmer->confirm($order);
+        }
+
+        return to_route('agent.storefront.receipt', [
+            'agentSlug' => $slug,
+            'order' => $order?->reference ?? $reference,
+        ]);
     }
 
     public function receipt(string $slug, string $order): Response
@@ -65,7 +95,7 @@ class StorefrontController extends Controller
 
         $found = $agent->orders()->where('reference', $order)->firstOrFail();
 
-        return Inertia::render('storefront/receipt', [
+        return Inertia::render('agent/storefront/receipt', [
             'agentSlug' => $slug,
             'store' => $this->storeProps($agent),
             'order' => [
@@ -78,6 +108,54 @@ class StorefrontController extends Controller
                 'paymentStatus' => $found->payment_status,
                 'status' => $found->status,
             ],
+        ]);
+    }
+
+    public function track(Request $request, string $slug): Response
+    {
+        $agent = $this->resolveAgent($slug);
+
+        // Customers look up their own orders either by the number they paid for or by an order
+        // reference from their receipt. Both are scoped to THIS agent's storefront orders only.
+        $by = $request->query('by') === 'reference' ? 'reference' : 'phone';
+        $phone = GhanaMobileNetwork::normalize((string) $request->query('phone', ''));
+        $reference = strtoupper(trim((string) $request->query('reference', '')));
+
+        $query = $agent->orders()->where('source', 'storefront');
+
+        if ($by === 'reference' && $reference !== '') {
+            $query->where('reference', $reference);
+        } elseif ($by === 'phone' && $phone !== '') {
+            $query->where('beneficiary_phone', $phone);
+        } else {
+            $query = null;
+        }
+
+        $orders = $query
+            ? $query->latest()
+                ->limit(20)
+                ->get()
+                ->map(fn ($o): array => [
+                    'reference' => $o->reference,
+                    'network' => $o->network,
+                    'networkLabel' => GhanaMobileNetwork::label($o->network),
+                    'capacityGb' => (float) $o->capacity_gb,
+                    'phone' => $o->beneficiary_phone,
+                    'amount' => (float) $o->customer_price,
+                    'paymentStatus' => $o->payment_status,
+                    'status' => $o->status,
+                    'date' => $o->created_at?->format('M j, Y g:i A'),
+                ])
+                ->all()
+            : [];
+
+        return Inertia::render('agent/storefront/track', [
+            'agentSlug' => $slug,
+            'store' => $this->storeProps($agent),
+            'by' => $by,
+            'phone' => $phone,
+            'reference' => $reference,
+            'orders' => $orders,
         ]);
     }
 

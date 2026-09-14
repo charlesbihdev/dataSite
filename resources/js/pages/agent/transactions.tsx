@@ -2,6 +2,7 @@ import { Head, router } from "@inertiajs/react";
 import { useEffect, useRef, useState } from "react";
 import { Wallet as WalletIcon } from "lucide-react";
 import { TransactionDetailDialog, Txn } from "@/components/agent/transaction-detail-dialog";
+import { TopupDialog } from "@/components/agent/topup-dialog";
 import { Amount } from "@/components/common/amount";
 import { Column, DataTable } from "@/components/common/data-table";
 import { DateRangePicker, DateRangeValue } from "@/components/common/date-range-picker";
@@ -120,7 +121,12 @@ export default function AgentTransactions({ balance, transactions, filters }: Pr
                 <PageHeader
                     title="Transactions"
                     description="Your balance and full transaction history."
-                    actions={<DateRangePicker value={{ range: filters.range, from: filters.from, to: filters.to }} onChange={applyRange} />}
+                    actions={
+                        <div className="flex items-center gap-2">
+                            <DateRangePicker value={{ range: filters.range, from: filters.from, to: filters.to }} onChange={applyRange} />
+                            <TopupDialog />
+                        </div>
+                    }
                 />
 
                 <div className="grid gap-4 sm:grid-cols-3">

@@ -42,10 +42,19 @@ use App\Http\Controllers\Agent\ReferralController;
 use App\Http\Controllers\Agent\SubagentSalesController;
 use App\Http\Controllers\Agent\SubagentsController;
 use App\Http\Controllers\Agent\WalletController;
+use App\Http\Controllers\Agent\WalletTopupController;
 use App\Http\Controllers\Agent\WithdrawalController;
+use App\Http\Controllers\Webhooks\MoolreWebhookController;
+use App\Http\Controllers\Webhooks\PaystackWebhookController;
 use Illuminate\Support\Facades\Route;
 
 Route::inertia('/', 'welcome')->name('home');
+
+// Payment-gateway webhooks — public, no auth, no CSRF (server-to-server). Authenticated inside the
+// controller (Paystack: HMAC signature; Moolre: shared secret + status re-verify). URLs are
+// surfaced to admins on the Payments config screen.
+Route::post('webhooks/paystack', [PaystackWebhookController::class, 'handle'])->name('webhooks.paystack');
+Route::post('webhooks/moolre', [MoolreWebhookController::class, 'handle'])->name('webhooks.moolre');
 
 Route::middleware(['auth:agent'])->group(function () {
     Route::get('dashboard', [App\Http\Controllers\Agent\DashboardController::class, 'index'])->name('agent.dashboard');
@@ -67,6 +76,10 @@ Route::middleware(['auth:agent'])->group(function () {
     Route::get('withdrawals', [WithdrawalController::class, 'index'])->name('agent.withdrawals');
     Route::post('withdrawals', [WithdrawalController::class, 'store'])->name('agent.withdrawals.store');
     Route::post('withdrawals/{withdrawal}/cancel', [WithdrawalController::class, 'cancel'])->name('agent.withdrawals.cancel');
+
+    // Wallet top-up (real money in via payment gateway): open checkout, then verify on return.
+    Route::post('topup', [WalletTopupController::class, 'store'])->name('agent.topup');
+    Route::get('topup/callback', [WalletTopupController::class, 'callback'])->name('agent.topup.callback');
 
     // Place-Order cart (session-backed): add one, add many (paste/upload), remove, checkout.
     Route::post('cart', [CartController::class, 'store'])->name('agent.cart.store');

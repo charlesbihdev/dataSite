@@ -53,5 +53,7 @@ Route::middleware(['auth:subagent'])->group(function () {
 Route::prefix('buy/{agentSlug}')->where(['agentSlug' => '[A-Za-z0-9\-]+', 'order' => '[A-Za-z0-9\-]+'])->group(function () {
     Route::get('/', [StorefrontController::class, 'show'])->name('agent.storefront');
     Route::post('checkout', [StorefrontController::class, 'checkout'])->name('agent.storefront.checkout');
+    Route::get('callback', [StorefrontController::class, 'paymentCallback'])->name('agent.storefront.callback');
     Route::get('receipt/{order}', [StorefrontController::class, 'receipt'])->name('agent.storefront.receipt');
+    Route::get('track', [StorefrontController::class, 'track'])->name('agent.storefront.track');
 });

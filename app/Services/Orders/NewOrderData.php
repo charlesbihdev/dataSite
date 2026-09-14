@@ -27,6 +27,7 @@ final class NewOrderData
         public readonly string $channel = Order::CHANNEL_PREPAID,
         public readonly string $source = 'portal',
         public readonly ?string $idempotencyKey = null,
+        public readonly ?string $customerEmail = null,
     ) {}
 
     /**

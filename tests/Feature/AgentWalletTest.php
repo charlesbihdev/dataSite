@@ -81,4 +81,17 @@ class AgentWalletTest extends TestCase
                 ->where('transactions.data.1.source', 'admin')
         );
     }
+
+    public function test_self_service_gateway_topup_reads_as_user_sourced(): void
+    {
+        // A gateway top-up carries an MTP reference (vs admin funding's null ref), so it is USER.
+        $this->agent->walletOrCreate()->credit(50, 'topup', 'MTP_self_service', 'Wallet top-up via Paystack');
+
+        $this->get(route('agent.transactions', ['type' => 'topup', 'source' => 'user']))->assertInertia(
+            fn (Assert $page) => $page
+                ->has('transactions.data', 1)
+                ->where('transactions.data.0.source', 'user')
+                ->where('transactions.data.0.code', 'MTP_self_service')
+        );
+    }
 }

@@ -56,6 +56,7 @@ class OrderDispatchService
             'network' => $data->network,
             'capacity_gb' => $data->capacityGb,
             'beneficiary_phone' => $data->beneficiaryPhone,
+            'customer_email' => $data->customerEmail,
             'channel' => Order::CHANNEL_ONLINE,
             'customer_price' => $data->customerPrice,
             'seller_cost' => $data->sellerCost,

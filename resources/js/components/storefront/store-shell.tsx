@@ -1,13 +1,13 @@
-import { Head } from "@inertiajs/react";
-import { useMemo, useState } from "react";
+import { Head, Link } from "@inertiajs/react";
+import { ReactNode, useMemo, useState } from "react";
 import {
     MessageCircle,
+    PackageSearch,
     ShieldCheck,
+    ShoppingBag,
     Smartphone,
-    Store,
     Zap,
 } from "lucide-react";
-import { CheckoutDialog } from "@/components/storefront/checkout-dialog";
 import {
     PackageCard,
     type StorefrontPkg,
@@ -16,30 +16,39 @@ import {
     NetworkFilter,
     type NetworkCount,
 } from "@/components/storefront/network-filter";
-import { Button } from "@/components/ui/button";
 import { type NetworkMeta } from "@/lib/networks";
 import { networkBrand } from "@/lib/network-brand";
 import { cn } from "@/lib/utils";
 
-interface Props {
-    store: {
-        name: string;
-        whatsapp: string | null;
-        whatsappGroup: string | null;
-    };
-    packages: StorefrontPkg[];
-    networks: NetworkMeta[];
-    agentSlug: string;
-    recruitUrl: string;
+export interface StorefrontStore {
+    name: string;
+    whatsapp: string | null;
+    whatsappGroup: string | null;
 }
 
-export default function StorefrontBuy({
+/**
+ * The tier-agnostic customer shopping surface shared by every storefront (agent D2, subagent D3, …):
+ * header, hero, network-filtered bundle grid, and footer. It is intentionally free of any recruitment
+ * or tier-specific paths — those are injected as slots (`topBanner`, `promo`) and a `renderCheckout`
+ * function so each tier owns its own capabilities. NEVER put a "become a reseller" link in here.
+ */
+export function StoreShell({
     store,
     packages,
     networks,
-    agentSlug,
-    recruitUrl,
-}: Props) {
+    trackHref,
+    renderCheckout,
+    topBanner,
+    promo,
+}: {
+    store: StorefrontStore;
+    packages: StorefrontPkg[];
+    networks: NetworkMeta[];
+    trackHref: string;
+    renderCheckout: (pkg: StorefrontPkg | null, close: () => void) => ReactNode;
+    topBanner?: ReactNode;
+    promo?: ReactNode;
+}) {
     const [filter, setFilter] = useState("all");
     const [buying, setBuying] = useState<StorefrontPkg | null>(null);
 
@@ -65,7 +74,8 @@ export default function StorefrontBuy({
         <>
             <Head title={`Buy Data · ${store.name}`} />
             <div className="min-h-screen bg-background text-foreground">
-                <StoreHeader store={store} />
+                {topBanner}
+                <StoreHeader store={store} trackHref={trackHref} />
 
                 <main className="mx-auto w-full max-w-5xl px-4 pb-20 sm:px-6">
                     <section className="py-10 text-center sm:py-14">
@@ -90,6 +100,22 @@ export default function StorefrontBuy({
                                 Secure checkout
                             </span>
                         </div>
+                        {store.whatsapp && (
+                            <a
+                                href={`https://wa.me/${store.whatsapp.replace(/\D+/g, "")}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="mx-auto mt-6 inline-flex items-center gap-2 rounded-full border border-border bg-card px-4 py-2 text-sm font-medium text-foreground shadow-sm transition hover:bg-muted"
+                            >
+                                <MessageCircle className="size-4 text-success" />
+                                <span>
+                                    Need help? Chat with us on{" "}
+                                    <span className="font-semibold text-brand">
+                                        {store.whatsapp}
+                                    </span>
+                                </span>
+                            </a>
+                        )}
                     </section>
 
                     <div className="space-y-6">
@@ -123,43 +149,13 @@ export default function StorefrontBuy({
                         )}
                     </div>
 
-                    <section className="mt-14 overflow-hidden rounded-2xl border border-brand/20 bg-brand-subtle">
-                        <div className="flex flex-col items-start gap-5 p-6 sm:flex-row sm:items-center sm:justify-between sm:p-8">
-                            <div className="flex items-start gap-4">
-                                <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-brand text-brand-fg">
-                                    <Store className="size-5" />
-                                </span>
-                                <div>
-                                    <h2 className="text-lg font-semibold tracking-tight">
-                                        Want to run your own data store?
-                                    </h2>
-                                    <p className="mt-1 max-w-xl text-sm text-muted-foreground">
-                                        Sign up as a sub-agent under{" "}
-                                        {store.name} and start selling at your
-                                        own prices.
-                                    </p>
-                                </div>
-                            </div>
-                            <Button
-                                asChild
-                                size="lg"
-                                className="w-full shrink-0 sm:w-auto"
-                            >
-                                <a href={recruitUrl}>Become a sub-agent</a>
-                            </Button>
-                        </div>
-                    </section>
+                    {promo}
                 </main>
 
-                <StoreFooter store={store} />
+                <StoreFooter store={store} trackHref={trackHref} />
             </div>
 
-            <CheckoutDialog
-                pkg={buying}
-                agentSlug={agentSlug}
-                networks={networks}
-                onClose={() => setBuying(null)}
-            />
+            {renderCheckout(buying, () => setBuying(null))}
         </>
     );
 }
@@ -199,7 +195,7 @@ function NetworkSection({
                         {packages[0]?.networkLabel ?? brand.label} Data Bundles
                     </h3>
                 </div>
-                <span className="text-xs text-muted-foreground">
+                <span className="inline-flex items-center gap-1 rounded-full border border-border bg-muted px-2.5 py-0.5 text-xs font-medium tabular-nums text-muted-foreground">
                     {packages.length} package{packages.length === 1 ? "" : "s"}
                 </span>
             </div>
@@ -212,47 +208,68 @@ function NetworkSection({
     );
 }
 
-function StoreHeader({ store }: { store: Props["store"] }) {
+function StoreHeader({
+    store,
+    trackHref,
+}: {
+    store: StorefrontStore;
+    trackHref: string;
+}) {
     return (
         <header className="border-b border-border bg-card/60 backdrop-blur">
-            <div className="mx-auto flex w-full max-w-5xl items-center justify-between px-4 py-4 sm:px-6">
-                <div className="flex items-center gap-2.5">
-                    <span className="flex size-9 items-center justify-center rounded-lg bg-brand text-sm font-bold text-brand-fg">
-                        {store.name.charAt(0).toUpperCase()}
+            <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-3 px-4 py-3.5 sm:px-6 sm:py-4">
+                <div className="flex min-w-0 items-center gap-2.5">
+                    <span className="hidden size-9 shrink-0 items-center justify-center rounded-lg bg-brand text-brand-fg sm:flex">
+                        <ShoppingBag className="size-5" />
                     </span>
-                    <span className="text-base font-semibold">
+                    <span className="truncate text-base font-semibold">
                         {store.name}
                     </span>
                 </div>
-                {store.whatsapp && (
-                    <a
-                        href={`https://wa.me/${store.whatsapp.replace(/\D+/g, "")}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center gap-1.5 text-sm font-medium text-brand hover:underline"
+                <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+                    <Link
+                        href={trackHref}
+                        className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-sm font-medium text-foreground transition hover:bg-muted hover:text-brand"
                     >
-                        <MessageCircle className="size-4" /> Contact
-                    </a>
-                )}
+                        <PackageSearch className="size-4 shrink-0" />
+                        Track order
+                    </Link>
+                    {store.whatsapp && (
+                        <a
+                            href={`https://wa.me/${store.whatsapp.replace(/\D+/g, "")}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1.5 text-sm font-medium text-brand hover:underline"
+                        >
+                            <MessageCircle className="size-4 shrink-0" />
+                            <span className="sr-only sm:not-sr-only">Contact</span>
+                        </a>
+                    )}
+                </div>
             </div>
         </header>
     );
 }
 
-function StoreFooter({ store }: { store: Props["store"] }) {
+function StoreFooter({ store, trackHref }: { store: StorefrontStore; trackHref: string }) {
     return (
         <footer className="border-t border-border py-8 text-center text-xs text-muted-foreground">
             <p>Powered by {store.name}</p>
-            {store.whatsappGroup && (
-                <a
-                    href={store.whatsappGroup}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="mt-1 inline-block text-brand hover:underline"
-                >
-                    Join our WhatsApp community
-                </a>
-            )}
+            <div className="mt-2 flex flex-wrap items-center justify-center gap-x-4 gap-y-1">
+                <Link href={trackHref} className="inline-flex items-center gap-1.5 text-brand hover:underline">
+                    <PackageSearch className="size-3.5" /> Track your order
+                </Link>
+                {store.whatsappGroup && (
+                    <a
+                        href={store.whatsappGroup}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-brand hover:underline"
+                    >
+                        Join our WhatsApp community
+                    </a>
+                )}
+            </div>
         </footer>
     );
 }

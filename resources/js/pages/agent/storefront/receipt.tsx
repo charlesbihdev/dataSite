@@ -1,6 +1,6 @@
 import { Head, Link } from "@inertiajs/react";
 import { CheckCircle2, Clock, XCircle } from "lucide-react";
-import { show } from "@/actions/App/Http/Controllers/Storefront/StorefrontController";
+import { show, track } from "@/actions/App/Http/Controllers/Storefront/StorefrontController";
 import { Button } from "@/components/ui/button";
 import { cedis } from "@/lib/format";
 
@@ -49,9 +49,14 @@ export default function StorefrontReceipt({ agentSlug, store, order }: Props) {
                             </div>
                         </dl>
 
-                        <Button asChild variant="outline" className="mt-6 w-full">
-                            <Link href={show.url({ agentSlug })}>Buy another bundle</Link>
-                        </Button>
+                        <div className="mt-6 grid gap-2 sm:grid-cols-2">
+                            <Button asChild variant="outline">
+                                <Link href={show.url({ agentSlug })}>Buy another bundle</Link>
+                            </Button>
+                            <Button asChild variant="outline">
+                                <Link href={track.url({ agentSlug })}>Track my orders</Link>
+                            </Button>
+                        </div>
 
                         {store.whatsapp && (
                             <a
