@@ -4,7 +4,6 @@ import {
     sendTestEmail,
     updateConnection,
     updateEmail,
-    updateRegistration,
 } from '@/actions/App/Http/Controllers/Admin/SettingsController';
 import { Column, DataTable } from '@/components/common/data-table';
 import { PageHeader } from '@/components/common/page-header';
@@ -41,7 +40,7 @@ interface Props {
     admins: Admin[];
 }
 
-export default function AdminSettings({ connection, email, registration, admins }: Props) {
+export default function AdminSettings({ connection, email, admins }: Props) {
     const form = useForm({
         base_url: connection.baseUrl,
         api_key: '',
@@ -58,11 +57,6 @@ export default function AdminSettings({ connection, email, registration, admins 
         smtp_password: '',
         smtp_encryption: email.smtpEncryption,
         is_active: email.isActive,
-    });
-
-    const registrationForm = useForm({
-        registration_fee: registration.fee,
-        is_enabled: registration.isEnabled,
     });
 
     const testForm = useForm({ email: '' });
@@ -233,46 +227,6 @@ export default function AdminSettings({ connection, email, registration, admins 
                                 <Button type="submit" variant="outline" disabled={testForm.processing}>Send</Button>
                             </form>
                         ) : null}
-                    </CardContent>
-                </Card>
-
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="text-base">Registration</CardTitle>
-                        <p className="mt-1 text-sm text-muted-foreground">
-                            Fee and switch for agent self-registration (used when the agent portal lands).
-                        </p>
-                    </CardHeader>
-                    <CardContent>
-                        <form
-                            className="flex max-w-lg flex-wrap items-end gap-4"
-                            onSubmit={(e) => {
-                                e.preventDefault();
-                                registrationForm.put(updateRegistration().url, { preserveScroll: true });
-                            }}
-                        >
-                            <div className="space-y-1.5">
-                                <Label>Registration fee (GHS)</Label>
-                                <Input type="number" step="0.01" className="w-40" value={registrationForm.data.registration_fee} onChange={(e) => registrationForm.setData('registration_fee', Number(e.target.value))} />
-                                {registrationForm.errors.registration_fee ? <p className="text-xs text-danger">{registrationForm.errors.registration_fee}</p> : null}
-                            </div>
-                            <label className="flex items-center gap-2 pb-2 text-sm">
-                                <input type="checkbox" checked={registrationForm.data.is_enabled} onChange={(e) => registrationForm.setData('is_enabled', e.target.checked)} className="size-4 rounded border-border accent-brand" />
-                                Self-registration open
-                            </label>
-                            <Button type="submit" disabled={registrationForm.processing}>Save</Button>
-                        </form>
-                    </CardContent>
-                </Card>
-
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="text-base">IP allowlist</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <p className="text-sm text-muted-foreground">
-                            The backoffice will be locked to an IP allowlist once multi-guard admin auth is wired.
-                        </p>
                     </CardContent>
                 </Card>
             </div>
