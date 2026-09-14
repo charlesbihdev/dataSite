@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\Admin;
+use App\Models\Agent;
 use App\Models\BaseCost;
 use App\Models\PricingTier;
 use App\Models\TierPrice;
@@ -20,10 +21,10 @@ class DatabaseSeeder extends Seeder
             ['username' => 'superadmin'],
             [
                 'name' => 'Super Admin',
-                'email' => 'bihcharles2004@gmail.com',
+                'email' => 'admin@datasite.com',
                 'phone' => '0548715098',
-                'password' => '@Charles2004',
-                'is_active' => true
+                'password' => '@TestAdmin2026',
+                'is_active' => true,
             ]
         );
 
@@ -62,7 +63,29 @@ class DatabaseSeeder extends Seeder
             );
         }
 
-        // 3. Demo Data (runs only locally)
+        // 3. Starter Agent account (production-safe, idempotent). This is a REAL agent — the demo
+        // seeders are skipped in production, so without this there would be no agent to log in with.
+        $agent = Agent::firstOrCreate(
+            ['username' => 'agent'],
+            [
+                'name' => 'First Agent',
+                'email' => 'agent@datasite.com',
+                'phone' => '0500000000',
+                'slug' => 'agent',
+                'password' => '@Agent2026',
+                'pricing_tier_id' => $tier->id,
+                'is_active' => true,
+                'store_active' => true,
+            ]
+        );
+
+        // Make sure the agent is on the default tier and has a wallet, even if the row pre-existed.
+        if ($agent->pricing_tier_id === null) {
+            $agent->update(['pricing_tier_id' => $tier->id]);
+        }
+        $agent->walletOrCreate();
+
+        // 4. Demo Data (runs only locally)
         if (! app()->isProduction()) {
             $this->call(DemoDataSeeder::class);
         }
