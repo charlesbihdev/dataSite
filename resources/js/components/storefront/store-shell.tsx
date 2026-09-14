@@ -81,7 +81,7 @@ export function StoreShell({
 
                 <main className="mx-auto w-full max-w-5xl px-4 pb-20 sm:px-6">
                     <section className="py-10 text-center sm:py-14">
-                        <h1 className="bg-gradient-to-br from-brand to-brand/60 bg-clip-text text-4xl font-bold tracking-tight text-transparent sm:text-5xl">
+                        <h1 className="bg-linear-to-br from-brand to-brand/60 bg-clip-text text-4xl font-bold tracking-tight text-transparent sm:text-5xl">
                             Buy data in seconds
                         </h1>
                         <p className="mx-auto mt-3 max-w-xl text-base text-muted-foreground">

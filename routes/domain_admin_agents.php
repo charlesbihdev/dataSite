@@ -48,7 +48,7 @@ use App\Http\Controllers\Webhooks\MoolreWebhookController;
 use App\Http\Controllers\Webhooks\PaystackWebhookController;
 use Illuminate\Support\Facades\Route;
 
-Route::inertia('/', 'welcome')->name('home');
+Route::inertia('/', 'public/agent-landing')->name('home');
 
 // Payment-gateway webhooks — public, no auth, no CSRF (server-to-server). Authenticated inside the
 // controller (Paystack: HMAC signature; Moolre: shared secret + status re-verify). URLs are

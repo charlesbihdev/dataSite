@@ -14,8 +14,8 @@ void createInertiaApp({
     title: (title) => (title ? `${title} - ${appName}` : appName),
     layout: (name) => {
         switch (true) {
-            case name === "welcome":
-                return null;
+            case name.startsWith("public/"):
+                return null; // standalone public pages (landing, store-home) — no app shell
             case name.includes("storefront/"):
                 return null; // public customer shop (e.g. agent/storefront/*, subagent/storefront/*) — standalone chrome, no app shell
             case name.startsWith("admin/auth/"):

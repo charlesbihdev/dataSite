@@ -32,6 +32,10 @@ use App\Http\Controllers\Subagent\DashboardController;
 use App\Http\Controllers\Subagent\RegisterController;
 use Illuminate\Support\Facades\Route;
 
+// D2 domain root — no public catalog here (every shop is a reseller's /buy/{slug} link). Politely
+// point stray visitors to use their store link; exposes NO signup, keeping the firewall intact.
+Route::inertia('/', 'public/agent-store-landing')->name('agent_store.home');
+
 // Subagent auth lives ONLY on this domain and uses its own guard + controller —
 // never Fortify's (agent) login. Guests land here; the guest redirect for the
 // agent_store surface points at subagent.login (see bootstrap/app.php).

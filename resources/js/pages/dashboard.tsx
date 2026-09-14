@@ -96,7 +96,7 @@ export default function Dashboard({
             <div className="flex h-full flex-1 flex-col gap-6 p-4 lg:p-8">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                     <div>
-                        <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-br from-foreground to-muted-foreground bg-clip-text text-transparent">
+                        <h1 className="text-3xl font-bold tracking-tight bg-linear-to-br from-foreground to-muted-foreground bg-clip-text text-transparent">
                             Welcome back, {user?.name?.split(" ")[0]}
                         </h1>
                         <p className="text-muted-foreground mt-2">
