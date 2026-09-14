@@ -28,6 +28,8 @@
 
 use App\Http\Controllers\Storefront\StorefrontController;
 use App\Http\Controllers\Subagent\AuthController;
+use App\Http\Controllers\Subagent\DashboardController;
+use App\Http\Controllers\Subagent\RegisterController;
 use Illuminate\Support\Facades\Route;
 
 // Subagent auth lives ONLY on this domain and uses its own guard + controller —
@@ -36,6 +38,10 @@ use Illuminate\Support\Facades\Route;
 Route::middleware(['guest:subagent'])->group(function () {
     Route::get('login', [AuthController::class, 'showLoginForm'])->name('subagent.login');
     Route::post('login', [AuthController::class, 'login'])->name('subagent.login.store');
+
+    // Become a subagent under an agent (ladder middle rung — D2 only, keyed to ?ref={agentSlug}).
+    Route::get('register', [RegisterController::class, 'create'])->name('subagent.register');
+    Route::post('register', [RegisterController::class, 'store'])->name('subagent.register.store');
 });
 
 Route::middleware(['auth:subagent'])->group(function () {
@@ -43,8 +49,7 @@ Route::middleware(['auth:subagent'])->group(function () {
 
     // Subagent dashboard. Path is /dashboard on THIS domain (distinct route
     // from the agent dashboard on domain 1, which shares the /dashboard path).
-    Route::get('dashboard', fn () => response('Subagent portal — TODO'))
-        ->name('subagent.dashboard');
+    Route::get('dashboard', [DashboardController::class, 'index'])->name('subagent.dashboard');
 });
 
 // Agent public storefront — buy bundles from an agent's retail store. The customer link is

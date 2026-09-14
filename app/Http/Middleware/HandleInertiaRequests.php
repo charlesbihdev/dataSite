@@ -33,13 +33,29 @@ class HandleInertiaRequests extends Middleware
      *
      * @return array<string, mixed>
      */
+    /**
+     * The signed-in portal user from whichever guard is active (agent default, subagent on D2).
+     */
+    private function resolveUser(Request $request): mixed
+    {
+        $user = $request->user('agent') ?? $request->user('subagent');
+
+        if ($user === null) {
+            return null;
+        }
+
+        return method_exists($user, 'wallet') ? $user->load('wallet') : $user;
+    }
+
     public function share(Request $request): array
     {
         return [
             ...parent::share($request),
             'name' => config('app.name'),
             'auth' => [
-                'user' => $request->user() ? (method_exists($request->user(), 'wallet') ? $request->user()->load('wallet') : $request->user()) : null,
+                // Resolve whichever portal guard is active (agent is the default; subagents live on
+                // the agent-store domain) so the shared app shell shows the right signed-in user.
+                'user' => fn () => $this->resolveUser($request),
             ],
             'flash' => [
                 'rawApiKey' => fn () => $request->session()->get('rawApiKey'),

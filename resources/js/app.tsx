@@ -6,6 +6,7 @@ import AdminLayout from "@/layouts/admin-layout";
 import AppLayout from "@/layouts/app-layout";
 import AuthLayout from "@/layouts/auth-layout";
 import SettingsLayout from "@/layouts/settings/layout";
+import SubagentLayout from "@/layouts/subagent-layout";
 
 const appName = import.meta.env.VITE_APP_NAME || "DataSite";
 
@@ -21,6 +22,10 @@ void createInertiaApp({
                 return AuthLayout;
             case name.startsWith("admin/"):
                 return AdminLayout;
+            case name.startsWith("subagent/auth/"):
+                return AuthLayout;
+            case name.startsWith("subagent/"):
+                return SubagentLayout;
             case name.startsWith("auth/"):
                 return AuthLayout;
             case name.startsWith("settings/"):
