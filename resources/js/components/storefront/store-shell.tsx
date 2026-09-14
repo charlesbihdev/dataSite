@@ -84,7 +84,7 @@ export function StoreShell({
                         </h1>
                         <p className="mx-auto mt-3 max-w-xl text-base text-muted-foreground">
                             Pick a bundle, enter the number to top up, and pay.
-                            No sign-up needed.
+                            Simple and fast.
                         </p>
                         <div className="mt-6 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-muted-foreground">
                             <span className="inline-flex items-center gap-1.5">
