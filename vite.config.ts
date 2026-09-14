@@ -15,6 +15,9 @@ export default defineConfig({
             fonts: [
                 bunny('Instrument Sans', {
                     weights: [400, 500, 600],
+                    // Skip the optional "fontaine" fallback optimization (not installed) so the
+                    // build runs clean without pulling in an extra dependency.
+                    optimizedFallbacks: false,
                 }),
             ],
         }),
