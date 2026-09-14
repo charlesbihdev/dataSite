@@ -81,12 +81,12 @@ export default function StorefrontTrack({ agentSlug, store, by, phone, reference
             <div className="min-h-screen bg-background text-foreground">
                 <header className="border-b border-border bg-card/60 backdrop-blur">
                     <div className="mx-auto flex w-full max-w-2xl items-center justify-between gap-3 px-4 py-3.5 sm:px-6 sm:py-4">
-                        <div className="flex min-w-0 items-center gap-2.5">
+                        <Link href={show.url({ agentSlug })} className="flex min-w-0 items-center gap-2.5 transition hover:opacity-90">
                             <span className="hidden size-9 shrink-0 items-center justify-center rounded-lg bg-brand text-brand-fg sm:flex">
                                 <ShoppingBag className="size-5" />
                             </span>
                             <span className="truncate text-base font-semibold">{store.name}</span>
-                        </div>
+                        </Link>
                         <Link href={show.url({ agentSlug })} className="shrink-0 text-sm font-medium text-brand hover:underline">
                             ← Buy bundles
                         </Link>

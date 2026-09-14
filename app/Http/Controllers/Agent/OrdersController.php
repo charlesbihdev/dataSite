@@ -2,8 +2,14 @@
 
 namespace App\Http\Controllers\Agent;
 
+use App\Exceptions\InsufficientBalanceException;
 use App\Http\Controllers\Controller;
+use App\Models\Order;
+use App\Services\Orders\OrderDispatchService;
+use App\Services\Payments\OrderPaymentConfirmer;
+use App\Services\Payments\PaymentVerifier;
 use App\Support\DateRange;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -60,5 +66,61 @@ class OrdersController extends Controller
                 'network' => $network,
             ],
         ]);
+    }
+
+    /**
+     * Let an agent re-send one of their OWN failed orders. Scoped to the agent's orders so they can
+     * never touch another seller's; redispatch re-debits the wallet for a prepaid order (money no
+     * longer held after the failure) and simply re-sends a customer-paid storefront order.
+     */
+    public function retry(Request $request, int $order, OrderDispatchService $dispatch): RedirectResponse
+    {
+        /** @var Order $found */
+        $found = $request->user()->orders()->whereKey($order)->firstOrFail();
+
+        if ($found->status !== Order::STATUS_FAILED) {
+            Inertia::flash('toast', ['type' => 'error', 'message' => 'Only failed orders can be retried.']);
+
+            return back();
+        }
+
+        try {
+            $dispatch->redispatch($found);
+        } catch (InsufficientBalanceException) {
+            Inertia::flash('toast', ['type' => 'error', 'message' => 'Insufficient wallet balance to retry this order. Top up and try again.']);
+
+            return back();
+        }
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => "Order {$found->reference} is being re-sent."]);
+
+        return back();
+    }
+
+    /**
+     * Let an agent verify a customer's gateway payment on one of their OWN storefront orders and, if
+     * it cleared, dispatch it. Reuses the shared OrderPaymentConfirmer (same path as the storefront
+     * callback, the webhooks, and the admin verify) so the money outcome is identical everywhere.
+     */
+    public function verifyPayment(Request $request, int $order, OrderPaymentConfirmer $confirmer): RedirectResponse
+    {
+        /** @var Order $found */
+        $found = $request->user()->orders()->whereKey($order)->firstOrFail();
+
+        if ($found->payment_status !== Order::PAYMENT_AWAITING) {
+            Inertia::flash('toast', ['type' => 'error', 'message' => 'Only orders awaiting payment can be verified.']);
+
+            return back();
+        }
+
+        $toast = match ($confirmer->confirm($found)) {
+            PaymentVerifier::PAID => ['type' => 'success', 'message' => "Payment confirmed for {$found->reference}. Bundle dispatched."],
+            PaymentVerifier::FAILED => ['type' => 'error', 'message' => "{$found->reference}: the payment failed. Order marked failed."],
+            default => ['type' => 'info', 'message' => "{$found->reference}: payment not confirmed yet. Try again shortly."],
+        };
+
+        Inertia::flash('toast', $toast);
+
+        return back();
     }
 }

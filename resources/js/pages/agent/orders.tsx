@@ -1,5 +1,7 @@
 import { Head, router } from "@inertiajs/react";
+import { RefreshCw, RotateCw } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { retry as retryOrder, verifyPayment as verifyOrder } from "@/actions/App/Http/Controllers/Agent/OrdersController";
 import { Order, OrderDetailDialog } from "@/components/agent/order-detail-dialog";
 import { Column, DataTable } from "@/components/common/data-table";
 import { DateRangePicker, DateRangeValue } from "@/components/common/date-range-picker";
@@ -75,15 +77,42 @@ export default function AgentOrders({ orders, filters, stats }: Props) {
         { key: "package", header: "Package", render: (o) => `${o.capacity_gb}GB` },
         { key: "beneficiary_phone", header: "Beneficiary", render: (o) => <span className="font-mono text-xs">{o.beneficiary_phone}</span> },
         { key: "customer_price", header: "Amount", align: "right", render: (o) => cedis(o.customer_price) },
-        { key: "status", header: "Status", render: (o) => <StatusBadge status={o.status} /> },
+        { key: "payment_status", header: "Payment", render: (o) => <StatusBadge status={o.payment_status} /> },
+        { key: "status", header: "Delivery", render: (o) => <StatusBadge status={o.status} /> },
         {
             key: "action",
             header: "",
             align: "right",
             render: (o) => (
-                <Button variant="ghost" size="sm" onClick={() => setSelected(o)}>
-                    View
-                </Button>
+                <div className="flex items-center justify-end gap-1">
+                    {o.payment_status === "awaiting" ? (
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            title="Verify payment & dispatch"
+                            aria-label="Verify payment & dispatch"
+                            className="text-amber-600 hover:text-amber-700 dark:text-amber-400"
+                            onClick={() => router.post(verifyOrder(o.id).url, {}, { preserveScroll: true })}
+                        >
+                            <RefreshCw className="size-4" />
+                        </Button>
+                    ) : null}
+                    {o.status === "failed" ? (
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            title="Retry dispatch"
+                            aria-label="Retry dispatch"
+                            className="text-brand hover:text-brand-hover"
+                            onClick={() => router.post(retryOrder(o.id).url, {}, { preserveScroll: true })}
+                        >
+                            <RotateCw className="size-4" />
+                        </Button>
+                    ) : null}
+                    <Button variant="ghost" size="sm" onClick={() => setSelected(o)}>
+                        View
+                    </Button>
+                </div>
             ),
         },
     ];

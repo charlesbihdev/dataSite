@@ -14,6 +14,7 @@ use App\Services\Payments\WalletTopupService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
+use Symfony\Component\HttpFoundation\Response as HttpResponse;
 
 /**
  * Agent self-service wallet funding. `store` opens a gateway checkout (real money in); `callback`
@@ -22,7 +23,7 @@ use Inertia\Inertia;
  */
 class WalletTopupController extends Controller
 {
-    public function store(WalletTopupRequest $request, WalletTopupService $service): RedirectResponse
+    public function store(WalletTopupRequest $request, WalletTopupService $service): HttpResponse
     {
         $agent = $request->user('agent');
         $wallet = $agent->walletOrCreate();

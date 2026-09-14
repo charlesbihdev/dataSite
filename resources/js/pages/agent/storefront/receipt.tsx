@@ -20,7 +20,7 @@ interface Props {
 }
 
 const STATE = {
-    paid: { icon: CheckCircle2, tone: "text-success", title: "Payment received", note: "Your bundle is on its way." },
+    paid: { icon: CheckCircle2, tone: "text-success", title: "Payment received", note: "Your payment was successful. Your data bundle is being processed and will be delivered shortly." },
     awaiting: { icon: Clock, tone: "text-brand", title: "Order received", note: "We're confirming your payment. Your bundle will be delivered shortly." },
     failed: { icon: XCircle, tone: "text-destructive", title: "Payment failed", note: "We couldn't confirm your payment. Please try again." },
 } as const;
@@ -48,6 +48,17 @@ export default function StorefrontReceipt({ agentSlug, store, order }: Props) {
                                 <dd className="text-lg font-bold tabular-nums">{cedis(order.amount)}</dd>
                             </div>
                         </dl>
+
+                        {order.paymentStatus === "paid" && (
+                            <div className="mt-6 rounded-xl border border-brand/20 bg-brand-subtle p-4 text-left">
+                                <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">What's next?</p>
+                                <p className="mt-1 text-sm text-foreground">
+                                    Your data bundle is being sent to{" "}
+                                    <span className="font-semibold">{order.phone}</span> and should
+                                    arrive within a few minutes.
+                                </p>
+                            </div>
+                        )}
 
                         <div className="mt-6 grid gap-2 sm:grid-cols-2">
                             <Button asChild variant="outline">

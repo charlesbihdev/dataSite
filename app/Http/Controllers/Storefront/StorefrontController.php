@@ -17,6 +17,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\Response as HttpResponse;
 
 /**
  * The public agent storefront at /buy/{slug} (D2). A walk-in customer picks one of the agent's active
@@ -43,7 +44,7 @@ class StorefrontController extends Controller
         ]);
     }
 
-    public function checkout(CheckoutRequest $request, string $slug, StorefrontCheckoutService $checkout, OrderPaymentInitiator $payments): RedirectResponse
+    public function checkout(CheckoutRequest $request, string $slug, StorefrontCheckoutService $checkout, OrderPaymentInitiator $payments): HttpResponse
     {
         $agent = $this->resolveAgent($slug);
 

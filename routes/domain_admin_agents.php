@@ -60,6 +60,8 @@ Route::middleware(['auth:agent'])->group(function () {
     Route::get('dashboard', [App\Http\Controllers\Agent\DashboardController::class, 'index'])->name('agent.dashboard');
     Route::get('transactions', [WalletController::class, 'index'])->name('agent.transactions');
     Route::get('orders', [App\Http\Controllers\Agent\OrdersController::class, 'index'])->name('agent.orders');
+    Route::post('orders/{order}/retry', [App\Http\Controllers\Agent\OrdersController::class, 'retry'])->name('agent.orders.retry');
+    Route::post('orders/{order}/verify-payment', [App\Http\Controllers\Agent\OrdersController::class, 'verifyPayment'])->name('agent.orders.verify-payment');
     Route::get('packages', [PackagesController::class, 'index'])->name('agent.packages');
     Route::post('packages', [PackagesController::class, 'store'])->name('agent.packages.store');
     Route::post('packages/{package}/toggle', [PackagesController::class, 'toggle'])->name('agent.packages.toggle');

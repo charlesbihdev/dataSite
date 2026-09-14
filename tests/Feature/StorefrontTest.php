@@ -95,6 +95,20 @@ class StorefrontTest extends TestCase
         $this->assertSame($agent->getKey(), $order->seller_id);
     }
 
+    public function test_checkout_from_an_inertia_visit_redirects_to_the_gateway(): void
+    {
+        // Real browser flow: an Inertia visit gets a 409 + X-Inertia-Location (not a plain redirect).
+        $this->agentWithStore();
+
+        $this->post(route('agent.storefront.checkout', ['agentSlug' => 'kofi-data']), [
+            'beneficiary_phone' => '0241234567',
+            'network' => 'mtn',
+            'capacity_gb' => 5,
+        ], ['X-Inertia' => 'true'])
+            ->assertStatus(409)
+            ->assertHeader('X-Inertia-Location', 'https://checkout.paystack.com/redirect');
+    }
+
     public function test_checkout_rejects_a_package_not_on_the_store(): void
     {
         $this->agentWithStore();

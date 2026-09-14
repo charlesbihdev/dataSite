@@ -1,5 +1,5 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { BadgeCheck } from 'lucide-react';
+import { RefreshCw, RotateCw } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { agent as agentOrders, bulk as bulkOrders, exportMethod as exportOrders, regular as regularOrders, verifyPayment } from '@/actions/App/Http/Controllers/Admin/OrdersController';
 import { AdminOrder, OrderDetailDialog } from '@/components/admin/orders/order-detail-dialog';
@@ -92,14 +92,19 @@ export function OrdersPage({
 
     // Every row is selectable; the server scopes each bulk action to the orders it can act on
     // (verify/delete → awaiting, sync → processing, retry → failed), so a mixed selection is safe.
-    const runBulk = (action: 'verify' | 'mark-verified' | 'delete' | 'sync' | 'retry' | 'apply-status', status?: string) => {
-        if (action === 'delete' && !window.confirm(`Delete ${selectedIds.length} selected order(s)? Only awaiting ones are removed. This can't be undone.`)) {
+    const runBulk = (
+        action: 'verify' | 'mark-verified' | 'delete' | 'sync' | 'retry' | 'apply-status',
+        status?: string,
+        ids?: (string | number)[],
+    ) => {
+        const targetIds = ids ?? selectedIds;
+        if (action === 'delete' && !window.confirm(`Delete ${targetIds.length} selected order(s)? Only awaiting ones are removed. This can't be undone.`)) {
             return;
         }
         router.post(
             bulkOrders.url(),
-            { action, ids: selectedIds, ...(status ? { status } : {}) },
-            { preserveScroll: true, onSuccess: () => setSelectedIds([]) },
+            { action, ids: targetIds, ...(status ? { status } : {}) },
+            { preserveScroll: true, onSuccess: () => !ids && setSelectedIds([]) },
         );
     };
 
@@ -160,7 +165,19 @@ export function OrdersPage({
                             className="text-amber-600 hover:text-amber-700 dark:text-amber-400"
                             onClick={() => router.post(verifyPayment(o.id).url, {}, { preserveScroll: true })}
                         >
-                            <BadgeCheck className="size-4" />
+                            <RefreshCw className="size-4" />
+                        </Button>
+                    ) : null}
+                    {isRegular && o.paymentStatus === 'paid' && o.status === 'failed' ? (
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            title="Retry dispatch"
+                            aria-label="Retry dispatch"
+                            className="text-brand hover:text-brand-hover"
+                            onClick={() => runBulk('retry', undefined, [o.id])}
+                        >
+                            <RotateCw className="size-4" />
                         </Button>
                     ) : null}
                     <Button variant="ghost" size="sm" onClick={() => setSelected(o)}>
@@ -325,6 +342,9 @@ export function OrdersPage({
                                     </Button>
                                     <Button size="sm" variant="secondary" onClick={() => runBulk('mark-verified')}>
                                         Mark verified
+                                    </Button>
+                                    <Button size="sm" variant="secondary" onClick={() => runBulk('retry')}>
+                                        Retry dispatch
                                     </Button>
                                     <Button size="sm" variant="ghost" className="text-danger hover:text-danger" onClick={() => runBulk('delete')}>
                                         Delete

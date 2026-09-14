@@ -36,6 +36,7 @@ export function StoreShell({
     store,
     packages,
     networks,
+    homeHref,
     trackHref,
     renderCheckout,
     topBanner,
@@ -44,6 +45,7 @@ export function StoreShell({
     store: StorefrontStore;
     packages: StorefrontPkg[];
     networks: NetworkMeta[];
+    homeHref: string;
     trackHref: string;
     renderCheckout: (pkg: StorefrontPkg | null, close: () => void) => ReactNode;
     topBanner?: ReactNode;
@@ -75,7 +77,7 @@ export function StoreShell({
             <Head title={`Buy Data · ${store.name}`} />
             <div className="min-h-screen bg-background text-foreground">
                 {topBanner}
-                <StoreHeader store={store} trackHref={trackHref} />
+                <StoreHeader store={store} homeHref={homeHref} trackHref={trackHref} />
 
                 <main className="mx-auto w-full max-w-5xl px-4 pb-20 sm:px-6">
                     <section className="py-10 text-center sm:py-14">
@@ -210,22 +212,24 @@ function NetworkSection({
 
 function StoreHeader({
     store,
+    homeHref,
     trackHref,
 }: {
     store: StorefrontStore;
+    homeHref: string;
     trackHref: string;
 }) {
     return (
         <header className="border-b border-border bg-card/60 backdrop-blur">
             <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-3 px-4 py-3.5 sm:px-6 sm:py-4">
-                <div className="flex min-w-0 items-center gap-2.5">
+                <Link href={homeHref} className="flex min-w-0 items-center gap-2.5 transition hover:opacity-90">
                     <span className="hidden size-9 shrink-0 items-center justify-center rounded-lg bg-brand text-brand-fg sm:flex">
                         <ShoppingBag className="size-5" />
                     </span>
                     <span className="truncate text-base font-semibold">
                         {store.name}
                     </span>
-                </div>
+                </Link>
                 <div className="flex shrink-0 items-center gap-2 sm:gap-3">
                     <Link
                         href={trackHref}

@@ -216,6 +216,24 @@ class VerifyPaymentTest extends TestCase
         $this->assertSame(1, Earning::where('status', Earning::STATUS_CREDITED)->count());
     }
 
+    public function test_bulk_retry_redispatches_a_paid_but_failed_storefront_order(): void
+    {
+        Http::fake(['dbh.test/api/create_order' => Http::response([
+            'success' => true, 'data' => ['requestId' => 80, 'orderStatus' => 'completed', 'price' => 15.0],
+        ])]);
+
+        // Customer already paid online, but delivery failed — retry must re-send WITHOUT re-charging.
+        $order = $this->awaitingOrder('DS-RTY0002');
+        $order->update(['payment_status' => Order::PAYMENT_PAID, 'status' => Order::STATUS_FAILED]);
+
+        $this->post('/admin/orders/bulk', ['action' => 'retry', 'ids' => [$order->id]])->assertRedirect();
+
+        $order->refresh();
+        $this->assertSame(Order::STATUS_COMPLETED, $order->status);
+        $this->assertSame(Order::PAYMENT_PAID, $order->payment_status); // never flipped / re-charged
+        $this->assertSame(2, Earning::where('status', Earning::STATUS_CREDITED)->count());
+    }
+
     public function test_bulk_apply_status_completed_credits_earnings(): void
     {
         $this->seq++;

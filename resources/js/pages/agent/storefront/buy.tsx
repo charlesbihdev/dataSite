@@ -1,5 +1,5 @@
 import { ShoppingBag } from "lucide-react";
-import { track } from "@/actions/App/Http/Controllers/Storefront/StorefrontController";
+import { show, track } from "@/actions/App/Http/Controllers/Storefront/StorefrontController";
 import { CheckoutDialog } from "@/components/storefront/checkout-dialog";
 import { type StorefrontPkg } from "@/components/storefront/package-card";
 import {
@@ -34,6 +34,7 @@ export default function AgentStorefrontBuy({
             store={store}
             packages={packages}
             networks={networks}
+            homeHref={show.url({ agentSlug })}
             trackHref={track.url({ agentSlug })}
             topBanner={<ResellerStrip store={store} recruitUrl={recruitUrl} />}
             promo={<RecruitSection store={store} recruitUrl={recruitUrl} />}
