@@ -1,7 +1,9 @@
 import { Head, router, usePage } from "@inertiajs/react";
-import { Link as LinkIcon, ShoppingBag, TrendingUp, Users, Wallet } from "lucide-react";
+import { useState } from "react";
+import { Check, Copy, Link as LinkIcon, ShoppingBag, TrendingUp, Users, Wallet } from "lucide-react";
 import { PlaceOrderCard } from "@/components/agent/place-order/place-order-card";
 import { CartItem, CartPanel } from "@/components/agent/place-order/cart-panel";
+import { TopupDialog } from "@/components/agent/topup-dialog";
 import { Column, DataTable } from "@/components/common/data-table";
 import { DateRangePicker, DateRangeValue } from "@/components/common/date-range-picker";
 import { StatusBadge } from "@/components/common/status-badge";
@@ -52,6 +54,7 @@ export default function Dashboard({
     filters,
     stats,
     recentOrders,
+    storeUrl,
     cart,
     cartTotal,
     networks,
@@ -59,13 +62,21 @@ export default function Dashboard({
     filters: Filters;
     stats: Stats;
     recentOrders: RecentOrder[];
+    storeUrl: string;
     cart: CartItem[];
     cartTotal: number;
     networks: NetworkMeta[];
 }) {
     const { auth } = usePage().props as any;
     const user = auth.user;
-    const storeUrl = `${window.location.protocol}//${window.location.host}/${user?.slug}`;
+    const [copied, setCopied] = useState(false);
+
+    const copyStoreLink = () => {
+        navigator.clipboard.writeText(storeUrl).then(() => {
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        });
+    };
 
     // The date filter drives a server round-trip: Inertia re-requests this same
     // route with the range as query params, the controller recomputes the
@@ -113,13 +124,17 @@ export default function Dashboard({
                             <p className="text-xs text-muted-foreground mt-1">
                                 Available for purchases
                             </p>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                className="w-full mt-4 bg-background/50"
-                            >
-                                Top Up Wallet
-                            </Button>
+                            <TopupDialog
+                                trigger={
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="w-full mt-4 bg-background/50"
+                                    >
+                                        Top Up Wallet
+                                    </Button>
+                                }
+                            />
                         </CardContent>
                     </Card>
 
@@ -138,21 +153,26 @@ export default function Dashboard({
                                     rel="noreferrer"
                                     className="hover:underline text-primary"
                                 >
-                                    {window.location.host}/{user?.slug}
+                                    {storeUrl.replace(/^https?:\/\//, "")}
                                 </a>
                             </div>
                             <p className="text-xs text-muted-foreground mt-2">
                                 Share this link with customers
                             </p>
                             <Button
-                                variant="secondary"
                                 size="sm"
-                                className="w-full mt-3"
-                                onClick={() =>
-                                    navigator.clipboard.writeText(storeUrl)
-                                }
+                                className="mt-3 w-full bg-brand text-brand-fg hover:bg-brand-hover"
+                                onClick={copyStoreLink}
                             >
-                                Copy Link
+                                {copied ? (
+                                    <>
+                                        <Check className="size-4" /> Copied!
+                                    </>
+                                ) : (
+                                    <>
+                                        <Copy className="size-4" /> Copy Link
+                                    </>
+                                )}
                             </Button>
                         </CardContent>
                     </Card>

@@ -62,6 +62,9 @@ class DashboardController extends Controller
                 'subagentsCount' => $agent->subagents()->count(),
             ],
             'recentOrders' => $recentOrders,
+            // The agent's public storefront link, resolved via the named route so it is correct in
+            // both prod (domain) and local (path-prefix) modes — never hand-built on the client.
+            'storeUrl' => route('agent.storefront', ['agentSlug' => $agent->slug ?? (string) $agent->id]),
             // Place-Order card + Cart panel (always-current, independent of the date filter).
             'cart' => $this->cart->items(),
             'cartTotal' => $this->cart->total(),

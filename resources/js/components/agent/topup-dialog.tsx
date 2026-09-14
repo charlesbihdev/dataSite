@@ -1,6 +1,6 @@
 import { useForm } from "@inertiajs/react";
 import { Plus } from "lucide-react";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
     Dialog,
@@ -23,7 +23,7 @@ const QUICK_AMOUNTS = [50, 100, 200, 500];
  * the server owns pricing, verification, and the actual credit. On submit the server hands the
  * browser off to the gateway's hosted page (Inertia location redirect).
  */
-export function TopupDialog() {
+export function TopupDialog({ trigger }: { trigger?: ReactNode } = {}) {
     const [open, setOpen] = useState(false);
     const form = useForm({ amount: "" });
 
@@ -35,9 +35,11 @@ export function TopupDialog() {
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-                <Button className="bg-brand text-brand-fg hover:bg-brand-hover">
-                    <Plus className="size-4" /> Top up wallet
-                </Button>
+                {trigger ?? (
+                    <Button className="bg-brand text-brand-fg hover:bg-brand-hover">
+                        <Plus className="size-4" /> Top up wallet
+                    </Button>
+                )}
             </DialogTrigger>
             <DialogContent>
                 <form onSubmit={submit}>

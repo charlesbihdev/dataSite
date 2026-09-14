@@ -1,0 +1,1 @@
+function e(e){let t=e.replace(/\D+/g,``);return t.startsWith(`233`)&&t.length===12?t=`0`+t.slice(3):t.length===9&&(t[0]===`2`||t[0]===`5`)&&(t=`0`+t),t.length===10&&t[0]===`0`?t:``}function t(t,n){let r=e(t);if(r===``)return null;let i=r.slice(0,3);return n.find(e=>e.prefixes.includes(i))??null}export{e as n,t};
