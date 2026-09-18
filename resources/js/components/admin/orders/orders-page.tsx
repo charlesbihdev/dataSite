@@ -1,8 +1,11 @@
 import { Head, Link, router } from '@inertiajs/react';
 import { RefreshCw, RotateCw } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { agent as agentOrders, bulk as bulkOrders, exportMethod as exportOrders, regular as regularOrders, verifyPayment } from '@/actions/App/Http/Controllers/Admin/OrdersController';
+import { agent as agentOrders, bulk as bulkOrders, regular as regularOrders, verifyPayment } from '@/actions/App/Http/Controllers/Admin/OrdersController';
+import { OrderBulkBar, type BulkAction } from '@/components/admin/orders/order-bulk-bar';
 import { AdminOrder, OrderDetailDialog } from '@/components/admin/orders/order-detail-dialog';
+import { OrderFilters } from '@/components/admin/orders/order-filters';
+import { type Filters, type OrderSegment } from '@/components/admin/orders/orders-shared';
 import { SellerTypeBadge } from '@/components/admin/orders/seller-type-badge';
 import { Column, DataTable } from '@/components/common/data-table';
 import { DateRangePicker, DateRangeValue } from '@/components/common/date-range-picker';
@@ -11,12 +14,10 @@ import { Pagination, PageLink } from '@/components/common/pagination';
 import { StatTile } from '@/components/common/stat-tile';
 import { StatusBadge } from '@/components/common/status-badge';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cedis } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
-export type OrderSegment = 'agent' | 'regular';
+export type { OrderSegment };
 
 interface Paginator {
     data: AdminOrder[];
@@ -35,24 +36,6 @@ interface Stats {
     todayCount: number;
     todayRevenue: number;
 }
-
-interface Filters {
-    status: string;
-    network: string;
-    seller: string;
-    source: string;
-    payment: string;
-    q: string;
-    range: string;
-    from: string | null;
-    to: string | null;
-}
-
-const STATUSES = ['all', 'pending', 'processing', 'completed', 'failed', 'refunded'];
-const NETWORKS = ['all', 'mtn', 'telecel', 'at'];
-const SELLERS = ['all', 'agent', 'subagent'];
-const SOURCES = ['all', 'portal', 'api'];
-const PAYMENTS = ['all', 'paid', 'awaiting', 'failed'];
 
 const PaymentBadge = ({ status }: { status: string }) => {
     if (status === 'awaiting') {
@@ -93,12 +76,24 @@ export function OrdersPage({
     // Every row is selectable; the server scopes each bulk action to the orders it can act on
     // (verify/delete → awaiting, sync → processing, retry → failed), so a mixed selection is safe.
     const runBulk = (
-        action: 'verify' | 'mark-verified' | 'delete' | 'sync' | 'retry' | 'apply-status',
+        action: BulkAction,
         status?: string,
         ids?: (string | number)[],
     ) => {
         const targetIds = ids ?? selectedIds;
         if (action === 'delete' && !window.confirm(`Delete ${targetIds.length} selected order(s)? Only awaiting ones are removed. This can't be undone.`)) {
+            return;
+        }
+        // Regular (storefront) orders start unpaid, so force-completing them marks them PAID +
+        // delivered without collecting a gateway payment or dispatching to the supplier — confirm.
+        if (
+            action === 'apply-status' &&
+            status === 'completed' &&
+            isRegular &&
+            !window.confirm(
+                `Mark ${targetIds.length} storefront order(s) as delivered? This sets them PAID and completed without collecting a gateway payment or dispatching to the supplier. This can't be undone.`,
+            )
+        ) {
             return;
         }
         router.post(
@@ -235,158 +230,24 @@ export function OrdersPage({
                     <StatTile label="Today" value={`${stats.todayCount} · ${cedis(stats.todayRevenue)}`} hint="Orders · revenue today" />
                 </div>
 
-                <div className="flex flex-wrap items-center gap-3">
-                    <Select value={filters.status} onValueChange={(v) => apply({ status: v })}>
-                        <SelectTrigger className="w-40">
-                            <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {STATUSES.map((s) => (
-                                <SelectItem key={s} value={s} className="capitalize">
-                                    {s === 'all' ? 'All statuses' : s}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-
-                    <Select value={filters.network} onValueChange={(v) => apply({ network: v })}>
-                        <SelectTrigger className="w-36">
-                            <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {NETWORKS.map((n) => (
-                                <SelectItem key={n} value={n} className="uppercase">
-                                    {n === 'all' ? 'All networks' : n}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-
-                    {isRegular ? (
-                        <Select value={filters.payment} onValueChange={(v) => apply({ payment: v })}>
-                            <SelectTrigger className="w-40">
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {PAYMENTS.map((p) => (
-                                    <SelectItem key={p} value={p} className="capitalize">
-                                        {p === 'all' ? 'All payments' : p === 'awaiting' ? 'Awaiting payment' : p}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    ) : (
-                        <>
-                            <Select value={filters.seller} onValueChange={(v) => apply({ seller: v })}>
-                                <SelectTrigger className="w-36">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {SELLERS.map((s) => (
-                                        <SelectItem key={s} value={s} className="capitalize">
-                                            {s === 'all' ? 'All sellers' : `${s}s`}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-
-                            <Select value={filters.source} onValueChange={(v) => apply({ source: v })}>
-                                <SelectTrigger className="w-32">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {SOURCES.map((s) => (
-                                        <SelectItem key={s} value={s} className={s === 'api' ? 'uppercase' : 'capitalize'}>
-                                            {s === 'all' ? 'All sources' : s}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </>
-                    )}
-
-                    <Input
-                        value={search}
-                        onChange={(e) => onSearchChange(e.target.value)}
-                        placeholder="Reference, receiver phone, or upstream ref…"
-                        className="ml-auto w-72"
-                    />
-
-                    {!isRegular ? (
-                        <Button asChild variant="outline" size="sm">
-                            <a
-                                href={
-                                    exportOrders.url({
-                                        query: Object.fromEntries(
-                                            Object.entries({ ...filters, segment }).filter(
-                                                ([, v]) => v !== null && v !== '' && v !== 'all',
-                                            ),
-                                        ),
-                                    })
-                                }
-                            >
-                                Export CSV
-                            </a>
-                        </Button>
-                    ) : null}
-                </div>
+                <OrderFilters
+                    filters={filters}
+                    isRegular={isRegular}
+                    segment={segment}
+                    search={search}
+                    onSearchChange={onSearchChange}
+                    onApply={apply}
+                />
 
                 {selectedIds.length > 0 ? (
-                    <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-muted/40 px-4 py-2">
-                        <span className="text-sm font-medium">{selectedIds.length} selected</span>
-                        <div className="ml-auto flex flex-wrap gap-2">
-                            {isRegular ? (
-                                <>
-                                    <Button size="sm" onClick={() => runBulk('verify')}>
-                                        Verify payment
-                                    </Button>
-                                    <Button size="sm" variant="secondary" onClick={() => runBulk('mark-verified')}>
-                                        Mark verified
-                                    </Button>
-                                    <Button size="sm" variant="secondary" onClick={() => runBulk('retry')}>
-                                        Retry dispatch
-                                    </Button>
-                                    <Button size="sm" variant="ghost" className="text-danger hover:text-danger" onClick={() => runBulk('delete')}>
-                                        Delete
-                                    </Button>
-                                </>
-                            ) : (
-                                <>
-                                    <Button size="sm" onClick={() => runBulk('sync')}>
-                                        Sync status
-                                    </Button>
-                                    <Button size="sm" variant="secondary" onClick={() => runBulk('retry')}>
-                                        Retry dispatch
-                                    </Button>
-                                    <div className="flex items-center gap-1">
-                                        <Select value={applyStatus} onValueChange={setApplyStatus}>
-                                            <SelectTrigger className="h-8 w-36">
-                                                <SelectValue placeholder="Set status…" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {STATUSES.filter((s) => s !== 'all').map((s) => (
-                                                    <SelectItem key={s} value={s} className="capitalize">
-                                                        {s}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                        <Button
-                                            size="sm"
-                                            variant="secondary"
-                                            disabled={!applyStatus}
-                                            onClick={() => runBulk('apply-status', applyStatus)}
-                                        >
-                                            Apply
-                                        </Button>
-                                    </div>
-                                </>
-                            )}
-                            <Button size="sm" variant="ghost" onClick={() => setSelectedIds([])}>
-                                Clear
-                            </Button>
-                        </div>
-                    </div>
+                    <OrderBulkBar
+                        isRegular={isRegular}
+                        count={selectedIds.length}
+                        applyStatus={applyStatus}
+                        onApplyStatusChange={setApplyStatus}
+                        onRun={runBulk}
+                        onClear={() => setSelectedIds([])}
+                    />
                 ) : null}
 
                 <DataTable
