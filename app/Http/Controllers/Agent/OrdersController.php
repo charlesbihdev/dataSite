@@ -43,10 +43,13 @@ class OrdersController extends Controller
             ->latest();
 
         $ordersCount = (clone $query)->count();
-        $totalSales = (clone $query)->where('payment_status', 'paid')->sum('customer_price');
-        $totalProfit = (clone $query)->where('payment_status', 'paid')
-            ->selectRaw('SUM(customer_price - seller_cost) as profit')
-            ->value('profit') ?? 0;
+
+        // Aggregate off a paid-only clone. Eloquent's sum() strips the ->latest() ordering on
+        // every driver, and profit as SUM(sales) − SUM(cost) avoids a raw aggregate that MySQL
+        // rejects alongside an ORDER BY (SUM(a) − SUM(b) === SUM(a − b)).
+        $paid = (clone $query)->where('payment_status', 'paid');
+        $totalSales = $paid->sum('customer_price');
+        $totalProfit = $totalSales - $paid->sum('seller_cost');
 
         $orders = $query->paginate(30)->withQueryString();
 

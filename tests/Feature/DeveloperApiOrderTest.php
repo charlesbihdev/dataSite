@@ -9,6 +9,7 @@ use App\Models\DbhConfig;
 use App\Models\Order;
 use App\Models\PricingTier;
 use App\Models\TierPrice;
+use App\Services\Orders\OrderDispatchService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
@@ -63,6 +64,27 @@ class DeveloperApiOrderTest extends TestCase
         $order = Order::first();
         $this->assertSame('api', $order->source);
         $this->assertSame(75.0, (float) $this->agent->walletOrCreate()->balance); // 100 - 25
+    }
+
+    public function test_held_order_returns_pending_with_a_message_not_a_failure(): void
+    {
+        DbhConfig::query()->delete(); // no active supplier connection → the order is held
+
+        $response = $this->withHeaders(['X-API-Key' => $this->rawKey])
+            ->postJson('/api/create_order', ['phoneNumber' => '0559999999', 'network' => 'mtn', 'capacity' => 5]);
+
+        // Accepted and held, not rejected: success 201, pending, no failure fields (DBH shape).
+        $response->assertStatus(201)
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.orderStatus', 'pending')
+            ->assertJsonPath('data.isCompleted', false)
+            ->assertJsonPath('data.failureReason', null)
+            ->assertJsonPath('data.errorCode', null)
+            ->assertJsonPath('data.message', OrderDispatchService::HELD_REASON);
+
+        // Money stays reserved (held), never refunded.
+        $this->assertSame(75.0, (float) $this->agent->walletOrCreate()->balance);
+        $this->assertSame(Order::STATUS_PENDING, Order::first()->status);
     }
 
     public function test_missing_key_is_rejected(): void

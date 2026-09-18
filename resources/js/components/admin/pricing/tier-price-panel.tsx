@@ -9,6 +9,7 @@ import {
     BandDialog,
     BandFormValue,
 } from "@/components/admin/pricing/band-dialog";
+import { ConfirmDialog } from "@/components/common/confirm-dialog";
 import { Column, DataTable } from "@/components/common/data-table";
 import { StatusBadge } from "@/components/common/status-badge";
 import { Button } from "@/components/ui/button";
@@ -54,7 +55,16 @@ export function TierPricePanel({
 }) {
     const [open, setOpen] = useState(false);
     const [editingId, setEditingId] = useState<number | null>(null);
+    const [deleteTarget, setDeleteTarget] = useState<FlatRow | null>(null);
     const form = useForm<BandFormValue>(emptyBand);
+
+    const handleDelete = () => {
+        if (!deleteTarget) return;
+        router.delete(destroyTierPrice(deleteTarget.id).url, {
+            preserveScroll: true,
+            onFinish: () => setDeleteTarget(null),
+        });
+    };
 
     const rows = useMemo<FlatRow[]>(
         () =>
@@ -121,11 +131,8 @@ export function TierPricePanel({
                     <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() =>
-                            router.delete(destroyTierPrice(r.id).url, {
-                                preserveScroll: true,
-                            })
-                        }
+                        className="text-danger"
+                        onClick={() => setDeleteTarget(r)}
                     >
                         Delete
                     </Button>
@@ -184,6 +191,18 @@ export function TierPricePanel({
                         form.post(storeTierPrice().url, opts);
                     }
                 }}
+            />
+
+            <ConfirmDialog
+                open={deleteTarget !== null}
+                onOpenChange={(o) => !o && setDeleteTarget(null)}
+                title={
+                    deleteTarget
+                        ? `Delete ${deleteTarget.tierName} ${deleteTarget.minGb}–${deleteTarget.maxGb} GB rate?`
+                        : ""
+                }
+                description="This selling rate will be removed for this tier. This action cannot be undone."
+                onConfirm={handleDelete}
             />
         </Card>
     );

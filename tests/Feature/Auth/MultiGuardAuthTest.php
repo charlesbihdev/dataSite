@@ -33,6 +33,24 @@ class MultiGuardAuthTest extends TestCase
         $this->assertSame($admin->id, Auth::guard('admin')->id());
     }
 
+    public function test_authenticated_admin_visiting_login_is_sent_to_dashboard_not_root(): void
+    {
+        $admin = Admin::create([
+            'name' => 'Super Admin',
+            'phone' => '+233240000010',
+            'email' => 'admin@datasite.com',
+            'username' => 'superadmin',
+            'password' => 'secret123',
+            'is_active' => true,
+        ]);
+
+        // guest:admin bounces an already-authenticated admin — it must land on the admin
+        // dashboard, not the public landing "/".
+        $this->actingAs($admin, 'admin')
+            ->get('/admin/login')
+            ->assertRedirect(route('admin.dashboard'));
+    }
+
     public function test_agent_guard_authenticates_agent_model(): void
     {
         $tier = PricingTier::create(['name' => 'Gold', 'is_active' => true]);

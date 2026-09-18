@@ -93,9 +93,11 @@ export function AccountApiKeysDialog({
 
     return (
         <Dialog open={account !== null} onOpenChange={(o) => !o && onClose()}>
-            <DialogContent className="sm:max-w-md">
+            <DialogContent className="max-h-[85vh] overflow-x-hidden overflow-y-auto sm:max-w-md">
                 <DialogHeader>
-                    <DialogTitle>API Keys — {account?.name}</DialogTitle>
+                    <DialogTitle className="pr-6 break-words">
+                        API Keys — {account?.name}
+                    </DialogTitle>
                     <DialogDescription>
                         Developer credentials for automated order placement.
                     </DialogDescription>
@@ -109,7 +111,7 @@ export function AccountApiKeysDialog({
                             again.
                         </p>
                         <div className="flex items-center gap-2">
-                            <code className="min-w-0 flex-1 truncate rounded bg-card px-2 py-1 font-mono text-xs select-all">
+                            <code className="min-w-0 flex-1 rounded bg-card px-2 py-1 font-mono text-xs break-all select-all">
                                 {rawFlash.rawKey}
                             </code>
                             <Button
@@ -180,7 +182,7 @@ export function AccountApiKeysDialog({
                     <Button
                         type="button"
                         size="sm"
-                        className="gap-1.5 self-start"
+                        className="gap-1.5 justify-self-start"
                         onClick={() => setIsMinting(true)}
                     >
                         <Plus className="size-3.5" />
@@ -199,8 +201,8 @@ export function AccountApiKeysDialog({
                                 className="flex items-center justify-between gap-3 rounded-lg border border-border p-3 text-sm"
                             >
                                 <div className="min-w-0 space-y-0.5">
-                                    <div className="flex items-center gap-2">
-                                        <span className="truncate font-medium text-foreground">
+                                    <div className="flex min-w-0 items-center gap-2">
+                                        <span className="min-w-0 truncate font-medium text-foreground">
                                             {key.name}
                                         </span>
                                         <StatusBadge

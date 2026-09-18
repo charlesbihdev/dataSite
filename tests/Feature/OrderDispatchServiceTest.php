@@ -11,6 +11,7 @@ use App\Models\Order;
 use App\Models\Subagent;
 use App\Services\Databundleshub\UpstreamClient;
 use App\Services\Orders\NewOrderData;
+use App\Services\Orders\OrderBulkService;
 use App\Services\Orders\OrderDispatchService;
 use App\Services\Orders\OrderSettlementService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -131,6 +132,52 @@ class OrderDispatchServiceTest extends TestCase
         $this->assertSame(100.0, (float) $subagent->walletOrCreate()->balance); // debit refunded
         $this->assertSame(2, Earning::where('status', Earning::STATUS_REVERSED)->count());
         $this->assertSame(0, Earning::where('status', Earning::STATUS_CREDITED)->count());
+    }
+
+    public function test_no_upstream_connection_holds_order_as_pending_without_reversing(): void
+    {
+        DbhConfig::query()->delete(); // no active connection → placeOrder throws before any HTTP
+        $agent = $this->agent();
+        $this->fund($agent, 100);
+
+        $order = app(OrderDispatchService::class)->dispatch(new NewOrderData(
+            seller: $agent, network: 'mtn', capacityGb: 5, beneficiaryPhone: '0559999999',
+            customerPrice: 30, sellerCost: 20, agentCost: 20, baseCost: 15,
+        ));
+
+        // Held in the system, not failed: money stays reserved and earnings stay pending.
+        $this->assertSame(Order::STATUS_PENDING, $order->status);
+        $this->assertSame(Order::PAYMENT_PAID, $order->payment_status);
+        $this->assertNull($order->upstream_request_id);
+        // Seller-safe note only — the internal cause must never leak to failure_reason.
+        $this->assertSame(OrderDispatchService::HELD_REASON, $order->failure_reason);
+        $this->assertStringNotContainsStringIgnoringCase('databundleshub', (string) $order->failure_reason);
+        $this->assertSame(80.0, (float) $agent->walletOrCreate()->balance); // debit NOT refunded
+        $this->assertSame(1, Earning::where('status', Earning::STATUS_PENDING)->count());
+        $this->assertSame(0, Earning::where('status', Earning::STATUS_REVERSED)->count());
+    }
+
+    public function test_held_pending_order_is_dispatched_when_admin_retries_after_connecting(): void
+    {
+        DbhConfig::query()->delete();
+        $agent = $this->agent();
+        $this->fund($agent, 100);
+
+        $order = app(OrderDispatchService::class)->dispatch(new NewOrderData(
+            seller: $agent, network: 'mtn', capacityGb: 5, beneficiaryPhone: '0559999999',
+            customerPrice: 30, sellerCost: 20, agentCost: 20, baseCost: 15,
+        ));
+        $this->assertSame(Order::STATUS_PENDING, $order->status);
+
+        // Admin connects Databundleshub and retries the held order in bulk.
+        DbhConfig::create(['base_url' => 'https://dbh.test/api', 'api_key' => 'k', 'is_active' => true]);
+        $this->fakeUpstream(['success' => true, 'data' => ['requestId' => 40, 'orderStatus' => 'completed', 'price' => 15.0]]);
+
+        app(OrderBulkService::class)->apply('retry', [$order->id]);
+
+        $this->assertSame(Order::STATUS_COMPLETED, $order->fresh()->status);
+        $this->assertSame(80.0, (float) $agent->walletOrCreate()->balance); // not re-debited
+        $this->assertSame(1, Earning::where('status', Earning::STATUS_CREDITED)->count());
     }
 
     public function test_poll_job_settles_a_processing_order_when_upstream_completes(): void

@@ -109,6 +109,11 @@ class OrderController extends Controller
      */
     private function present(Order $order, bool $duplicate = false): array
     {
+        // Mirror Databundleshub's response shape: a general per-state note lives in `message`, and
+        // failure detail only appears on a genuine failure — never on a held/pending order, which
+        // simply awaits dispatch. This keeps a ported DBH integration reading the same fields.
+        $isFailed = $order->status === Order::STATUS_FAILED;
+
         return [
             'reference' => $order->reference,
             'idempotencyKey' => $order->idempotency_key,
@@ -118,10 +123,28 @@ class OrderController extends Controller
             'price' => (float) $order->seller_cost,
             'orderStatus' => $order->status,
             'isCompleted' => $order->status === Order::STATUS_COMPLETED,
-            'failureReason' => $order->failure_reason,
+            'message' => $this->statusMessage($order, $duplicate),
+            'failureReason' => $isFailed ? $order->failure_reason : null,
+            'errorCode' => $isFailed ? 'FULFILLMENT_FAILED' : null,
             'duplicate' => $duplicate,
             'createdAt' => $order->created_at?->toIso8601String(),
         ];
+    }
+
+    /**
+     * Human-readable, per-state note matching Databundleshub's `message` field. A held (pending)
+     * order surfaces its "awaiting supplier" note here — not in a failure field.
+     */
+    private function statusMessage(Order $order, bool $duplicate): string
+    {
+        return match ($order->status) {
+            Order::STATUS_COMPLETED => 'Order delivered successfully.',
+            Order::STATUS_FAILED => $order->failure_reason ?: 'Order could not be completed.',
+            Order::STATUS_REFUNDED => $order->failure_reason ?: 'Order was refunded.',
+            default => $duplicate
+                ? 'Duplicate request detected. Returning the existing order.'
+                : ($order->failure_reason ?: 'Order is being processed. Check the status endpoint shortly.'),
+        };
     }
 
     private function input(Request $request, array $keys): string

@@ -33,8 +33,6 @@ const adminNavGroups = [
         items: [
             { title: "Overview", href: "/admin", icon: LayoutGrid },
             { title: "Analytics", href: "/admin/analytics", icon: TrendingUp },
-            { title: "Pricing", href: "/admin/pricing", icon: Tags },
-            { title: "Accounts", href: "/admin/accounts", icon: Users },
         ],
     },
     {

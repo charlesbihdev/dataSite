@@ -51,6 +51,21 @@ return Application::configure(basePath: dirname(__DIR__))
 
             return route('login');
         });
+
+        // The mirror of the above for ALREADY-authenticated users hitting a guest page (a login):
+        // send each tier to its own dashboard, not the app default "/". Without this, an admin who
+        // is still signed in gets bounced from /admin/login to the public landing.
+        $middleware->redirectUsersTo(function (Request $request) {
+            if ($request->is('admin') || $request->is('admin/*')) {
+                return route('admin.dashboard');
+            }
+
+            if ($request->routeIs('subagent.*')) {
+                return route('subagent.dashboard');
+            }
+
+            return route('agent.dashboard');
+        });
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

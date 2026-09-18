@@ -11,7 +11,7 @@ use App\Services\Payments\PaymentVerifier;
  * Applies a bulk action to many selected orders and returns a human summary. Each action scopes to
  * the orders it can legally act on, so a mixed selection is always safe:
  *   Regular — verify / mark-verified / delete  (awaiting only)
- *   Agent   — sync (processing) / retry (failed) / apply-status
+ *   Agent   — sync (processing) / retry (failed or held-pending) / apply-status
  * Money always moves through the dispatch/settlement services, never a raw status write.
  */
 class OrderBulkService
@@ -49,10 +49,25 @@ class OrderBulkService
         return $processing->count().' status poll(s) queued.';
     }
 
-    /** @param array<int, int> $ids */
+    /**
+     * Retry both failed orders and orders held PENDING because the supplier was unreachable
+     * (paid, money reserved, never accepted upstream). A PENDING order still awaiting customer
+     * payment (storefront) is excluded — it is not ours to dispatch yet.
+     *
+     * @param  array<int, int>  $ids
+     */
     private function retry(array $ids): string
     {
-        $orders = Order::query()->whereIn('id', $ids)->where('status', Order::STATUS_FAILED)->get();
+        $orders = Order::query()
+            ->whereIn('id', $ids)
+            ->where(function ($query): void {
+                $query->where('status', Order::STATUS_FAILED)
+                    ->orWhere(fn ($held) => $held
+                        ->where('status', Order::STATUS_PENDING)
+                        ->where('payment_status', Order::PAYMENT_PAID)
+                        ->whereNull('upstream_request_id'));
+            })
+            ->get();
         $done = 0;
         $short = 0;
 

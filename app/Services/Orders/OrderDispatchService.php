@@ -9,6 +9,7 @@ use App\Models\Order;
 use App\Services\Databundleshub\UpstreamClient;
 use App\Services\Databundleshub\UpstreamException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 /**
@@ -20,6 +21,13 @@ use Illuminate\Support\Str;
 class OrderDispatchService
 {
     public const TXN_PURCHASE = 'order_purchase';
+
+    /**
+     * User-facing note stored on a held order. Kept deliberately generic — failure_reason is
+     * shown to sellers (Developer API) and admins, so the technical cause goes to the log, never
+     * here.
+     */
+    public const HELD_REASON = 'Awaiting supplier connection — will be dispatched on retry.';
 
     public function __construct(
         private readonly UpstreamClient $client,
@@ -95,13 +103,13 @@ class OrderDispatchService
                 }
             }
 
-            $locked->status = Order::STATUS_PROCESSING;
-            $locked->save();
+            // Earnings recorded; the order stays PENDING until the supplier accepts it in
+            // sendUpstream (or is held there if the supplier is unreachable).
         });
 
         $fresh = $order->refresh();
 
-        if ($fresh->status === Order::STATUS_PROCESSING && $fresh->upstream_request_id === null) {
+        if ($fresh->status === Order::STATUS_PENDING && $fresh->upstream_request_id === null) {
             $this->sendUpstream($fresh);
         }
 
@@ -153,9 +161,9 @@ class OrderDispatchService
                 ]);
             }
 
-            $order->status = Order::STATUS_PROCESSING;
-            $order->save();
-
+            // Stays PENDING (held): the money is reserved above, but the order is only promoted
+            // to PROCESSING once the supplier actually accepts it (in sendUpstream). If the
+            // supplier is unreachable it safely remains a held PENDING order.
             return $order;
         });
     }
@@ -198,7 +206,9 @@ class OrderDispatchService
                 ]);
             }
 
-            $locked->status = Order::STATUS_PROCESSING;
+            // Reset to PENDING; sendUpstream promotes to PROCESSING only once the supplier accepts,
+            // or holds it PENDING again if the supplier is still unreachable.
+            $locked->status = Order::STATUS_PENDING;
             $locked->failure_reason = null;
             $locked->upstream_request_id = null;
             $locked->upstream_reference = null;
@@ -207,7 +217,7 @@ class OrderDispatchService
 
         $fresh = $order->refresh();
 
-        if ($fresh->status === Order::STATUS_PROCESSING && $fresh->upstream_request_id === null) {
+        if ($fresh->status === Order::STATUS_PENDING && $fresh->upstream_request_id === null) {
             $this->sendUpstream($fresh);
         }
 
@@ -215,15 +225,29 @@ class OrderDispatchService
     }
 
     /**
-     * Call Databundleshub, then route on the outcome: transport failure or business
-     * rejection → reverse; delivered immediately → settle; still working → poll.
+     * Call Databundleshub, then route on the outcome. Note the two very different failures:
+     *   - We never reached the supplier (unconfigured / unreachable / connection) → HOLD the order
+     *     as PENDING. Money stays reserved, earnings stay pending, nothing is reversed — this is our
+     *     side failing, not a rejected order. An admin retries once the connection is restored.
+     *   - The supplier accepted then rejected it (bad number, out of stock) → reverse (real failure).
+     * Delivered immediately → settle; accepted and still working → PROCESSING + poll.
      */
     private function sendUpstream(Order $order): void
     {
         try {
             $result = $this->client->placeOrder($order->reference, $order->beneficiary_phone, (int) $order->capacity_gb);
         } catch (UpstreamException $e) {
-            $this->settlement->reverse($order, 'Upstream unreachable: '.$e->getMessage());
+            // The technical cause (no config / cURL error / DNS) is for ops only — log it, and store
+            // a generic seller-safe note since failure_reason surfaces on the Developer API.
+            Log::warning('Order held — supplier unavailable', [
+                'order' => $order->reference,
+                'reason' => $e->getMessage(),
+            ]);
+
+            $order->forceFill([
+                'status' => Order::STATUS_PENDING,
+                'failure_reason' => self::HELD_REASON,
+            ])->save();
 
             return;
         }
@@ -246,6 +270,8 @@ class OrderDispatchService
             return;
         }
 
+        // Accepted by the supplier and still working — now it is genuinely PROCESSING.
+        $order->forceFill(['status' => Order::STATUS_PROCESSING])->save();
         PollUpstreamOrderStatus::dispatch($order->getKey());
     }
 

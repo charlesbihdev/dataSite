@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Agent;
 use App\Models\DbhConfig;
 use App\Models\Order;
+use App\Models\PaymentGateway;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -67,6 +68,19 @@ class AgentOrdersTest extends TestCase
         );
     }
 
+    public function test_stats_report_paid_sales_and_profit(): void
+    {
+        // Guards the aggregate that broke in prod: profit = SUM(customer_price) − SUM(seller_cost),
+        // computed via Eloquent so the inherited ->latest() ordering never collides with the SUM.
+        // 3 paid orders × (30 − 25) = 15 profit on 90 sales.
+        $this->get(route('agent.orders'))->assertInertia(
+            fn (Assert $page) => $page
+                ->where('stats.count', 3)
+                ->where('stats.sales', 90)
+                ->where('stats.profit', 15)
+        );
+    }
+
     public function test_agent_can_retry_their_own_failed_order(): void
     {
         DbhConfig::create(['base_url' => 'https://dbh.test/api', 'api_key' => 'k', 'is_active' => true]);
@@ -105,8 +119,8 @@ class AgentOrdersTest extends TestCase
     public function test_agent_can_verify_and_dispatch_their_awaiting_storefront_order(): void
     {
         DbhConfig::create(['base_url' => 'https://dbh.test/api', 'api_key' => 'k', 'is_active' => true]);
-        \App\Models\PaymentGateway::query()->create([
-            'gateway' => \App\Models\PaymentGateway::PAYSTACK, 'is_active' => true,
+        PaymentGateway::query()->create([
+            'gateway' => PaymentGateway::PAYSTACK, 'is_active' => true,
             'public_key' => 'pk', 'secret_key' => 'sk', 'currency' => 'GHS',
             'min_topup' => 1, 'max_topup' => 100000, 'charge_percent' => 0,
         ]);

@@ -5,6 +5,7 @@ import {
     storeBaseCost,
     updateBaseCost,
 } from "@/actions/App/Http/Controllers/Admin/PricingController";
+import { ConfirmDialog } from "@/components/common/confirm-dialog";
 import { Column, DataTable } from "@/components/common/data-table";
 import { StatusBadge } from "@/components/common/status-badge";
 import { Button } from "@/components/ui/button";
@@ -41,9 +42,18 @@ export function BaseCostPanel({
 }) {
     const [open, setOpen] = useState(false);
     const [editingId, setEditingId] = useState<number | null>(null);
+    const [deleteTarget, setDeleteTarget] = useState<BaseCostRow | null>(null);
     const form = useForm<BandFormValue>(emptyBand);
 
     const filteredRows = rows.filter((r) => r.network === activeNetwork);
+
+    const handleDelete = () => {
+        if (!deleteTarget) return;
+        router.delete(destroyBaseCost(deleteTarget.id).url, {
+            preserveScroll: true,
+            onFinish: () => setDeleteTarget(null),
+        });
+    };
 
     const openAdd = () => {
         setEditingId(null);
@@ -98,11 +108,8 @@ export function BaseCostPanel({
                     <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() =>
-                            router.delete(destroyBaseCost(r.id).url, {
-                                preserveScroll: true,
-                            })
-                        }
+                        className="text-danger"
+                        onClick={() => setDeleteTarget(r)}
                     >
                         Delete
                     </Button>
@@ -156,6 +163,18 @@ export function BaseCostPanel({
                         form.post(storeBaseCost().url, opts);
                     }
                 }}
+            />
+
+            <ConfirmDialog
+                open={deleteTarget !== null}
+                onOpenChange={(o) => !o && setDeleteTarget(null)}
+                title={
+                    deleteTarget
+                        ? `Delete ${deleteTarget.minGb}–${deleteTarget.maxGb} GB base cost band?`
+                        : ""
+                }
+                description="This base cost band will be removed. It is the floor under every selling rate for this range. This action cannot be undone."
+                onConfirm={handleDelete}
             />
         </Card>
     );

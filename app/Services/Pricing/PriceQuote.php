@@ -31,6 +31,7 @@ class PriceQuote
             ->where('network', $network)
             ->where('min_gb', '<=', $capacityGb)
             ->where('max_gb', '>=', $capacityGb)
+            ->orderBy('min_gb')
             ->value('price_per_gb');
 
         if ($pricePerGb === null) {
@@ -40,6 +41,7 @@ class PriceQuote
                 ->where('network', 'default')
                 ->where('min_gb', '<=', $capacityGb)
                 ->where('max_gb', '>=', $capacityGb)
+                ->orderBy('min_gb')
                 ->value('price_per_gb');
         }
 
@@ -48,7 +50,7 @@ class PriceQuote
         }
 
         $baseCost = BaseCost::query()->forBand($network, $capacityGb)->value('cost_per_gb');
-        
+
         if ($baseCost === null) {
             $baseCost = BaseCost::query()->forBand('default', $capacityGb)->value('cost_per_gb');
         }

@@ -1,1 +1,0 @@
-import{n as e,t}from"./jsx-runtime-DIUZIJTu.js";import{t as n}from"./orders-page-TART_h3P.js";var r=e(),i=t();function a(e){let t=(0,r.c)(2),a;return t[0]===e?a=t[1]:(a=(0,i.jsx)(n,{segment:`agent`,...e}),t[0]=e,t[1]=a),a}export{a as default};

@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { cedis } from '@/lib/format';
+import { cn } from '@/lib/utils';
 
 export interface AdminOrder {
     id: number;
@@ -152,7 +153,16 @@ export function OrderDetailDialog({
                         <Row label="Actual cost" value={upstream.cost !== null ? cedis(upstream.cost) : '—'} />
                         <Row label="Last polled" value={upstream.lastPolledAt ?? '—'} />
                         {upstream.failureReason ? (
-                            <p className="mt-2 text-sm text-danger">{upstream.failureReason}</p>
+                            <p
+                                className={cn(
+                                    'mt-2 text-sm',
+                                    order.status === 'failed'
+                                        ? 'text-danger'
+                                        : 'text-muted-foreground',
+                                )}
+                            >
+                                {upstream.failureReason}
+                            </p>
                         ) : null}
                     </section>
 
