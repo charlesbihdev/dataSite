@@ -1,7 +1,12 @@
-import { Head, router, useForm, usePage } from "@inertiajs/react";
-import { KeyRound, Plus } from "lucide-react";
+import { Head, Link, router, useForm, usePage } from "@inertiajs/react";
+import {
+    BookOpen,
+    ExternalLink,
+    KeyRound,
+    Plus,
+    ShieldAlert,
+} from "lucide-react";
 import { useState } from "react";
-import { ApiDocsCard } from "@/components/agent/api-docs-card";
 import { ApiKeyItem, ApiKeyList } from "@/components/common/api-key-list";
 import { ApiKeyReveal } from "@/components/common/api-key-reveal";
 import { PageHeader } from "@/components/common/page-header";
@@ -36,6 +41,7 @@ export default function AgentApiKeys({ keys, stats, baseUrl }: Props) {
     const { props } = usePage<PageProps>();
     const rawFlash = props.flash?.rawApiKey;
     const [isMinting, setIsMinting] = useState(false);
+    const hasReachedLimit = stats.active >= 3;
 
     const form = useForm({
         name: "Default API Key",
@@ -64,24 +70,24 @@ export default function AgentApiKeys({ keys, stats, baseUrl }: Props) {
 
     return (
         <>
-            <Head title="API Keys & Documentation" />
+            <Head title="API Keys" />
             <div className="flex h-full flex-1 flex-col gap-6 p-4 lg:p-8">
                 <PageHeader
-                    title="API Keys & Developer Documentation"
-                    description="Create and manage your credentials for automated bundle order fulfillment."
+                    title="API Key Management"
+                    description="Create and manage your developer credentials for automated data bundle orders."
                 />
 
                 {/* Stats */}
                 <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                     <StatTile
-                        label="Total API Keys"
+                        label="Total Keys"
                         value={String(stats.total)}
-                        hint="Generated credentials"
+                        hint="All generated credentials"
                     />
                     <StatTile
                         label="Active Keys"
-                        value={String(stats.active)}
-                        hint="Authorized for requests"
+                        value={`${stats.active} / 3`}
+                        hint="Maximum 3 active keys"
                     />
                 </div>
 
@@ -92,15 +98,15 @@ export default function AgentApiKeys({ keys, stats, baseUrl }: Props) {
                             <div className="flex items-center gap-2">
                                 <KeyRound className="size-4 text-brand" />
                                 <CardTitle className="text-base">
-                                    My API Keys
+                                    Your API Keys
                                 </CardTitle>
                             </div>
                             <p className="text-xs text-muted-foreground">
-                                Only you and your integrated software can use
-                                these keys.
+                                Only your authorized applications should use
+                                these credentials.
                             </p>
                         </div>
-                        {!isMinting && (
+                        {!isMinting && !hasReachedLimit && (
                             <Button
                                 type="button"
                                 size="sm"
@@ -108,12 +114,24 @@ export default function AgentApiKeys({ keys, stats, baseUrl }: Props) {
                                 onClick={() => setIsMinting(true)}
                             >
                                 <Plus className="size-3.5" />
-                                Generate New Key
+                                Generate API Key
                             </Button>
                         )}
                     </CardHeader>
 
                     <CardContent className="space-y-4 pt-4">
+                        {/* Maximum limit notice */}
+                        {hasReachedLimit ? (
+                            <div className="flex items-center gap-2 rounded-lg border border-warning/40 bg-warning/10 p-3 text-xs text-foreground">
+                                <ShieldAlert className="size-4 text-warning shrink-0" />
+                                <span>
+                                    You have reached the maximum of 3 active API
+                                    keys. Suspend or revoke an existing key to
+                                    generate a new one.
+                                </span>
+                            </div>
+                        ) : null}
+
                         {/* Raw key reveal banner */}
                         {rawFlash?.rawKey ? (
                             <ApiKeyReveal rawKey={rawFlash.rawKey} />
@@ -133,7 +151,7 @@ export default function AgentApiKeys({ keys, stats, baseUrl }: Props) {
                                         onChange={(e) =>
                                             form.setData("name", e.target.value)
                                         }
-                                        placeholder="e.g. POS Server, Mobile App, Storefront"
+                                        placeholder="e.g. POS Terminal, Web Storefront, Mobile App"
                                         autoFocus
                                         className="max-w-md"
                                     />
@@ -174,13 +192,58 @@ export default function AgentApiKeys({ keys, stats, baseUrl }: Props) {
                             keys={keys}
                             onToggle={handleToggle}
                             onRevoke={handleRevoke}
-                            emptyMessage="You have not generated any API keys yet. Click 'Generate New Key' above to start integrating."
+                            emptyMessage="No API keys generated yet. Click 'Generate API Key' to create your first credential."
                         />
                     </CardContent>
                 </Card>
 
-                {/* API Documentation */}
-                <ApiDocsCard baseUrl={baseUrl} />
+                {/* API Quick Reference Card */}
+                <Card className="border-border">
+                    <CardHeader className="border-b border-border pb-3">
+                        <div className="flex items-center gap-2">
+                            <BookOpen className="size-4 text-brand" />
+                            <CardTitle className="text-sm font-semibold">
+                                Developer API Integration
+                            </CardTitle>
+                        </div>
+                    </CardHeader>
+                    <CardContent className="space-y-4 pt-4 text-xs text-muted-foreground">
+                        <p>
+                            Use your API key to automate data bundle purchases
+                            and query real-time order status directly through
+                            standard HTTP endpoints.
+                        </p>
+                        <div className="grid gap-3 sm:grid-cols-2">
+                            <div className="rounded-lg border border-border bg-muted/20 p-3">
+                                <span className="font-semibold uppercase tracking-wider text-foreground">
+                                    Base Endpoint
+                                </span>
+                                <p className="mt-1 font-mono text-foreground break-all">
+                                    {baseUrl}
+                                </p>
+                            </div>
+                            <div className="rounded-lg border border-border bg-muted/20 p-3">
+                                <span className="font-semibold uppercase tracking-wider text-foreground">
+                                    Authentication Header
+                                </span>
+                                <p className="mt-1 font-mono text-foreground">
+                                    X-API-Key: dsk_...
+                                </p>
+                            </div>
+                        </div>
+                        <div className="pt-2">
+                            <Button variant="outline" size="sm" asChild>
+                                <Link
+                                    href="/api-documentation"
+                                    className="gap-2 text-foreground hover:text-brand"
+                                >
+                                    <span>View Full API Documentation</span>
+                                    <ExternalLink className="size-3.5" />
+                                </Link>
+                            </Button>
+                        </div>
+                    </CardContent>
+                </Card>
             </div>
         </>
     );

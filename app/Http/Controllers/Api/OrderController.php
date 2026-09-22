@@ -10,6 +10,7 @@ use App\Models\Subagent;
 use App\Services\Orders\NewOrderData;
 use App\Services\Orders\OrderDispatchService;
 use App\Services\Pricing\PriceQuote;
+use App\Support\GhanaMobileNetwork;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -29,23 +30,28 @@ class OrderController extends Controller
         /** @var Agent|Subagent $seller */
         $seller = $request->attributes->get('api_seller');
 
-        $phone = $this->input($request, ['phoneNumber', 'beneficiary_number', 'phone']);
-        $network = strtolower($this->input($request, ['network']));
-        $capacityRaw = $this->input($request, ['capacity', 'package_size', 'data_gb', 'gb']);
-
-        if ($phone === '' || $network === '' || $capacityRaw === '') {
-            return $this->error('Missing required fields: phoneNumber, network, capacity.', 'MISSING_FIELD');
-        }
-        if (! preg_match('/^0[0-9]{9}$/', $phone)) {
+        $rawPhone = $this->input($request, ['phoneNumber', 'beneficiary_number', 'phone']);
+        $phone = GhanaMobileNetwork::normalize($rawPhone);
+        if ($phone === '') {
             return $this->error('Invalid phone number. Use format 0551234567.', 'INVALID_PHONE');
         }
-        if (! in_array($network, self::NETWORKS, true)) {
+
+        $rawNetwork = strtolower($this->input($request, ['network']));
+        $network = self::normalizeNetwork($rawNetwork) ?? GhanaMobileNetwork::detect($phone);
+
+        if ($network === null || ! in_array($network, self::NETWORKS, true)) {
             return $this->error('Unsupported network. Use one of: '.implode(', ', self::NETWORKS).'.', 'INVALID_NETWORK');
         }
 
-        $capacity = (int) $capacityRaw;
-        if ($capacity < 1 || $capacity > 200) {
-            return $this->error('Invalid capacity. Whole GB between 1 and 200.', 'INVALID_CAPACITY');
+        $capacityRaw = $this->input($request, ['capacity', 'package_size', 'data_gb', 'gb']);
+        $digitsOnly = preg_replace('/\D+/', '', $capacityRaw);
+        if ($digitsOnly === '') {
+            return $this->error('Missing required fields: capacity.', 'MISSING_FIELD');
+        }
+
+        $capacity = (int) $digitsOnly;
+        if ($capacityError = GhanaMobileNetwork::validateOrder($phone, $capacity)) {
+            return $this->error($capacityError, 'INVALID_CAPACITY');
         }
 
         // Idempotency: a client key (header or body), else derived from the sale shape. A repeat
@@ -91,17 +97,83 @@ class OrderController extends Controller
         return response()->json(['success' => true, 'data' => $this->present($order)], 201);
     }
 
-    public function show(Request $request, string $reference): JsonResponse
+    public function show(Request $request, ?string $reference = null): JsonResponse
     {
         /** @var Agent|Subagent $seller */
         $seller = $request->attributes->get('api_seller');
 
-        $order = $seller->orders()->where('reference', $reference)->first();
+        $ref = $reference ?: $this->input($request, ['reference', 'order_id', 'orderId', 'purchase_id', 'purchaseId']);
+        if ($ref === '') {
+            return $this->error('Order reference is required.', 'MISSING_REFERENCE', 400);
+        }
+
+        $order = $seller->orders()
+            ->where(function ($query) use ($ref) {
+                $query->where('reference', $ref)
+                    ->orWhere('id', is_numeric($ref) ? (int) $ref : 0);
+            })
+            ->first();
+
         if ($order === null) {
             return $this->error('Order not found.', 'ORDER_NOT_FOUND', 404);
         }
 
         return response()->json(['success' => true, 'data' => $this->present($order)]);
+    }
+
+    public function packages(Request $request, PriceQuote $quote): JsonResponse
+    {
+        /** @var Agent|Subagent $seller */
+        $seller = $request->attributes->get('api_seller');
+
+        $networkFilter = strtolower(trim((string) $request->query('network', '')));
+        if ($networkFilter !== '') {
+            $normalized = self::normalizeNetwork($networkFilter);
+            if ($normalized === null) {
+                return $this->error('Unsupported network. Use one of: '.implode(', ', self::NETWORKS).'.', 'INVALID_NETWORK');
+            }
+            $networks = [$normalized];
+        } else {
+            $networks = self::NETWORKS;
+        }
+
+        $items = [];
+
+        foreach ($networks as $network) {
+            $sizes = GhanaMobileNetwork::packageSizesGb($network);
+            foreach ($sizes as $size) {
+                $price = $quote->for($seller, $network, $size);
+                if ($price === null) {
+                    continue;
+                }
+                $items[] = [
+                    'capacity' => (string) $size,
+                    'mb' => (string) ($size * 1024),
+                    'price' => number_format($price['amount'], 2, '.', ''),
+                    'network' => strtoupper($network),
+                    'pricePerGB' => number_format($price['pricePerGb'], 2, '.', ''),
+                ];
+            }
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => $items,
+            'meta' => [
+                'totalPackages' => count($items),
+                'supportedNetworks' => ['MTN', 'TELECEL', 'AT'],
+            ],
+        ]);
+    }
+
+    private static function normalizeNetwork(string $code): ?string
+    {
+        return match ($code) {
+            'mtn', 'yello' => 'mtn',
+            'telecel', 'vodafone' => 'telecel',
+            'at', 'airteltigo' => 'at',
+            default => null,
+        };
     }
 
     /**

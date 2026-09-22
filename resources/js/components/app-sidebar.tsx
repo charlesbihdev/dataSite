@@ -2,7 +2,8 @@ import { Link } from "@inertiajs/react";
 import {
     ArrowLeftRight,
     Banknote,
-    Code,
+    BookOpen,
+    KeyRound,
     LayoutGrid,
     Link2,
     Package,
@@ -92,7 +93,12 @@ const agentNavGroups: { title: string; items: NavItem[] }[] = [
             {
                 title: "API Keys",
                 href: "/api-keys",
-                icon: Code,
+                icon: KeyRound,
+            },
+            {
+                title: "Documentation",
+                href: "/api-documentation",
+                icon: BookOpen,
             },
         ],
     },
