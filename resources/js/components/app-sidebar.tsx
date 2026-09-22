@@ -1,5 +1,15 @@
 import { Link } from "@inertiajs/react";
-import { LayoutGrid, ArrowLeftRight, Banknote, Link2, Package, ShoppingBag, TrendingUp, Users } from "lucide-react";
+import {
+    ArrowLeftRight,
+    Banknote,
+    Code,
+    LayoutGrid,
+    Link2,
+    Package,
+    ShoppingBag,
+    TrendingUp,
+    Users,
+} from "lucide-react";
 import AppLogo from "@/components/app-logo";
 import { NavMain } from "@/components/nav-main";
 import { NavUser } from "@/components/nav-user";
@@ -15,46 +25,76 @@ import {
 import { dashboard } from "@/routes/agent";
 import type { NavItem } from "@/types";
 
-const mainNavItems: NavItem[] = [
+const agentNavGroups: { title: string; items: NavItem[] }[] = [
     {
-        title: "Dashboard",
-        href: "/dashboard",
-        icon: LayoutGrid,
+        title: "Overview",
+        items: [
+            {
+                title: "Dashboard",
+                href: "/dashboard",
+                icon: LayoutGrid,
+            },
+            {
+                title: "Orders",
+                href: "/orders",
+                icon: ShoppingBag,
+            },
+            {
+                title: "Transactions",
+                href: "/transactions",
+                icon: ArrowLeftRight,
+            },
+        ],
     },
     {
-        title: "Orders",
-        href: "/orders",
-        icon: ShoppingBag,
+        title: "Products",
+        items: [
+            {
+                title: "Packages",
+                href: "/packages",
+                icon: Package,
+            },
+            {
+                title: "Store Link",
+                href: "/referral",
+                icon: Link2,
+            },
+        ],
     },
     {
-        title: "Transactions",
-        href: "/transactions",
-        icon: ArrowLeftRight,
+        title: "Team",
+        items: [
+            {
+                title: "My Subagents",
+                href: "/subagents",
+                icon: Users,
+            },
+            {
+                title: "Sub-agent Sales",
+                href: "/subagent-sales",
+                icon: TrendingUp,
+            },
+        ],
     },
     {
-        title: "Packages",
-        href: "/packages",
-        icon: Package,
+        title: "Finance",
+        items: [
+            {
+                title: "Withdrawals",
+                href: "/withdrawals",
+                icon: Banknote,
+            },
+        ],
     },
     {
-        title: "Store Link",
-        href: "/referral",
-        icon: Link2,
-    },
-    {
-        title: "My Subagents",
-        href: "/subagents",
-        icon: Users,
-    },
-    {
-        title: "Sub-agent Sales",
-        href: "/subagent-sales",
-        icon: TrendingUp,
-    },
-    {
-        title: "Withdrawals",
-        href: "/withdrawals",
-        icon: Banknote,
+        title: "Developer",
+        items: [
+            {
+                title: "API Keys",
+                href: "/api-keys",
+                icon: Code,
+            },
+        ],
     },
 ];
 
@@ -74,7 +114,13 @@ export function AppSidebar() {
             </SidebarHeader>
 
             <SidebarContent>
-                <NavMain items={mainNavItems} />
+                {agentNavGroups.map((group) => (
+                    <NavMain
+                        key={group.title}
+                        title={group.title}
+                        items={group.items}
+                    />
+                ))}
             </SidebarContent>
 
             <SidebarFooter>
