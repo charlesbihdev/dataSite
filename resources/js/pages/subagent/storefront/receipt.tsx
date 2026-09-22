@@ -1,4 +1,4 @@
-import { show, track } from "@/actions/App/Http/Controllers/Storefront/StorefrontController";
+import { show, track } from "@/actions/App/Http/Controllers/Storefront/SubagentStorefrontController";
 import {
     StorefrontReceiptView,
     type StorefrontContact,
@@ -6,18 +6,18 @@ import {
 } from "@/components/storefront/storefront-receipt-view";
 
 interface Props {
-    agentSlug: string;
+    subagentSlug: string;
     store: StorefrontContact;
     order: StorefrontReceiptOrder;
 }
 
-export default function StorefrontReceipt({ agentSlug, store, order }: Props) {
+export default function SubagentStorefrontReceipt({ subagentSlug, store, order }: Props) {
     return (
         <StorefrontReceiptView
             store={store}
             order={order}
-            buyHref={show.url({ agentSlug })}
-            trackHref={track.url({ agentSlug })}
+            buyHref={show.url({ subagentSlug })}
+            trackHref={track.url({ subagentSlug })}
         />
     );
 }

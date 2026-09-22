@@ -31,7 +31,7 @@ export default function Register({ passwordRules }: Props) {
 
     return (
         <>
-            <Head title="Register" />
+            <Head title="Agent Registration" />
             
             <form onSubmit={submit} className="flex flex-col gap-6">
                 <div className="grid gap-6">
@@ -150,6 +150,7 @@ export default function Register({ passwordRules }: Props) {
 }
 
 Register.layout = {
-    title: "Create an account",
-    description: "Enter your details below to create your account",
+    title: "Create your agent account",
+    description: "Enter your details below to start selling as an agent.",
+    accent: "agent",
 };

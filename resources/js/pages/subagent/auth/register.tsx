@@ -1,7 +1,11 @@
 import { Head, useForm } from '@inertiajs/react';
+import { useState } from 'react';
+import SubagentAuthController from '@/actions/App/Http/Controllers/Subagent/AuthController';
 import SubagentRegisterController from '@/actions/App/Http/Controllers/Subagent/RegisterController';
 import InputError from '@/components/input-error';
 import PasswordInput from '@/components/password-input';
+import TextLink from '@/components/text-link';
+import { storefront } from '@/routes/subagent';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -23,6 +27,25 @@ export default function SubagentRegister({ ref, inviter }: Props) {
         password_confirmation: '',
     });
 
+    // Auto-suggest a username (which becomes the store-link slug) from the full name, until the
+    // subagent edits the field themselves — then we stop overwriting it. Matches the backend slug
+    // rule: lowercase, letters/digits only.
+    const [usernameTouched, setUsernameTouched] = useState(false);
+    const toUsername = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/g, '');
+
+    // Live preview of the store-link slug, mirroring the backend slug rule (lowercase, letters/digits/
+    // hyphens only). We build the full URL from the Wayfinder `subagent.storefront` route so it carries
+    // the real D3 store domain (prod) / prefix (local) — never a hand-built path.
+    const slugPreview = data.username.toLowerCase().replace(/[^a-z0-9-]/g, '');
+    const storeLink = slugPreview !== '' ? storefront.url({ subagentSlug: slugPreview }) : '';
+
+    const handleNameChange = (value: string) => {
+        setData('name', value);
+        if (!usernameTouched) {
+            setData('username', toUsername(value));
+        }
+    };
+
     const submit = (e: React.FormEvent) => {
         e.preventDefault();
         post(SubagentRegisterController.store.url({ query: { ref } }), {
@@ -41,37 +64,53 @@ export default function SubagentRegister({ ref, inviter }: Props) {
                     </p>
 
                     <div className="grid gap-2">
-                        <Label htmlFor="name">Full name</Label>
-                        <Input id="name" value={data.name} onChange={(e) => setData('name', e.target.value)} required autoFocus tabIndex={1} placeholder="Your name" />
+                        <Label htmlFor="name">Full name <span className="text-red-500">*</span></Label>
+                        <Input id="name" value={data.name} onChange={(e) => handleNameChange(e.target.value)} required autoFocus tabIndex={1} placeholder="Your name" />
                         <InputError message={errors.name} />
                     </div>
 
                     <div className="grid gap-2">
-                        <Label htmlFor="phone">Phone number</Label>
+                        <Label htmlFor="phone">Phone number <span className="text-red-500">*</span></Label>
                         <Input id="phone" type="tel" inputMode="numeric" value={data.phone} onChange={(e) => setData('phone', e.target.value)} required tabIndex={2} autoComplete="tel" placeholder="024xxxxxxx" />
                         <InputError message={errors.phone} />
                     </div>
 
                     <div className="grid gap-2">
-                        <Label htmlFor="email">Email</Label>
+                        <Label htmlFor="email">Email <span className="text-red-500">*</span></Label>
                         <Input id="email" type="email" value={data.email} onChange={(e) => setData('email', e.target.value)} required tabIndex={3} autoComplete="email" placeholder="you@example.com" />
                         <InputError message={errors.email} />
                     </div>
 
                     <div className="grid gap-2">
-                        <Label htmlFor="username">Username</Label>
-                        <Input id="username" value={data.username} onChange={(e) => setData('username', e.target.value)} required tabIndex={4} autoComplete="username" placeholder="Used for your store link" />
+                        <Label htmlFor="username">Username <span className="text-red-500">*</span></Label>
+                        <Input
+                            id="username"
+                            value={data.username}
+                            onChange={(e) => {
+                                setUsernameTouched(true);
+                                setData('username', e.target.value);
+                            }}
+                            required
+                            tabIndex={4}
+                            autoComplete="username"
+                            placeholder="Used for your store link"
+                        />
                         <InputError message={errors.username} />
+                        {storeLink !== '' && (
+                            <p className="text-xs text-muted-foreground">
+                                Your store link will be <span className="font-medium text-foreground break-all">{storeLink}</span>
+                            </p>
+                        )}
                     </div>
 
                     <div className="grid gap-2">
-                        <Label htmlFor="password">Password</Label>
+                        <Label htmlFor="password">Password <span className="text-red-500">*</span></Label>
                         <PasswordInput id="password" name="password" value={data.password} onChange={(e) => setData('password', e.target.value)} required tabIndex={5} autoComplete="new-password" />
                         <InputError message={errors.password} />
                     </div>
 
                     <div className="grid gap-2">
-                        <Label htmlFor="password_confirmation">Confirm password</Label>
+                        <Label htmlFor="password_confirmation">Confirm password <span className="text-red-500">*</span></Label>
                         <PasswordInput id="password_confirmation" name="password_confirmation" value={data.password_confirmation} onChange={(e) => setData('password_confirmation', e.target.value)} required tabIndex={6} autoComplete="new-password" />
                         <InputError message={errors.password_confirmation} />
                     </div>
@@ -81,6 +120,13 @@ export default function SubagentRegister({ ref, inviter }: Props) {
                         Create reseller account
                     </Button>
                 </div>
+
+                <div className="text-muted-foreground text-center text-sm">
+                    Already have an account?{' '}
+                    <TextLink href={SubagentAuthController.showLoginForm.url()} tabIndex={8}>
+                        Log in
+                    </TextLink>
+                </div>
             </form>
         </>
     );
@@ -89,4 +135,5 @@ export default function SubagentRegister({ ref, inviter }: Props) {
 SubagentRegister.layout = {
     title: 'Become a reseller',
     description: 'Sign up to sell data and manage your own orders.',
+    accent: 'subagent',
 };

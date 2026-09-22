@@ -1,7 +1,5 @@
 import { Head, router } from "@inertiajs/react";
-import { RefreshCw, RotateCw } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { retry as retryOrder, verifyPayment as verifyOrder } from "@/actions/App/Http/Controllers/Agent/OrdersController";
 import { Order, OrderDetailDialog } from "@/components/agent/order-detail-dialog";
 import { Column, DataTable } from "@/components/common/data-table";
 import { DateRangePicker, DateRangeValue } from "@/components/common/date-range-picker";
@@ -13,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cedis } from "@/lib/format";
+import { orders as ordersRoute } from "@/routes/subagent";
 
 interface Stats {
     count: number;
@@ -38,7 +37,7 @@ interface Props {
 const STATUSES = ["all", "pending", "processing", "completed", "failed", "refunded"];
 const NETWORKS = ["all", "mtn", "telecel", "at"];
 
-export default function AgentOrders({ orders, filters, stats }: Props) {
+export default function SubagentOrders({ orders, filters, stats }: Props) {
     const [search, setSearch] = useState(filters.q ?? "");
     const [selected, setSelected] = useState<Order | null>(null);
     const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -47,12 +46,9 @@ export default function AgentOrders({ orders, filters, stats }: Props) {
     const status = filters.status ?? "all";
     const network = filters.network ?? "all";
 
-    // Every control reloads this same route carrying the others' current values, so applying one
-    // never drops another. The stats are computed from the same filtered query server-side, so the
-    // cards always reflect exactly what the table shows.
     const apply = (patch: Record<string, string | null>) =>
         router.get(
-            "/orders",
+            ordersRoute.url(),
             { q: search, range, from: filters.from ?? null, to: filters.to ?? null, status, network, ...patch },
             { preserveState: true, preserveScroll: true, replace: true },
         );
@@ -85,30 +81,6 @@ export default function AgentOrders({ orders, filters, stats }: Props) {
             align: "right",
             render: (o) => (
                 <div className="flex items-center justify-end gap-1">
-                    {o.payment_status === "awaiting" ? (
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            title="Verify payment & dispatch"
-                            aria-label="Verify payment & dispatch"
-                            className="text-amber-600 hover:text-amber-700 dark:text-amber-400"
-                            onClick={() => router.post(verifyOrder(o.id).url, {}, { preserveScroll: true })}
-                        >
-                            <RefreshCw className="size-4" />
-                        </Button>
-                    ) : null}
-                    {o.status === "failed" ? (
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            title="Retry dispatch"
-                            aria-label="Retry dispatch"
-                            className="text-brand hover:text-brand-hover"
-                            onClick={() => router.post(retryOrder(o.id).url, {}, { preserveScroll: true })}
-                        >
-                            <RotateCw className="size-4" />
-                        </Button>
-                    ) : null}
                     <Button variant="ghost" size="sm" onClick={() => setSelected(o)}>
                         View
                     </Button>
@@ -119,11 +91,11 @@ export default function AgentOrders({ orders, filters, stats }: Props) {
 
     return (
         <>
-            <Head title="Store Orders" />
+            <Head title="Orders" />
             <div className="flex h-full flex-1 flex-col gap-6 p-4 lg:p-8">
                 <PageHeader
-                    title="Store Orders"
-                    description="Track purchases and view your sales value over time."
+                    title="Orders"
+                    description="Your storefront sales and their delivery status."
                     actions={<DateRangePicker value={{ range, from: filters.from, to: filters.to }} onChange={applyRange} />}
                 />
 
@@ -134,7 +106,6 @@ export default function AgentOrders({ orders, filters, stats }: Props) {
                 </div>
 
                 <div className="flex-1 rounded-xl border border-border bg-card shadow-sm">
-                    {/* Filter bar — scopes the table below (and its stat cards) only. */}
                     <div className="flex flex-wrap items-center gap-2 border-b border-border p-4">
                         <Select value={status} onValueChange={(v) => apply({ status: v })}>
                             <SelectTrigger className="w-40">
@@ -186,6 +157,6 @@ export default function AgentOrders({ orders, filters, stats }: Props) {
     );
 }
 
-AgentOrders.layout = {
-    breadcrumbs: [{ title: 'Dashboard', href: '/dashboard' }, { title: 'Orders', href: '/orders' }],
+SubagentOrders.layout = {
+    breadcrumbs: [{ title: "Dashboard", href: "/dashboard" }, { title: "Orders", href: "/orders" }],
 };

@@ -6,10 +6,10 @@ use App\Concerns\PasswordValidationRules;
 use App\Http\Controllers\Controller;
 use App\Models\Agent;
 use App\Models\Subagent;
+use Closure;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -38,10 +38,24 @@ class RegisterController extends Controller
     {
         $agent = $this->resolveInviter($request);
 
+        // The username IS the store handle, so normalise it into a url-safe form up front and validate
+        // the exact value the /{username} link will use — no separate slug that can drift.
+        $request->merge(['username' => Subagent::slugFor((string) $request->input('username'))]);
+
         $input = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255', Rule::unique('subagents', 'email')],
-            'username' => ['required', 'string', 'max:255', Rule::unique('subagents', 'username')],
+            'username' => [
+                'required', 'string', 'max:255',
+                // Unique across the whole handle namespace (username OR slug) among OTHER subagents —
+                // agent storefronts live on a separate domain (D2: /buy/{slug}), so an agent sharing the
+                // handle is not a clash. Reject a real clash outright, never a silent suffix.
+                function (string $attribute, mixed $value, Closure $fail): void {
+                    if (Subagent::handleTaken((string) $value)) {
+                        $fail('That username is already taken. Please choose a different one for your store link.');
+                    }
+                },
+            ],
             'phone' => ['required', 'string', 'max:20', Rule::unique('subagents', 'phone')],
             'password' => $this->passwordRules(),
         ]);
@@ -51,7 +65,8 @@ class RegisterController extends Controller
             'email' => $input['email'],
             'username' => $input['username'],
             'phone' => $input['phone'],
-            'slug' => $this->uniqueSlug($input['username']),
+            // The handle starts identical to the username; the subagent can change it later in settings.
+            'slug' => $input['username'],
             'password' => $input['password'],
             'agent_id' => $agent->id,
             'is_active' => true,
@@ -82,16 +97,5 @@ class RegisterController extends Controller
         abort_unless($agent && $agent->is_active, 404);
 
         return $agent;
-    }
-
-    private function uniqueSlug(string $username): string
-    {
-        $slug = strtolower((string) preg_replace('/[^a-zA-Z0-9\-]/', '', $username)) ?: 'store';
-
-        if (Agent::where('slug', $slug)->exists() || Subagent::where('slug', $slug)->exists()) {
-            $slug .= '-'.strtolower(Str::random(4));
-        }
-
-        return $slug;
     }
 }

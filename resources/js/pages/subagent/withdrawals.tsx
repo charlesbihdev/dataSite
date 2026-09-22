@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cedis } from "@/lib/format";
-import { cancel, store } from "@/routes/agent/withdrawals";
+import { cancel, store } from "@/routes/subagent/withdrawals";
 
 interface Method { key: string; label: string; min: number; enabled: boolean }
 interface Wd { id: number; method: string; amount: number; status: string; date: string | null; canCancel: boolean }
@@ -21,7 +21,7 @@ interface Props {
     withdrawals: { data: Wd[]; from: number | null; prev_page_url: string | null; next_page_url: string | null };
 }
 
-export default function AgentWithdrawals({ stats, methods, withdrawals }: Props) {
+export default function SubagentWithdrawals({ stats, methods, withdrawals }: Props) {
     const form = useForm({ method: "", amount: "", destination: "" });
     const eligible = methods.some((m) => m.enabled);
     const selected = methods.find((m) => m.key === form.data.method);
@@ -59,7 +59,7 @@ export default function AgentWithdrawals({ stats, methods, withdrawals }: Props)
                 <PageHeader title="Withdrawal" description="Withdraw your matured earnings and track past requests." />
 
                 <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                    <StatTile label="Total Earnings" value={cedis(stats.totalEarnings)} hint="Your profit & commission (lifetime)" />
+                    <StatTile label="Total Earnings" value={cedis(stats.totalEarnings)} hint="Your commission (lifetime)" />
                     <StatTile label="Available Balance" value={cedis(stats.available)} hint="Ready to withdraw" />
                     <StatTile label="Pending Withdrawal" value={cedis(stats.pending)} hint="Awaiting payout" />
                     <StatTile label="Withdrawn" value={cedis(stats.withdrawn)} hint="Paid out" />
@@ -86,7 +86,7 @@ export default function AgentWithdrawals({ stats, methods, withdrawals }: Props)
                                         </li>
                                     ))}
                                 </ul>
-                                <p className="mt-2 text-muted-foreground">Keep earning through referrals to reach the threshold!</p>
+                                <p className="mt-2 text-muted-foreground">Keep selling through your storefront to reach the threshold!</p>
                             </div>
                         )}
 
@@ -165,7 +165,7 @@ export default function AgentWithdrawals({ stats, methods, withdrawals }: Props)
     );
 }
 
-AgentWithdrawals.layout = {
+SubagentWithdrawals.layout = {
     breadcrumbs: [
         { title: "Dashboard", href: "/dashboard" },
         { title: "Withdrawal", href: "/withdrawals" },

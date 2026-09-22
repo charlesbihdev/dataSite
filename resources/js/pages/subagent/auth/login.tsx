@@ -98,6 +98,7 @@ export default function SubagentLogin({ status }: Props) {
 }
 
 SubagentLogin.layout = {
-    title: 'Subagent Login',
+    title: 'Reseller sign in',
     description: 'Sign in to manage your storefront and orders.',
+    accent: 'subagent',
 };

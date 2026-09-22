@@ -195,7 +195,7 @@ export default function Dashboard({
                     <Card className="border-border/50 bg-background/50 backdrop-blur-xl">
                         <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
                             <CardTitle className="text-sm font-medium text-muted-foreground">
-                                Revenue
+                                Delivered revenue
                             </CardTitle>
                             <TrendingUp className="h-4 w-4 text-muted-foreground" />
                         </CardHeader>

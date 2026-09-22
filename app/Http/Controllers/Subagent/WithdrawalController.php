@@ -1,9 +1,9 @@
 <?php
 
-namespace App\Http\Controllers\Agent;
+namespace App\Http\Controllers\Subagent;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Agent\StoreWithdrawalRequest;
+use App\Http\Requests\Subagent\StoreWithdrawalRequest;
 use App\Models\Earning;
 use App\Models\Withdrawal;
 use App\Services\Withdrawals\WithdrawalService;
@@ -14,19 +14,19 @@ use Inertia\Inertia;
 use Inertia\Response;
 
 /**
- * The agent's Withdrawal page: request a payout of matured earnings and track past requests.
- * Withdrawals draw from the EARNINGS pool (credited commission), never the spendable deposit
- * wallet. earningsBalance() already reserves every non-rejected withdrawal, so a request is just a
- * pending row; the admin settles it out of band (WithdrawalService).
+ * The subagent's Withdrawal page — the exact same earnings-pool payout flow as the agent's
+ * (App\Http\Controllers\Agent\WithdrawalController), scoped to the subagent guard. Withdrawals draw
+ * from matured EARNINGS (credited commission), never the spendable deposit wallet; earningsBalance()
+ * already reserves every non-rejected withdrawal, so a request is just a pending row the admin settles.
  */
 class WithdrawalController extends Controller
 {
     public function index(Request $request): Response
     {
-        $earner = $request->user();
+        $earner = $request->user('subagent');
         $available = $earner->earningsBalance();
 
-        return Inertia::render('agent/withdrawals', [
+        return Inertia::render('subagent/withdrawals', [
             'stats' => [
                 'totalEarnings' => (float) $earner->earnings()->where('status', Earning::STATUS_CREDITED)->sum('amount'),
                 'available' => $available,
@@ -54,7 +54,7 @@ class WithdrawalController extends Controller
 
     public function store(StoreWithdrawalRequest $request): RedirectResponse
     {
-        $earner = $request->user();
+        $earner = $request->user('subagent');
         $method = $request->string('method')->value();
         $amount = round((float) $request->input('amount'), 2);
         $min = (float) config("withdrawals.methods.{$method}.min");
@@ -79,12 +79,14 @@ class WithdrawalController extends Controller
 
     public function cancel(Request $request, Withdrawal $withdrawal, WithdrawalService $service): RedirectResponse
     {
+        $earner = $request->user('subagent');
+
         abort_unless(
-            $withdrawal->earner_type === $request->user()->getMorphClass() && $withdrawal->earner_id === $request->user()->getKey(),
+            $withdrawal->earner_type === $earner->getMorphClass() && $withdrawal->earner_id === $earner->getKey(),
             403,
         );
 
-        if (! $service->transition($withdrawal, Withdrawal::STATUS_REJECTED, 'Cancelled by agent.')) {
+        if (! $service->transition($withdrawal, Withdrawal::STATUS_REJECTED, 'Cancelled by subagent.')) {
             return $this->toast('error', 'This withdrawal can no longer be cancelled.');
         }
 
@@ -100,6 +102,6 @@ class WithdrawalController extends Controller
     {
         Inertia::flash('toast', ['type' => $level, 'message' => $message]);
 
-        return to_route('agent.withdrawals');
+        return to_route('subagent.withdrawals');
     }
 }

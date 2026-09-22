@@ -5,7 +5,7 @@ import {
     generateQr,
     toggleStore,
     updateContact,
-} from "@/actions/App/Http/Controllers/Agent/ReferralController";
+} from "@/actions/App/Http/Controllers/Subagent/StoreLinkController";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Amount } from "@/components/common/amount";
 import { Column, DataTable } from "@/components/common/data-table";
@@ -78,7 +78,7 @@ const columns: Column<Pkg>[] = [
     },
 ];
 
-export default function AgentReferral({
+export default function SubagentStoreLink({
     referralUrl,
     storeActive,
     referralQr,
@@ -235,7 +235,7 @@ export default function AgentReferral({
                                         >
                                             <a
                                                 href={referralQr}
-                                                download="referral-qr.png"
+                                                download="store-qr.png"
                                             >
                                                 <Download className="size-4" />{" "}
                                                 Download PNG
@@ -297,8 +297,8 @@ export default function AgentReferral({
                             Store Contact Details
                         </CardTitle>
                         <CardDescription>
-                            Shown on your referral checkout page so customers
-                            can reach you for support.
+                            Shown on your store checkout page so customers can
+                            reach you for support.
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
@@ -376,7 +376,7 @@ export default function AgentReferral({
                         columns={columns}
                         rows={packages}
                         rowKey={(p) => p.id}
-                        emptyMessage="No active packages. Add some in My Packages."
+                        emptyMessage="No active packages. Add some in Packages."
                     />
                     <p className="border-t border-border p-4 text-xs text-muted-foreground">
                         💡 Add or remove packages in{" "}
@@ -421,9 +421,9 @@ function Field({
     );
 }
 
-AgentReferral.layout = {
+SubagentStoreLink.layout = {
     breadcrumbs: [
         { title: "Dashboard", href: "/dashboard" },
-        { title: "My Store Link", href: "/referral" },
+        { title: "My Store Link", href: "/store-link" },
     ],
 };

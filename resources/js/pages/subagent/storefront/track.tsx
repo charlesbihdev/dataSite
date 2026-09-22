@@ -1,4 +1,4 @@
-import { show } from "@/actions/App/Http/Controllers/Storefront/StorefrontController";
+import { show } from "@/actions/App/Http/Controllers/Storefront/SubagentStorefrontController";
 import type { StorefrontContact } from "@/components/storefront/storefront-receipt-view";
 import {
     StorefrontTrackView,
@@ -6,7 +6,7 @@ import {
 } from "@/components/storefront/storefront-track-view";
 
 interface Props {
-    agentSlug: string;
+    subagentSlug: string;
     store: StorefrontContact;
     by: "phone" | "reference";
     phone: string;
@@ -14,7 +14,7 @@ interface Props {
     orders: TrackedOrder[];
 }
 
-export default function StorefrontTrack({ agentSlug, store, by, phone, reference, orders }: Props) {
+export default function SubagentStorefrontTrack({ subagentSlug, store, by, phone, reference, orders }: Props) {
     return (
         <StorefrontTrackView
             store={store}
@@ -22,7 +22,7 @@ export default function StorefrontTrack({ agentSlug, store, by, phone, reference
             phone={phone}
             reference={reference}
             orders={orders}
-            homeHref={show.url({ agentSlug })}
+            homeHref={show.url({ subagentSlug })}
         />
     );
 }

@@ -20,7 +20,7 @@ type Props = {
 export default function Login({ status, canResetPassword }: Props) {
     return (
         <>
-            <Head title="Log in" />
+            <Head title="Agent Log in" />
 
             <Form
                 {...store.form()}
@@ -112,6 +112,7 @@ export default function Login({ status, canResetPassword }: Props) {
 }
 
 Login.layout = {
-    title: 'Welcome back',
-    description: 'Enter your credentials to access your account.',
+    title: 'Agent sign in',
+    description: 'Access your agent dashboard, wallet, and orders.',
+    accent: 'agent',
 };

@@ -37,7 +37,7 @@ const mainNavItems: NavItem[] = [
         icon: Package,
     },
     {
-        title: "Referral Link",
+        title: "Store Link",
         href: "/referral",
         icon: Link2,
     },

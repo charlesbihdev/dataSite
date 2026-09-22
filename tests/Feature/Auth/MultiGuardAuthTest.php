@@ -102,4 +102,27 @@ class MultiGuardAuthTest extends TestCase
 
         $this->assertSame($subagent->id, Auth::guard('subagent')->id());
     }
+
+    public function test_suspended_agent_cannot_log_in_through_fortify(): void
+    {
+        $tier = PricingTier::create(['name' => 'Gold', 'is_active' => true]);
+        Agent::create([
+            'pricing_tier_id' => $tier->id,
+            'name' => 'Agent Mensah',
+            'phone' => '+233550000020',
+            'email' => 'agent@datasite.com',
+            'username' => 'agentmensah',
+            'password' => 'secret123',
+            'is_active' => false, // suspended
+        ]);
+
+        // Correct credentials, but the account is suspended — Fortify's authenticateUsing closure
+        // must reject it with a clear error and leave the agent guarded out.
+        $this->from('/login')->post('/login', [
+            'email' => 'agent@datasite.com',
+            'password' => 'secret123',
+        ])->assertSessionHasErrors('email');
+
+        $this->assertGuest('agent');
+    }
 }

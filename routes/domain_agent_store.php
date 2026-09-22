@@ -29,7 +29,13 @@
 use App\Http\Controllers\Storefront\StorefrontController;
 use App\Http\Controllers\Subagent\AuthController;
 use App\Http\Controllers\Subagent\DashboardController;
+use App\Http\Controllers\Subagent\OrdersController;
+use App\Http\Controllers\Subagent\PackagesController;
 use App\Http\Controllers\Subagent\RegisterController;
+use App\Http\Controllers\Subagent\SettingsController;
+use App\Http\Controllers\Subagent\StoreLinkController;
+use App\Http\Controllers\Subagent\TransactionsController;
+use App\Http\Controllers\Subagent\WithdrawalController;
 use Illuminate\Support\Facades\Route;
 
 // D2 domain root — no public catalog here (every shop is a reseller's /buy/{slug} link). Politely
@@ -54,6 +60,34 @@ Route::middleware(['auth:subagent'])->group(function () {
     // Subagent dashboard. Path is /dashboard on THIS domain (distinct route
     // from the agent dashboard on domain 1, which shares the /dashboard path).
     Route::get('dashboard', [DashboardController::class, 'index'])->name('subagent.dashboard');
+
+    // Withdrawal — payout of matured earnings (mirrors the agent flow, subagent-scoped).
+    Route::get('withdrawals', [WithdrawalController::class, 'index'])->name('subagent.withdrawals');
+    Route::post('withdrawals', [WithdrawalController::class, 'store'])->name('subagent.withdrawals.store');
+    Route::post('withdrawals/{withdrawal}/cancel', [WithdrawalController::class, 'cancel'])->name('subagent.withdrawals.cancel');
+
+    // Orders — the subagent's own storefront sales (read-only list).
+    Route::get('orders', [OrdersController::class, 'index'])->name('subagent.orders');
+
+    // Transactions — the subagent's earnings/commission ledger (read-only; no deposit wallet).
+    Route::get('transactions', [TransactionsController::class, 'index'])->name('subagent.transactions');
+
+    // Packages — the subagent's own selling prices, cost frozen from the agent's sub-agent price.
+    Route::get('packages', [PackagesController::class, 'index'])->name('subagent.packages');
+    Route::post('packages', [PackagesController::class, 'store'])->name('subagent.packages.store');
+    Route::post('packages/{package}/toggle', [PackagesController::class, 'toggle'])->name('subagent.packages.toggle');
+    Route::delete('packages/{package}', [PackagesController::class, 'destroy'])->name('subagent.packages.destroy');
+
+    // Store Link — the subagent's storefront link, QR, performance, contact + store on/off.
+    Route::get('store-link', [StoreLinkController::class, 'index'])->name('subagent.store-link');
+    Route::put('store-link/contact', [StoreLinkController::class, 'updateContact'])->name('subagent.store-link.contact');
+    Route::post('store-link/qr', [StoreLinkController::class, 'generateQr'])->name('subagent.store-link.qr');
+    Route::post('store-link/toggle', [StoreLinkController::class, 'toggleStore'])->name('subagent.store-link.toggle');
+
+    // Settings — profile + password (self-contained, subagent-scoped).
+    Route::get('settings', [SettingsController::class, 'edit'])->name('subagent.settings');
+    Route::patch('settings/profile', [SettingsController::class, 'updateProfile'])->name('subagent.settings.profile');
+    Route::put('settings/password', [SettingsController::class, 'updatePassword'])->name('subagent.settings.password');
 });
 
 // Agent public storefront — buy bundles from an agent's retail store. The customer link is
