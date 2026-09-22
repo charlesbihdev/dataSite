@@ -237,17 +237,8 @@ class OrderDispatchService
         try {
             $result = $this->client->placeOrder($order->reference, $order->beneficiary_phone, (int) $order->capacity_gb);
         } catch (UpstreamException $e) {
-            // The technical cause (no config / cURL error / DNS) is for ops only — log it, and store
-            // a generic seller-safe note since failure_reason surfaces on the Developer API.
-            Log::warning('Order held — supplier unavailable', [
-                'order' => $order->reference,
-                'reason' => $e->getMessage(),
-            ]);
-
-            $order->forceFill([
-                'status' => Order::STATUS_PENDING,
-                'failure_reason' => self::HELD_REASON,
-            ])->save();
+            // We never reached the supplier (no config / cURL error / DNS / 5xx). Hold, don't reverse.
+            $this->hold($order, 'supplier unavailable', $e->getMessage());
 
             return;
         }
@@ -270,9 +261,36 @@ class OrderDispatchService
             return;
         }
 
+        // A genuine acceptance MUST carry success:true AND a requestId to poll. Anything else — an
+        // error envelope, a bot-block page, a malformed body — is HELD as pending, never faked as
+        // processing: the money stays reserved and an admin can retry once the cause is fixed.
+        if (! $result->success || $result->requestId === null) {
+            $this->hold($order, 'not accepted by supplier', trim(($result->errorCode ?? '').' '.($result->errorMessage ?? '')));
+
+            return;
+        }
+
         // Accepted by the supplier and still working — now it is genuinely PROCESSING.
         $order->forceFill(['status' => Order::STATUS_PROCESSING])->save();
         PollUpstreamOrderStatus::dispatch($order->getKey());
+    }
+
+    /**
+     * Hold an order as PENDING (not failed): money stays reserved and earnings stay pending, because
+     * we did NOT get a confirmed acceptance. The technical cause is logged for ops; failure_reason
+     * carries only the generic seller-safe note (it surfaces on the Developer API).
+     */
+    private function hold(Order $order, string $reason, string $detail): void
+    {
+        Log::warning('Order held — '.$reason, [
+            'order' => $order->reference,
+            'detail' => $detail,
+        ]);
+
+        $order->forceFill([
+            'status' => Order::STATUS_PENDING,
+            'failure_reason' => self::HELD_REASON,
+        ])->save();
     }
 
     private function uniqueReference(): string
