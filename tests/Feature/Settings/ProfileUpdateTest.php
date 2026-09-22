@@ -75,11 +75,22 @@ class ProfileUpdateTest extends TestCase
         Agent::factory()->create(['username' => 'takenname', 'slug' => 'takenhandle']);
         $user = Agent::factory()->create();
 
-        // "TakenHandle" normalises to "takenhandle" — the union rule must catch it.
         $this->actingAs($user, 'agent')
             ->patch(route('profile.update'), [
                 'name' => 'Test Agent', 'email' => 'test@example.com', 'phone' => '0551234567',
-                'username' => 'myagent', 'slug' => 'TakenHandle',
+                'username' => 'myagent', 'slug' => 'takenhandle',
+            ])
+            ->assertSessionHasErrors('slug');
+    }
+
+    public function test_profile_update_rejects_a_handle_with_unpermitted_characters()
+    {
+        $user = Agent::factory()->create();
+
+        $this->actingAs($user, 'agent')
+            ->patch(route('profile.update'), [
+                'name' => 'Test Agent', 'email' => 'test@example.com', 'phone' => '0551234567',
+                'username' => 'goodname', 'slug' => 'Bad_Handle', // underscore + capitals not allowed
             ])
             ->assertSessionHasErrors('slug');
     }

@@ -20,21 +20,11 @@ class CreateNewUser implements CreatesNewUsers
      */
     public function create(array $input): Agent
     {
-        // Username is the store handle — normalise it up front and validate that exact value.
-        $input['username'] = Agent::slugFor((string) ($input['username'] ?? ''));
-
         Validator::make($input, [
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255', 'unique:agents'],
-            'username' => [
-                'required', 'string', 'max:255',
-                // Unique across the username+slug namespace; a clear error, never a silent suffix.
-                function (string $attribute, mixed $value, \Closure $fail): void {
-                    if (Agent::handleTaken((string) $value)) {
-                        $fail('That username is already taken. Please choose a different one for your store link.');
-                    }
-                },
-            ],
+            // Username is the store handle.
+            'username' => Agent::handleRules(),
             'phone' => ['required', 'string', 'max:20', 'unique:agents'],
             'password' => $this->passwordRules(),
         ])->validate();

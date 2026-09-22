@@ -67,14 +67,13 @@ class SubagentPortalTest extends TestCase
             'password' => 'secret', 'agent_id' => $agent->id, 'is_active' => true,
         ]);
 
-        // 'ta.ken' is a distinct username but slugifies to the taken 'taken' store link — the slug
-        // rule must catch it and return a clear error, not a silent suffix.
+        // A clash with the taken 'taken' store link must return a clear error, not a silent suffix.
         $this->from(route('subagent.register', ['ref' => 'charlesbih']))
             ->post(route('subagent.register.store', ['ref' => 'charlesbih']), [
                 'ref' => 'charlesbih',
                 'name' => 'Clashy',
                 'email' => 'clash@example.com',
-                'username' => 'ta.ken',
+                'username' => 'taken',
                 'phone' => '0249990000',
                 'password' => 'Secret123!',
                 'password_confirmation' => 'Secret123!',
@@ -82,6 +81,23 @@ class SubagentPortalTest extends TestCase
             ->assertSessionHasErrors('username');
 
         $this->assertDatabaseMissing('subagents', ['email' => 'clash@example.com']);
+    }
+
+    public function test_registration_rejects_a_username_with_unpermitted_characters(): void
+    {
+        $this->inviter();
+
+        $this->post(route('subagent.register.store', ['ref' => 'charlesbih']), [
+            'ref' => 'charlesbih',
+            'name' => 'Dotty',
+            'email' => 'dot@example.com',
+            'username' => 'ta.ken', // dot is not allowed
+            'phone' => '0249990000',
+            'password' => 'Secret123!',
+            'password_confirmation' => 'Secret123!',
+        ])->assertSessionHasErrors('username');
+
+        $this->assertDatabaseMissing('subagents', ['email' => 'dot@example.com']);
     }
 
     public function test_a_username_matching_an_agents_slug_is_allowed(): void

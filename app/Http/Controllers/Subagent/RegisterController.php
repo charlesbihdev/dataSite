@@ -6,7 +6,6 @@ use App\Concerns\PasswordValidationRules;
 use App\Http\Controllers\Controller;
 use App\Models\Agent;
 use App\Models\Subagent;
-use Closure;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -38,21 +37,11 @@ class RegisterController extends Controller
     {
         $agent = $this->resolveInviter($request);
 
-        // Username is the store handle — normalise it up front and validate that exact value.
-        $request->merge(['username' => Subagent::slugFor((string) $request->input('username'))]);
-
         $input = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255', Rule::unique('subagents', 'email')],
-            'username' => [
-                'required', 'string', 'max:255',
-                // Unique across the username+slug namespace; a clear error, never a silent suffix.
-                function (string $attribute, mixed $value, Closure $fail): void {
-                    if (Subagent::handleTaken((string) $value)) {
-                        $fail('That username is already taken. Please choose a different one for your store link.');
-                    }
-                },
-            ],
+            // Username is the store handle.
+            'username' => Subagent::handleRules(),
             'phone' => ['required', 'string', 'max:20', Rule::unique('subagents', 'phone')],
             'password' => $this->passwordRules(),
         ]);

@@ -23,4 +23,35 @@ trait HasStoreHandle
             ->where(fn ($q) => $q->where('username', $handle)->orWhere('slug', $handle))
             ->exists();
     }
+
+    /**
+     * Validation rules for a handle field (username or slug): url-safe chars only, unique across the
+     * username+slug namespace. Rejects unpermitted characters with a clear message rather than
+     * silently stripping. Pass the current row's id to ignore its own values.
+     *
+     * @return array<int, mixed>
+     */
+    public static function handleRules(?int $ignoreId = null, bool $required = true): array
+    {
+        $model = static::class;
+
+        return [
+            'bail',
+            $required ? 'required' : 'nullable',
+            'string',
+            'max:255',
+            function (string $attribute, mixed $value, \Closure $fail) use ($model, $ignoreId): void {
+                $label = $attribute === 'slug' ? 'store handle' : 'username';
+
+                if (! preg_match('/^[a-z0-9-]+$/', (string) $value)) {
+                    $fail("Your {$label} may only contain lowercase letters, numbers, and hyphens.");
+
+                    return;
+                }
+                if ($model::handleTaken((string) $value, $ignoreId)) {
+                    $fail("That {$label} is already taken. Please choose a different one.");
+                }
+            },
+        ];
+    }
 }

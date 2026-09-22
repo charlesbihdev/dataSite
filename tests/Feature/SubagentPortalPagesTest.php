@@ -133,11 +133,24 @@ class SubagentPortalPagesTest extends TestCase
             'password' => 'secret', 'is_active' => true,
         ]);
 
-        // "TakenHandle" normalises to "takenhandle" — the unique rule must catch it after normalising.
         $this->actingAs($subagent, 'subagent')
             ->patch(route('subagent.settings.profile'), [
                 'name' => 'Charles Bih', 'email' => 'charles@ex.com', 'phone' => '0240000001',
-                'username' => 'charlesbih', 'slug' => 'TakenHandle',
+                'username' => 'charlesbih', 'slug' => 'takenhandle',
+            ])
+            ->assertSessionHasErrors('slug');
+
+        $this->assertSame('charlesbih', $subagent->fresh()->slug);
+    }
+
+    public function test_profile_update_rejects_a_handle_with_unpermitted_characters(): void
+    {
+        $subagent = $this->subagent();
+
+        $this->actingAs($subagent, 'subagent')
+            ->patch(route('subagent.settings.profile'), [
+                'name' => 'Charles Bih', 'email' => 'charles@ex.com', 'phone' => '0240000001',
+                'username' => 'charlesbih', 'slug' => 'my store!', // space + symbol not allowed
             ])
             ->assertSessionHasErrors('slug');
 
