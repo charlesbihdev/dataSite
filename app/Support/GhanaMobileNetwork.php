@@ -77,6 +77,16 @@ final class GhanaMobileNetwork
     }
 
     /**
+     * Canonical display order of the networks: MTN, Telecel, AirtelTigo.
+     *
+     * @return list<string>
+     */
+    public static function order(): array
+    {
+        return array_keys(self::NETWORKS);
+    }
+
+    /**
      * Network reference data for the frontend: prefix table (for live detection) and the
      * allowed package sizes per network. Keeps the single source of truth on the server.
      *

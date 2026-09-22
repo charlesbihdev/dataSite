@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\OrdersByNetwork;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -22,6 +23,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 #[Fillable(['subagent_id', 'network', 'capacity_gb', 'cost_price', 'selling_price', 'is_active'])]
 class SubagentPackagePrice extends Model
 {
+    use OrdersByNetwork;
+
     protected function casts(): array
     {
         return [
