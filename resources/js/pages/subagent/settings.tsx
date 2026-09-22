@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
 import { storefront } from "@/routes/subagent";
+import { displayUrl } from "@/lib/utils";
 
 interface Props {
     profile: {
@@ -59,7 +60,7 @@ export default function SubagentSettings({ profile, passwordRules }: Props) {
     };
 
     // Full store link built from the Wayfinder route (real D3 domain/prefix, never hand-built).
-    const storeLink = p.data.slug !== "" ? storefront.url({ subagentSlug: p.data.slug }) : "";
+    const storeLink = p.data.slug !== "" ? displayUrl(storefront.url({ subagentSlug: p.data.slug })) : "";
 
     const savePassword = (e: React.FormEvent) => {
         e.preventDefault();

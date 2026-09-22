@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
 import { login } from "@/routes";
 import { storefront } from "@/routes/agent";
+import { displayUrl } from "@/lib/utils";
 
 type Props = {
     passwordRules: string;
@@ -24,7 +25,7 @@ export default function Register({ passwordRules }: Props) {
     });
 
     // Username is the store handle — full link built from the Wayfinder route.
-    const storeLink = data.username !== "" ? storefront.url({ agentSlug: data.username }) : "";
+    const storeLink = data.username !== "" ? displayUrl(storefront.url({ agentSlug: data.username })) : "";
 
     const submit = (e: React.FormEvent) => {
         e.preventDefault();

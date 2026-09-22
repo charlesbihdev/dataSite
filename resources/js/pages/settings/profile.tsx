@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { edit } from '@/routes/profile';
 import { storefront } from '@/routes/agent';
+import { displayUrl } from '@/lib/utils';
 import type { Auth } from '@/types';
 
 type PageProps = {
@@ -34,7 +35,7 @@ export default function Profile() {
     };
 
     // Full store link from the Wayfinder route (real domain/prefix, never hand-built).
-    const storeLink = slug !== '' ? storefront.url({ agentSlug: slug }) : '';
+    const storeLink = slug !== '' ? displayUrl(storefront.url({ agentSlug: slug })) : '';
 
     return (
         <>
