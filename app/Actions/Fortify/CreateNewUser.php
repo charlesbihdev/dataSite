@@ -20,8 +20,7 @@ class CreateNewUser implements CreatesNewUsers
      */
     public function create(array $input): Agent
     {
-        // The username IS the store handle (/buy/{slug}, D2), so normalise it into a url-safe form up
-        // front and validate the exact value the link will use — no separate slug that can drift.
+        // Username is the store handle — normalise it up front and validate that exact value.
         $input['username'] = Agent::slugFor((string) ($input['username'] ?? ''));
 
         Validator::make($input, [
@@ -29,9 +28,7 @@ class CreateNewUser implements CreatesNewUsers
             'email' => ['required', 'string', 'email', 'max:255', 'unique:agents'],
             'username' => [
                 'required', 'string', 'max:255',
-                // Unique across the whole handle namespace (username OR slug) among OTHER AGENTS only —
-                // subagent handles live on a separate domain (D3: /{slug}), so a shared handle there is
-                // not a clash. Reject a real clash outright, never a silent suffix.
+                // Unique across the username+slug namespace; a clear error, never a silent suffix.
                 function (string $attribute, mixed $value, \Closure $fail): void {
                     if (Agent::handleTaken((string) $value)) {
                         $fail('That username is already taken. Please choose a different one for your store link.');
@@ -49,7 +46,7 @@ class CreateNewUser implements CreatesNewUsers
             'email' => $input['email'],
             'username' => $input['username'],
             'phone' => $input['phone'],
-            // The handle starts identical to the username; the agent can change it later in settings.
+            // Handle starts equal to the username; changed later in settings.
             'slug' => $input['username'],
             'password' => $input['password'],
             'pricing_tier_id' => $defaultTier?->id,

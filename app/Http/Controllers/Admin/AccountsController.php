@@ -14,7 +14,7 @@ use App\Services\Accounts\AccountsPresenter;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
+use Illuminate\Validation\Rules\Password;
 use Inertia\Inertia;
 use Inertia\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -57,8 +57,13 @@ class AccountsController extends Controller
         $data = $request->safe()->except('initial_balance');
         $data['is_active'] = $request->boolean('is_active', true);
 
+        // The handle starts equal to the username; changed later in settings.
+        if (! empty($data['username'])) {
+            $data['slug'] = $data['username'];
+        }
+
         if ($type === 'agents' && empty($data['pricing_tier_id'])) {
-            $data['pricing_tier_id'] = \App\Models\PricingTier::where('is_default', true)->value('id');
+            $data['pricing_tier_id'] = PricingTier::where('is_default', true)->value('id');
         }
 
         $account = $type === 'subagents' ? Subagent::create($data) : Agent::create($data);
@@ -95,7 +100,7 @@ class AccountsController extends Controller
 
         $verb = $amount > 0 ? 'Added' : 'Deducted';
 
-        return $this->toast('success', "{$verb} GHS " . number_format(abs($amount), 2) . " — {$model->name}.");
+        return $this->toast('success', "{$verb} GHS ".number_format(abs($amount), 2)." — {$model->name}.");
     }
 
     public function toggle(string $type, int $id): RedirectResponse
@@ -108,7 +113,7 @@ class AccountsController extends Controller
         $model->is_active = ! $model->is_active;
         $model->save();
 
-        return $this->toast('success', "{$model->name} " . ($model->is_active ? 'activated' : 'suspended') . '.');
+        return $this->toast('success', "{$model->name} ".($model->is_active ? 'activated' : 'suspended').'.');
     }
 
     public function assignTier(Request $request, int $id): RedirectResponse
@@ -128,10 +133,10 @@ class AccountsController extends Controller
         return $this->toast('success', "Assigned tier {$tier->name} to {$agent->name}.");
     }
 
-    public function resetPassword(\Illuminate\Http\Request $request, string $type, int $id): RedirectResponse
+    public function resetPassword(Request $request, string $type, int $id): RedirectResponse
     {
         $validated = $request->validate([
-            'password' => ['required', 'string', \Illuminate\Validation\Rules\Password::defaults()],
+            'password' => ['required', 'string', Password::defaults()],
         ]);
 
         $model = $this->resolve($type, $id);
@@ -142,7 +147,7 @@ class AccountsController extends Controller
         $model->password = $validated['password'];
         $model->save();
 
-        return $this->toast('success', "Password updated successfully.");
+        return $this->toast('success', 'Password updated successfully.');
     }
 
     /**
@@ -204,9 +209,9 @@ class AccountsController extends Controller
      */
     private function bulkReset(EloquentCollection $models, string $password): RedirectResponse
     {
-        $models->each(fn(Agent|Subagent $m) => tap($m, fn($x) => $x->update(['password' => $password])));
+        $models->each(fn (Agent|Subagent $m) => tap($m, fn ($x) => $x->update(['password' => $password])));
 
-        return $this->toast('success', $models->count() . ' password(s) reset.');
+        return $this->toast('success', $models->count().' password(s) reset.');
     }
 
     /**
@@ -214,9 +219,9 @@ class AccountsController extends Controller
      */
     private function bulkFlag(EloquentCollection $models, bool $active): RedirectResponse
     {
-        $models->each(fn(Agent|Subagent $m) => $m->update(['is_active' => $active]));
+        $models->each(fn (Agent|Subagent $m) => $m->update(['is_active' => $active]));
 
-        return $this->toast('success', $models->count() . ' account(s) ' . ($active ? 'activated' : 'suspended') . '.');
+        return $this->toast('success', $models->count().' account(s) '.($active ? 'activated' : 'suspended').'.');
     }
 
     /**
@@ -224,14 +229,14 @@ class AccountsController extends Controller
      */
     private function bulkDelete(EloquentCollection $models): RedirectResponse
     {
-        $deletable = $models->filter(fn(Agent|Subagent $m) => $this->isDeletable($m));
+        $deletable = $models->filter(fn (Agent|Subagent $m) => $this->isDeletable($m));
         $deletable->each(function (Agent|Subagent $m): void {
             $m->wallet()->delete();
             $m->delete();
         });
 
         $blocked = $models->count() - $deletable->count();
-        $message = $deletable->count() . ' deleted.' . ($blocked > 0 ? " {$blocked} kept (had orders/subagents)." : '');
+        $message = $deletable->count().' deleted.'.($blocked > 0 ? " {$blocked} kept (had orders/subagents)." : '');
 
         return $this->toast($blocked > 0 ? 'error' : 'success', $message);
     }
@@ -241,7 +246,7 @@ class AccountsController extends Controller
      */
     private function export(EloquentCollection $models, string $type): StreamedResponse
     {
-        $file = "{$type}-" . now()->format('Y-m-d') . '.csv';
+        $file = "{$type}-".now()->format('Y-m-d').'.csv';
 
         return response()->streamDownload(function () use ($models): void {
             $out = fopen('php://output', 'wb');
@@ -270,7 +275,7 @@ class AccountsController extends Controller
         $value = (string) $value;
 
         if ($value !== '' && in_array($value[0], ['=', '+', '-', '@'], true)) {
-            return "\t" . $value;
+            return "\t".$value;
         }
 
         return $value;

@@ -88,7 +88,7 @@ export default function SubagentRegister({ ref, inviter }: Props) {
                             value={data.username}
                             onChange={(e) => {
                                 setUsernameTouched(true);
-                                setData('username', e.target.value);
+                                setData('username', e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''));
                             }}
                             required
                             tabIndex={4}

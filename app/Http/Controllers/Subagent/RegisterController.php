@@ -38,8 +38,7 @@ class RegisterController extends Controller
     {
         $agent = $this->resolveInviter($request);
 
-        // The username IS the store handle, so normalise it into a url-safe form up front and validate
-        // the exact value the /{username} link will use — no separate slug that can drift.
+        // Username is the store handle — normalise it up front and validate that exact value.
         $request->merge(['username' => Subagent::slugFor((string) $request->input('username'))]);
 
         $input = $request->validate([
@@ -47,9 +46,7 @@ class RegisterController extends Controller
             'email' => ['required', 'string', 'email', 'max:255', Rule::unique('subagents', 'email')],
             'username' => [
                 'required', 'string', 'max:255',
-                // Unique across the whole handle namespace (username OR slug) among OTHER subagents —
-                // agent storefronts live on a separate domain (D2: /buy/{slug}), so an agent sharing the
-                // handle is not a clash. Reject a real clash outright, never a silent suffix.
+                // Unique across the username+slug namespace; a clear error, never a silent suffix.
                 function (string $attribute, mixed $value, Closure $fail): void {
                     if (Subagent::handleTaken((string) $value)) {
                         $fail('That username is already taken. Please choose a different one for your store link.');
@@ -65,7 +62,7 @@ class RegisterController extends Controller
             'email' => $input['email'],
             'username' => $input['username'],
             'phone' => $input['phone'],
-            // The handle starts identical to the username; the subagent can change it later in settings.
+            // Handle starts equal to the username; changed later in settings.
             'slug' => $input['username'],
             'password' => $input['password'],
             'agent_id' => $agent->id,

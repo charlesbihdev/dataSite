@@ -9,6 +9,8 @@ use App\Models\BaseCost;
 use App\Models\PricingTier;
 use App\Models\TierPrice;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -20,19 +22,19 @@ class PricingController extends Controller
 {
     public function index(): Response
     {
-        $tiers = PricingTier::query()->withCount('agents')->with(['prices' => fn($q) => $q->orderBy('network')->orderBy('min_gb')])
+        $tiers = PricingTier::query()->withCount('agents')->with(['prices' => fn ($q) => $q->orderBy('network')->orderBy('min_gb')])
             ->orderBy('name')->get();
 
         return Inertia::render('admin/pricing', [
             'baseCosts' => BaseCost::query()->orderBy('network')->orderBy('min_gb')->get()->map($this->mapBaseCost(...)),
-            'tiers' => $tiers->map(fn(PricingTier $tier): array => [
+            'tiers' => $tiers->map(fn (PricingTier $tier): array => [
                 'id' => $tier->id,
                 'name' => $tier->name,
                 'isActive' => $tier->is_active,
                 'agentsCount' => $tier->agents_count,
                 'prices' => $tier->prices->map($this->mapTierPrice(...))->all(),
             ]),
-            'tierList' => $tiers->map(fn(PricingTier $tier): array => [
+            'tierList' => $tiers->map(fn (PricingTier $tier): array => [
                 'id' => $tier->id,
                 'name' => $tier->name,
                 'isActive' => $tier->is_active,
@@ -91,7 +93,7 @@ class PricingController extends Controller
         return back();
     }
 
-    public function storeTier(\Illuminate\Http\Request $request): RedirectResponse
+    public function storeTier(Request $request): RedirectResponse
     {
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:100', 'unique:pricing_tiers,name'],
@@ -104,10 +106,10 @@ class PricingController extends Controller
         return back();
     }
 
-    public function updateTier(\Illuminate\Http\Request $request, PricingTier $pricingTier): RedirectResponse
+    public function updateTier(Request $request, PricingTier $pricingTier): RedirectResponse
     {
         $validated = $request->validate([
-            'name' => ['required', 'string', 'max:100', \Illuminate\Validation\Rule::unique('pricing_tiers', 'name')->ignore($pricingTier->id)],
+            'name' => ['required', 'string', 'max:100', Rule::unique('pricing_tiers', 'name')->ignore($pricingTier->id)],
             'is_active' => ['boolean'],
         ]);
 
@@ -121,11 +123,13 @@ class PricingController extends Controller
     {
         if ($pricingTier->is_undeletable) {
             Inertia::flash('toast', ['type' => 'error', 'message' => 'System tiers cannot be deleted.']);
+
             return back();
         }
 
         if ($pricingTier->agents()->exists()) {
             Inertia::flash('toast', ['type' => 'error', 'message' => 'Reassign agents before deleting this tier.']);
+
             return back();
         }
 
@@ -135,10 +139,10 @@ class PricingController extends Controller
         return back();
     }
 
-    public function cloneNetwork(\Illuminate\Http\Request $request): RedirectResponse
+    public function cloneNetwork(Request $request): RedirectResponse
     {
         $validated = $request->validate([
-            'target_network' => ['required', 'string', \Illuminate\Validation\Rule::in(['telecel', 'at'])],
+            'target_network' => ['required', 'string', Rule::in(['telecel', 'at'])],
         ]);
 
         $target = $validated['target_network'];
@@ -161,15 +165,15 @@ class PricingController extends Controller
             $new->save();
         }
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => ucfirst($target) . ' pricing cloned from MTN.']);
+        Inertia::flash('toast', ['type' => 'success', 'message' => ucfirst($target).' pricing cloned from MTN.']);
 
         return back();
     }
 
-    public function resetNetwork(\Illuminate\Http\Request $request): RedirectResponse
+    public function resetNetwork(Request $request): RedirectResponse
     {
         $validated = $request->validate([
-            'target_network' => ['required', 'string', \Illuminate\Validation\Rule::in(['telecel', 'at'])],
+            'target_network' => ['required', 'string', Rule::in(['telecel', 'at'])],
         ]);
 
         $target = $validated['target_network'];
@@ -177,7 +181,7 @@ class PricingController extends Controller
         BaseCost::where('network', $target)->delete();
         TierPrice::where('network', $target)->delete();
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => ucfirst($target) . ' pricing reset.']);
+        Inertia::flash('toast', ['type' => 'success', 'message' => ucfirst($target).' pricing reset.']);
 
         return back();
     }

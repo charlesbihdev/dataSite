@@ -1,4 +1,5 @@
 import { Head, useForm } from "@inertiajs/react";
+import { useState } from "react";
 import {
     updatePassword,
     updateProfile,
@@ -44,11 +45,21 @@ export default function SubagentSettings({ profile, passwordRules }: Props) {
         p.patch(updateProfile.url(), { preserveScroll: true });
     };
 
-    // Live preview of the full store link off the handle the subagent is typing. Built from the
-    // Wayfinder route so it carries the real D3 store domain (prod) / prefix (local) — never a
-    // hand-built path.
-    const handle = p.data.slug.toLowerCase().replace(/[^a-z0-9-]/g, "");
-    const storeLink = handle !== "" ? storefront.url({ subagentSlug: handle }) : "";
+    // The handle mirrors the username until the subagent edits it directly.
+    const [handleTouched, setHandleTouched] = useState((profile.slug ?? "") !== (profile.username ?? ""));
+    const toHandle = (v: string) => v.toLowerCase().replace(/[^a-z0-9-]/g, "");
+
+    const onUsernameChange = (v: string) => {
+        const u = toHandle(v);
+        p.setData((data) => (handleTouched ? { ...data, username: u } : { ...data, username: u, slug: u }));
+    };
+    const onHandleChange = (v: string) => {
+        setHandleTouched(true);
+        p.setData("slug", toHandle(v));
+    };
+
+    // Full store link built from the Wayfinder route (real D3 domain/prefix, never hand-built).
+    const storeLink = p.data.slug !== "" ? storefront.url({ subagentSlug: p.data.slug }) : "";
 
     const savePassword = (e: React.FormEvent) => {
         e.preventDefault();
@@ -88,12 +99,12 @@ export default function SubagentSettings({ profile, passwordRules }: Props) {
                             </div>
                             <div className="space-y-1.5">
                                 <Label htmlFor="username">Username</Label>
-                                <Input id="username" value={p.data.username} onChange={(e) => p.setData("username", e.target.value)} />
+                                <Input id="username" value={p.data.username} onChange={(e) => onUsernameChange(e.target.value)} required />
                                 <InputError message={p.errors.username} />
                             </div>
                             <div className="space-y-1.5 sm:col-span-2">
                                 <Label htmlFor="slug">Store handle</Label>
-                                <Input id="slug" value={p.data.slug} onChange={(e) => p.setData("slug", e.target.value)} required />
+                                <Input id="slug" value={p.data.slug} onChange={(e) => onHandleChange(e.target.value)} required />
                                 {storeLink !== "" ? (
                                     <p className="text-xs text-muted-foreground">
                                         Your store link is <span className="font-medium text-foreground break-all">{storeLink}</span>. Changing the handle updates your link and QR.

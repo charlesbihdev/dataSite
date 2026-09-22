@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Subagent;
 
 use App\Http\Controllers\Controller;
 use App\Models\Subagent;
+use Closure;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -37,19 +38,19 @@ class SettingsController extends Controller
     {
         $subagent = $request->user('subagent');
 
-        // Normalise the handle up front (lowercase, url-safe — the same derivation registration uses)
-        // so uniqueness is validated against the value we actually store.
-        $request->merge(['slug' => Subagent::slugFor((string) $request->input('slug'))]);
+        // Username is the store handle — normalise both up front and validate those exact values.
+        $request->merge([
+            'username' => Subagent::slugFor((string) $request->input('username')),
+            'slug' => Subagent::slugFor((string) $request->input('slug')),
+        ]);
 
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['nullable', 'email', 'max:255', Rule::unique('subagents', 'email')->ignore($subagent->id)],
             'phone' => ['required', 'string', 'max:20', Rule::unique('subagents', 'phone')->ignore($subagent->id)],
-            'username' => ['required', 'string', 'max:255', Rule::unique('subagents', 'username')->ignore($subagent->id)],
-            // The store handle is the public /{slug} link — required (set at registration, only ever
-            // changed, never cleared) and unique among OTHER subagents (agent storefronts are a
-            // separate domain, so a shared handle there is not a clash).
-            'slug' => ['required', 'string', 'max:255', Rule::unique('subagents', 'slug')->ignore($subagent->id)],
+            // Both required and unique across the username+slug namespace.
+            'username' => ['required', 'string', 'max:255', $this->handleRule($subagent->id)],
+            'slug' => ['required', 'string', 'max:255', $this->handleRule($subagent->id)],
         ]);
 
         $subagent->fill($data);
@@ -64,6 +65,17 @@ class SettingsController extends Controller
         Inertia::flash('toast', ['type' => 'success', 'message' => 'Profile updated.']);
 
         return to_route('subagent.settings');
+    }
+
+    /** Reject a handle already used as a username or slug by another subagent. */
+    private function handleRule(int $subagentId): Closure
+    {
+        return function (string $attribute, mixed $value, Closure $fail) use ($subagentId): void {
+            if (Subagent::handleTaken((string) $value, $subagentId)) {
+                $label = $attribute === 'slug' ? 'store handle' : 'username';
+                $fail("That {$label} is already taken. Please choose a different one.");
+            }
+        };
     }
 
     public function updatePassword(Request $request): RedirectResponse

@@ -59,6 +59,8 @@ class ProfileUpdateTest extends TestCase
                 'name' => 'Test Agent',
                 'email' => $user->email,
                 'phone' => $user->phone,
+                'username' => 'testagent',
+                'slug' => 'test-store',
             ]);
 
         $response

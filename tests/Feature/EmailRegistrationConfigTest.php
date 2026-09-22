@@ -7,6 +7,7 @@ use App\Models\RegistrationConfig;
 use App\Notifications\TestEmailNotification;
 use App\Services\Mail\DbMailConfigurator;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Foundation\Testing\WithoutMiddleware;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
@@ -15,7 +16,7 @@ use Tests\TestCase;
 class EmailRegistrationConfigTest extends TestCase
 {
     use RefreshDatabase;
-    use \Illuminate\Foundation\Testing\WithoutMiddleware;
+    use WithoutMiddleware;
 
     public function test_email_config_saves_and_encrypts_password(): void
     {

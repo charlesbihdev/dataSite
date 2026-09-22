@@ -16,7 +16,6 @@ class TransactionsController extends Controller
 {
     public const TYPE_TOPUP = 'topup';
 
-
     public function ledger(Request $request): Response
     {
         $search = trim((string) $request->query('q', ''));
@@ -29,17 +28,14 @@ class TransactionsController extends Controller
 
         if ($search !== '') {
             $query->where(
-                fn($q) =>
-                $q->where('reference', 'like', "%{$search}%")
+                fn ($q) => $q->where('reference', 'like', "%{$search}%")
                     ->orWhere('description', 'like', "%{$search}%")
                     ->orWhereHas(
                         'wallet',
-                        fn($w) =>
-                        $w->whereHasMorph(
+                        fn ($w) => $w->whereHasMorph(
                             'walletable',
                             '*',
-                            fn($m) =>
-                            $m->where('name', 'like', "%{$search}%")
+                            fn ($m) => $m->where('name', 'like', "%{$search}%")
                                 ->orWhere('username', 'like', "%{$search}%")
                                 ->orWhere('email', 'like', "%{$search}%")
                         )
@@ -80,7 +76,7 @@ class TransactionsController extends Controller
         $rows = $query->latest('id')
             ->paginate(50)
             ->withQueryString()
-            ->through(fn(WalletTransaction $t): array => $this->present($t));
+            ->through(fn (WalletTransaction $t): array => $this->present($t));
 
         return Inertia::render('admin/ledger', [
             'transactions' => $rows,
@@ -104,7 +100,7 @@ class TransactionsController extends Controller
         return [
             'id' => $t->id,
             'owner' => $owner
-                ? ($owner->name . ' (' . class_basename($t->wallet->walletable_type) . ')')
+                ? ($owner->name.' ('.class_basename($t->wallet->walletable_type).')')
                 : 'Unknown',
             'type' => $t->type,
             'amount' => (float) $t->amount,

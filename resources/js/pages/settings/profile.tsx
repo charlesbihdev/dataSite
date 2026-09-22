@@ -1,4 +1,5 @@
 import { Form, Head, usePage } from '@inertiajs/react';
+import { useState } from 'react';
 import ProfileController from '@/actions/App/Http/Controllers/Settings/ProfileController';
 import Heading from '@/components/heading';
 import InputError from '@/components/input-error';
@@ -6,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { edit } from '@/routes/profile';
+import { storefront } from '@/routes/agent';
 import type { Auth } from '@/types';
 
 type PageProps = {
@@ -14,6 +16,25 @@ type PageProps = {
 
 export default function Profile() {
     const { auth } = usePage<PageProps>().props;
+
+    // The handle mirrors the username until the agent edits it directly.
+    const [username, setUsername] = useState(auth.user.username ?? '');
+    const [slug, setSlug] = useState(auth.user.slug ?? '');
+    const [handleTouched, setHandleTouched] = useState((auth.user.slug ?? '') !== (auth.user.username ?? ''));
+    const toHandle = (v: string) => v.toLowerCase().replace(/[^a-z0-9-]/g, '');
+
+    const onUsernameChange = (v: string) => {
+        const u = toHandle(v);
+        setUsername(u);
+        if (!handleTouched) setSlug(u);
+    };
+    const onHandleChange = (v: string) => {
+        setHandleTouched(true);
+        setSlug(toHandle(v));
+    };
+
+    // Full store link from the Wayfinder route (real domain/prefix, never hand-built).
+    const storeLink = slug !== '' ? storefront.url({ agentSlug: slug }) : '';
 
     return (
         <>
@@ -98,8 +119,10 @@ export default function Profile() {
                                 <Input
                                     id="username"
                                     className="mt-1 block w-full"
-                                    defaultValue={auth.user.username ?? ''}
+                                    value={username}
+                                    onChange={(e) => onUsernameChange(e.target.value)}
                                     name="username"
+                                    required
                                     autoComplete="username"
                                     placeholder="Username"
                                 />
@@ -113,14 +136,22 @@ export default function Profile() {
                                 <Input
                                     id="slug"
                                     className="mt-1 block w-full"
-                                    defaultValue={auth.user.slug ?? ''}
+                                    value={slug}
+                                    onChange={(e) => onHandleChange(e.target.value)}
                                     name="slug"
+                                    required
                                     placeholder="your-store"
                                 />
 
-                                <p className="text-xs text-muted-foreground">
-                                    Used in your storefront link — letters, numbers, and hyphens only.
-                                </p>
+                                {storeLink !== '' ? (
+                                    <p className="text-xs text-muted-foreground">
+                                        Your store link is <span className="font-medium text-foreground break-all">{storeLink}</span>.
+                                    </p>
+                                ) : (
+                                    <p className="text-xs text-muted-foreground">
+                                        Used in your storefront link — letters, numbers, and hyphens only.
+                                    </p>
+                                )}
 
                                 <InputError className="mt-2" message={errors.slug} />
                             </div>

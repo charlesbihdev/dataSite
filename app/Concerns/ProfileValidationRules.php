@@ -3,6 +3,7 @@
 namespace App\Concerns;
 
 use App\Models\Agent;
+use Closure;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Validation\Rule;
 
@@ -21,9 +22,21 @@ trait ProfileValidationRules
             'name' => $this->nameRules(),
             'email' => $this->emailRules($userId),
             'phone' => ['required', 'string', 'max:20', $ignore()],
-            'username' => ['nullable', 'string', 'max:255', $ignore()],
-            'slug' => ['nullable', 'string', 'max:255', 'alpha_dash', $ignore()],
+            // Username is the store handle; both required and unique across the username+slug namespace.
+            'username' => ['required', 'string', 'max:255', $this->handleRule($userId)],
+            'slug' => ['required', 'string', 'max:255', $this->handleRule($userId)],
         ];
+    }
+
+    /** Reject a handle already used as a username or slug by another agent. */
+    private function handleRule(?int $userId): Closure
+    {
+        return function (string $attribute, mixed $value, Closure $fail) use ($userId): void {
+            if (Agent::handleTaken((string) $value, $userId)) {
+                $label = $attribute === 'slug' ? 'store handle' : 'username';
+                $fail("That {$label} is already taken. Please choose a different one.");
+            }
+        };
     }
 
     /**
