@@ -23,7 +23,7 @@ class PackagesController extends Controller
     {
         $subagent = $request->user('subagent');
 
-        $packages = $subagent->packagePrices()->latest('id')->paginate(30)->through(function (SubagentPackagePrice $p): array {
+        $packages = $subagent->packagePrices()->orderByNetwork()->paginate(30)->through(function (SubagentPackagePrice $p): array {
             $cost = (float) $p->cost_price;
             $selling = (float) $p->selling_price;
 
@@ -66,7 +66,7 @@ class PackagesController extends Controller
         }
 
         if ($selling < $cost) {
-            return $this->toast('error', 'Selling price must be at least your cost price ('.number_format($cost, 2).').');
+            return $this->toast('error', 'Selling price must be at least your cost price (' . number_format($cost, 2) . ').');
         }
 
         $subagent->packagePrices()->updateOrCreate(
@@ -122,14 +122,13 @@ class PackagesController extends Controller
             ->where('agent_id', $subagent->agent_id)
             ->where('is_active', true)
             ->whereNotNull('subagent_price')
-            ->orderBy('network')
-            ->orderBy('capacity_gb')
+            ->orderByNetwork()
             ->get()
-            ->map(fn (AgentPackagePrice $p): array => [
+            ->map(fn(AgentPackagePrice $p): array => [
                 'value' => "{$p->network}:{$p->capacity_gb}",
                 'network' => $p->network,
                 'capacityGb' => (int) $p->capacity_gb,
-                'label' => strtoupper($p->network)." {$p->capacity_gb}GB",
+                'label' => strtoupper($p->network) . " {$p->capacity_gb}GB",
                 'cost' => (float) $p->subagent_price,
             ])
             ->all();
