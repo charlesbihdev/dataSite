@@ -6,6 +6,7 @@ import InputError from '@/components/input-error';
 import PasswordInput from '@/components/password-input';
 import TextLink from '@/components/text-link';
 import { storefront } from '@/routes/subagent';
+import { displayUrl } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -37,7 +38,7 @@ export default function SubagentRegister({ ref, inviter }: Props) {
     // hyphens only). We build the full URL from the Wayfinder `subagent.storefront` route so it carries
     // the real D3 store domain (prod) / prefix (local) — never a hand-built path.
     const slugPreview = data.username.toLowerCase().replace(/[^a-z0-9-]/g, '');
-    const storeLink = slugPreview !== '' ? storefront.url({ subagentSlug: slugPreview }) : '';
+    const storeLink = slugPreview !== '' ? displayUrl(storefront.url({ subagentSlug: slugPreview })) : '';
 
     const handleNameChange = (value: string) => {
         setData('name', value);
