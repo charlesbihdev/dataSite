@@ -1,1 +1,0 @@
-import{t as e}from"./jsx-runtime-DIUZIJTu.js";import{t}from"./utils-CCDJ05Ll.js";import{t as n}from"./format-BBUdTsAW.js";var r=e();function i({value:e,signed:i=!1,className:a}){let o=e<0,s=o?`−`:i?`+`:``;return(0,r.jsxs)(`span`,{className:t(`font-medium tabular-nums`,o?`text-danger`:`text-success`,a),children:[s,n(Math.abs(e))]})}export{i as t};
