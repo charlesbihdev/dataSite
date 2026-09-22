@@ -106,10 +106,10 @@ export default function AgentReferral({
 
     return (
         <>
-            <Head title="My Referral Link" />
+            <Head title="My Store Link" />
             <div className="flex h-full flex-1 flex-col gap-6 p-4 lg:p-8">
                 <PageHeader
-                    title="My Referral Link"
+                    title="My Store Link"
                     description="Share your store link and track how it performs."
                 />
 
@@ -141,7 +141,7 @@ export default function AgentReferral({
                         <CardHeader className="flex-row items-start justify-between gap-3 space-y-0">
                             <div className="space-y-1.5">
                                 <CardTitle className="text-base">
-                                    Your Referral Link
+                                    Your Store Link
                                 </CardTitle>
                                 <CardDescription>
                                     Share this link — customers buy directly
@@ -191,12 +191,12 @@ export default function AgentReferral({
                             >
                                 <img
                                     src={referralQr}
-                                    alt="Referral QR code"
+                                    alt="Store QR code"
                                     className="size-32 shrink-0 rounded-lg border border-border bg-white p-2"
                                 />
                             </Deferred>
                             <div className="min-w-0 flex-1 space-y-2">
-                                <Label>Referral link</Label>
+                                <Label>Store link</Label>
                                 <Input
                                     readOnly
                                     value={referralUrl}
@@ -424,6 +424,6 @@ function Field({
 AgentReferral.layout = {
     breadcrumbs: [
         { title: "Dashboard", href: "/dashboard" },
-        { title: "My Referral Link", href: "/referral" },
+        { title: "My Store Link", href: "/referral" },
     ],
 };

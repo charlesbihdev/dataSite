@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
 import { login } from "@/routes";
+import { storefront } from "@/routes/agent";
 
 type Props = {
     passwordRules: string;
@@ -22,6 +23,9 @@ export default function Register({ passwordRules }: Props) {
         password_confirmation: "",
     });
 
+    // Username is the store handle — full link built from the Wayfinder route.
+    const storeLink = data.username !== "" ? storefront.url({ agentSlug: data.username }) : "";
+
     const submit = (e: React.FormEvent) => {
         e.preventDefault();
         post('/register', {
@@ -31,7 +35,7 @@ export default function Register({ passwordRules }: Props) {
 
     return (
         <>
-            <Head title="Register" />
+            <Head title="Agent Registration" />
             
             <form onSubmit={submit} className="flex flex-col gap-6">
                 <div className="grid gap-6">
@@ -60,9 +64,14 @@ export default function Register({ passwordRules }: Props) {
                             tabIndex={2}
                             autoComplete="username"
                             value={data.username}
-                            onChange={(e) => setData("username", e.target.value)}
+                            onChange={(e) => setData("username", e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
                             placeholder="johndoe"
                         />
+                        {storeLink !== "" && (
+                            <p className="text-xs text-muted-foreground">
+                                Your store link will be <span className="font-medium text-foreground break-all">{storeLink}</span>
+                            </p>
+                        )}
                         <InputError message={errors.username} />
                     </div>
 
@@ -150,6 +159,7 @@ export default function Register({ passwordRules }: Props) {
 }
 
 Register.layout = {
-    title: "Create an account",
-    description: "Enter your details below to create your account",
+    title: "Create your agent account",
+    description: "Enter your details below to start selling as an agent.",
+    accent: "agent",
 };

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
@@ -12,8 +13,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property bool $is_active
  * @property bool $is_default
  * @property bool $is_undeletable
- * @property \Illuminate\Database\Eloquent\Collection|\App\Models\Agent[] $agents
- * @property \Illuminate\Database\Eloquent\Collection|\App\Models\TierPrice[] $prices
+ * @property Collection|Agent[] $agents
+ * @property Collection|TierPrice[] $prices
  */
 #[Fillable(['name', 'is_active'])]
 class PricingTier extends Model

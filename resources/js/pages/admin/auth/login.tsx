@@ -97,6 +97,7 @@ export default function AdminLogin({ status }: Props) {
 }
 
 AdminLogin.layout = {
-    title: 'Superadmin Login',
+    title: 'Administrator sign in',
     description: 'Enter your credentials to access the backoffice.',
+    accent: 'admin',
 };

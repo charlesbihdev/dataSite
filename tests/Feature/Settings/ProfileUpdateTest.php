@@ -59,6 +59,8 @@ class ProfileUpdateTest extends TestCase
                 'name' => 'Test Agent',
                 'email' => $user->email,
                 'phone' => $user->phone,
+                'username' => 'testagent',
+                'slug' => 'test-store',
             ]);
 
         $response
@@ -66,6 +68,31 @@ class ProfileUpdateTest extends TestCase
             ->assertRedirect(route('profile.edit'));
 
         $this->assertNotNull($user->refresh()->email_verified_at);
+    }
+
+    public function test_profile_update_rejects_a_handle_taken_by_another_agent()
+    {
+        Agent::factory()->create(['username' => 'takenname', 'slug' => 'takenhandle']);
+        $user = Agent::factory()->create();
+
+        $this->actingAs($user, 'agent')
+            ->patch(route('profile.update'), [
+                'name' => 'Test Agent', 'email' => 'test@example.com', 'phone' => '0551234567',
+                'username' => 'myagent', 'slug' => 'takenhandle',
+            ])
+            ->assertSessionHasErrors('slug');
+    }
+
+    public function test_profile_update_rejects_a_handle_with_unpermitted_characters()
+    {
+        $user = Agent::factory()->create();
+
+        $this->actingAs($user, 'agent')
+            ->patch(route('profile.update'), [
+                'name' => 'Test Agent', 'email' => 'test@example.com', 'phone' => '0551234567',
+                'username' => 'goodname', 'slug' => 'Bad_Handle', // underscore + capitals not allowed
+            ])
+            ->assertSessionHasErrors('slug');
     }
 
     public function test_user_can_delete_their_account()

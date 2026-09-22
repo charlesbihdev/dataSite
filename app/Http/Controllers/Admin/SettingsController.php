@@ -11,6 +11,7 @@ use App\Models\DbhConfig;
 use App\Models\EmailConfig;
 use App\Models\RegistrationConfig;
 use App\Notifications\TestEmailNotification;
+use App\Services\Databundleshub\UpstreamClient;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Notification;
@@ -117,25 +118,39 @@ class SettingsController extends Controller
         return back();
     }
 
-    public function updateConnection(DbhConnectionRequest $request): RedirectResponse
+    public function updateConnection(DbhConnectionRequest $request, UpstreamClient $client): RedirectResponse
     {
+        $data = $request->validated();
         $config = DbhConfig::query()->latest('id')->first() ?? new DbhConfig;
 
-        $config->base_url = $request->validated()['base_url'];
-        $config->is_active = (bool) ($request->validated()['is_active'] ?? true);
+        // Normalize the base to the API root so a stray `/developer` or trailing slash can't be stored.
+        $baseUrl = UpstreamClient::normalizeBaseUrl($data['base_url']);
 
-        // Blank key on update keeps the stored one; a new value replaces it. On first save with
-        // no key, store an empty string (column is non-nullable) — hasKey stays false.
-        $key = $request->validated()['api_key'] ?? null;
-        if ($key !== null && $key !== '') {
-            $config->api_key = $key;
+        // Effective key to test with: a newly-entered value, or the stored one on a blank update.
+        $newKey = (string) ($data['api_key'] ?? '');
+        $keyToVerify = $newKey !== '' ? $newKey : ($config->exists ? (string) $config->api_key : '');
+
+        // Prove the URL + key actually work against Databundleshub BEFORE storing them.
+        $check = $client->verifyConnection($baseUrl, $keyToVerify);
+        if (! $check['ok']) {
+            Inertia::flash('toast', ['type' => 'error', 'message' => 'Not saved — '.$check['message']]);
+
+            return back()->withErrors(['base_url' => $check['message']]);
+        }
+
+        $config->base_url = $baseUrl;
+        $config->is_active = (bool) ($data['is_active'] ?? true);
+
+        // Blank key on update keeps the stored one; a new value replaces it.
+        if ($newKey !== '') {
+            $config->api_key = $newKey;
         } elseif (! $config->exists) {
             $config->api_key = '';
         }
 
         $config->save();
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => 'Databundleshub connection saved.']);
+        Inertia::flash('toast', ['type' => 'success', 'message' => 'Databundleshub connection saved and verified.']);
 
         return back();
     }

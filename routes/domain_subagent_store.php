@@ -16,12 +16,20 @@
 | NOTHING — a customer here cannot discover "become a subagent" (that lives on
 | D2) or climb to any tier. Keep this domain a dead end by construction.
 |
-| Response is a stub; the real storefront/checkout page replaces it.
+| The store is keyed on the subagent's username-derived handle (slug), never the
+| id, so the public link is always /{username}.
 |
 */
 
+use App\Http\Controllers\Storefront\SubagentStorefrontController;
 use Illuminate\Support\Facades\Route;
 
-Route::get('{subagentSlug}', fn (string $subagentSlug) => response("Subagent storefront for [{$subagentSlug}] — buy bundles only — TODO"))
-    ->where('subagentSlug', '[A-Za-z0-9\-]+')
-    ->name('subagent.storefront');
+// Buy-only subagent storefront. Fixed sub-segments (checkout/callback/receipt/track) sit under the
+// same {subagentSlug} prefix; the slug constraint keeps the root store off reserved paths.
+Route::prefix('{subagentSlug}')->where(['subagentSlug' => '[A-Za-z0-9\-]+', 'order' => '[A-Za-z0-9\-]+'])->group(function () {
+    Route::get('/', [SubagentStorefrontController::class, 'show'])->name('subagent.storefront');
+    Route::post('checkout', [SubagentStorefrontController::class, 'checkout'])->name('subagent.storefront.checkout');
+    Route::get('callback', [SubagentStorefrontController::class, 'paymentCallback'])->name('subagent.storefront.callback');
+    Route::get('receipt/{order}', [SubagentStorefrontController::class, 'receipt'])->name('subagent.storefront.receipt');
+    Route::get('track', [SubagentStorefrontController::class, 'track'])->name('subagent.storefront.track');
+});

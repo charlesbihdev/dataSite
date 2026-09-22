@@ -41,7 +41,7 @@ class WithdrawalController extends Controller
                     'enabled' => $available >= (float) $m['min'],
                 ])
                 ->values(),
-            'withdrawals' => $earner->withdrawals()->latest('id')->paginate(30)->through(fn (Withdrawal $w): array => [
+            'withdrawals' => $earner->withdrawals()->latest('id')->simplePaginate(30)->through(fn (Withdrawal $w): array => [
                 'id' => $w->id,
                 'method' => $this->methodLabel($w->method),
                 'amount' => (float) $w->amount,

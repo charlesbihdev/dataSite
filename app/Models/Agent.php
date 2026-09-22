@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Models\Concerns\HasApiKeys;
 use App\Models\Concerns\HasEarnings;
 use App\Models\Concerns\HasOrders;
+use App\Models\Concerns\HasStoreHandle;
 use App\Models\Concerns\HasWallet;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
@@ -35,7 +36,7 @@ use Laravel\Fortify\TwoFactorAuthenticatable;
 #[Hidden(['password', 'remember_token', 'two_factor_secret', 'two_factor_recovery_codes'])]
 class Agent extends Authenticatable
 {
-    use HasApiKeys, HasEarnings, HasFactory, HasOrders, HasWallet, Notifiable, TwoFactorAuthenticatable;
+    use HasApiKeys, HasEarnings, HasFactory, HasOrders, HasStoreHandle, HasWallet, Notifiable, TwoFactorAuthenticatable;
 
     protected function casts(): array
     {

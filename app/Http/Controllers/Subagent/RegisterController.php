@@ -9,7 +9,6 @@ use App\Models\Subagent;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -41,7 +40,8 @@ class RegisterController extends Controller
         $input = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255', Rule::unique('subagents', 'email')],
-            'username' => ['required', 'string', 'max:255', Rule::unique('subagents', 'username')],
+            // Username is the store handle.
+            'username' => Subagent::handleRules(),
             'phone' => ['required', 'string', 'max:20', Rule::unique('subagents', 'phone')],
             'password' => $this->passwordRules(),
         ]);
@@ -51,7 +51,8 @@ class RegisterController extends Controller
             'email' => $input['email'],
             'username' => $input['username'],
             'phone' => $input['phone'],
-            'slug' => $this->uniqueSlug($input['username']),
+            // Handle starts equal to the username; changed later in settings.
+            'slug' => $input['username'],
             'password' => $input['password'],
             'agent_id' => $agent->id,
             'is_active' => true,
@@ -82,16 +83,5 @@ class RegisterController extends Controller
         abort_unless($agent && $agent->is_active, 404);
 
         return $agent;
-    }
-
-    private function uniqueSlug(string $username): string
-    {
-        $slug = strtolower((string) preg_replace('/[^a-zA-Z0-9\-]/', '', $username)) ?: 'store';
-
-        if (Agent::where('slug', $slug)->exists() || Subagent::where('slug', $slug)->exists()) {
-            $slug .= '-'.strtolower(Str::random(4));
-        }
-
-        return $slug;
     }
 }

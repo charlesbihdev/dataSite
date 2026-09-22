@@ -157,6 +157,30 @@ class OrderDispatchServiceTest extends TestCase
         $this->assertSame(0, Earning::where('status', Earning::STATUS_REVERSED)->count());
     }
 
+    public function test_error_envelope_without_terminal_status_holds_pending_never_processing(): void
+    {
+        // The production bug: a 403 bot-block / auth error returns JSON but no order data. The old
+        // code defaulted orderStatus to "pending" and fell through to a false PROCESSING flip.
+        Queue::fake();
+        $agent = $this->agent();
+        $this->fund($agent, 100);
+        $this->fakeUpstream(['success' => false, 'message' => 'Access denied by bot-protection'], 403);
+
+        $order = app(OrderDispatchService::class)->dispatch(new NewOrderData(
+            seller: $agent, network: 'mtn', capacityGb: 5, beneficiaryPhone: '0559999999',
+            customerPrice: 30, sellerCost: 20, agentCost: 20, baseCost: 15,
+        ));
+
+        // Held, not processing, not reversed — and no poll job queued for a phantom order.
+        $this->assertSame(Order::STATUS_PENDING, $order->fresh()->status);
+        $this->assertNull($order->fresh()->upstream_request_id);
+        $this->assertSame(OrderDispatchService::HELD_REASON, $order->fresh()->failure_reason);
+        $this->assertSame(80.0, (float) $agent->walletOrCreate()->balance); // debit reserved, not refunded
+        $this->assertSame(1, Earning::where('status', Earning::STATUS_PENDING)->count());
+        $this->assertSame(0, Earning::where('status', Earning::STATUS_REVERSED)->count());
+        Queue::assertNotPushed(PollUpstreamOrderStatus::class);
+    }
+
     public function test_held_pending_order_is_dispatched_when_admin_retries_after_connecting(): void
     {
         DbhConfig::query()->delete();

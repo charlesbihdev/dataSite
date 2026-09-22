@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rules\Password;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Laravel\Fortify\Features;
 use Laravel\Fortify\Fortify;
@@ -53,9 +54,19 @@ class FortifyServiceProvider extends ServiceProvider
                 ->orWhere('phone', $login)
                 ->first();
 
-            if ($user && Hash::check($password, $user->password)) {
-                return $user;
+            if (! $user || ! Hash::check($password, $user->password)) {
+                return null;
             }
+
+            // Correct credentials but a suspended account: block with a clear, actionable message
+            // rather than the generic mismatch error. Safe to reveal — only the real owner reaches here.
+            if (! $user->is_active) {
+                throw ValidationException::withMessages([
+                    'email' => 'Your account has been suspended. Please contact support to restore access.',
+                ]);
+            }
+
+            return $user;
         });
     }
 

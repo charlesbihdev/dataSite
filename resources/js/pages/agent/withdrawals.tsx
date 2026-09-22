@@ -2,7 +2,7 @@ import { Head, router, useForm } from "@inertiajs/react";
 import { AlertTriangle } from "lucide-react";
 import { Column, DataTable } from "@/components/common/data-table";
 import { PageHeader } from "@/components/common/page-header";
-import { PageLink, Pagination } from "@/components/common/pagination";
+import { SimplePagination } from "@/components/common/pagination";
 import { StatTile } from "@/components/common/stat-tile";
 import { StatusBadge } from "@/components/common/status-badge";
 import { Button } from "@/components/ui/button";
@@ -18,7 +18,7 @@ interface Wd { id: number; method: string; amount: number; status: string; date:
 interface Props {
     stats: { totalEarnings: number; available: number; pending: number; withdrawn: number };
     methods: Method[];
-    withdrawals: { data: Wd[]; links: PageLink[] };
+    withdrawals: { data: Wd[]; from: number | null; prev_page_url: string | null; next_page_url: string | null };
 }
 
 export default function AgentWithdrawals({ stats, methods, withdrawals }: Props) {
@@ -32,7 +32,7 @@ export default function AgentWithdrawals({ stats, methods, withdrawals }: Props)
     };
 
     const columns: Column<Wd>[] = [
-        { key: "id", header: "ID", render: (w) => <span className="font-mono text-xs">#{w.id}</span> },
+        { key: "row", header: "#", render: (w) => <span className="text-muted-foreground">{(withdrawals.from ?? 1) + withdrawals.data.indexOf(w)}</span> },
         { key: "method", header: "Type", render: (w) => w.method },
         { key: "amount", header: "Amount", align: "right", render: (w) => <span className="tabular-nums">{cedis(w.amount)}</span> },
         { key: "status", header: "Status", render: (w) => <StatusBadge status={w.status} /> },
@@ -148,14 +148,14 @@ export default function AgentWithdrawals({ stats, methods, withdrawals }: Props)
                     </CardContent>
                 </Card>
 
-                <div className="rounded-xl border border-border bg-card shadow-sm lg:col-span-3">
+                <div className="min-w-0 rounded-xl border border-border bg-card shadow-sm lg:col-span-3">
                     <div className="border-b border-border p-4">
                         <h2 className="text-sm font-semibold">Withdrawal History</h2>
                     </div>
                     <DataTable columns={columns} rows={withdrawals.data} rowKey={(w) => w.id} emptyMessage="No withdrawal requests yet." />
-                    {withdrawals.links.length > 3 && (
+                    {(withdrawals.prev_page_url || withdrawals.next_page_url) && (
                         <div className="border-t border-border p-4">
-                            <Pagination links={withdrawals.links} />
+                            <SimplePagination prevUrl={withdrawals.prev_page_url} nextUrl={withdrawals.next_page_url} />
                         </div>
                     )}
                 </div>

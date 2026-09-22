@@ -2,6 +2,8 @@
 
 namespace App\Http\Requests\Admin;
 
+use App\Models\Agent;
+use App\Models\Subagent;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
@@ -29,7 +31,8 @@ class AccountRequest extends FormRequest
             'name' => ['required', 'string', 'max:255'],
             'phone' => ['required', 'string', 'max:20', Rule::unique($table, 'phone')],
             'email' => ['nullable', 'email', 'max:255', Rule::unique($table, 'email')],
-            'username' => ['nullable', 'string', 'max:255', Rule::unique($table, 'username')],
+            // Username is the store handle; url-safe and unique across the username+slug namespace.
+            'username' => $this->model()::handleRules(required: false),
             'password' => ['required', Password::defaults()],
             'initial_balance' => ['nullable', 'numeric', 'min:0'],
             'is_active' => ['boolean'],
@@ -47,5 +50,11 @@ class AccountRequest extends FormRequest
     public function isSubagent(): bool
     {
         return $this->route('type') === 'subagents';
+    }
+
+    /** @return class-string<Agent|Subagent> */
+    private function model(): string
+    {
+        return $this->isSubagent() ? Subagent::class : Agent::class;
     }
 }

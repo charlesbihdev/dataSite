@@ -40,6 +40,14 @@ class AuthController extends Controller
             ->first();
 
         if ($subagent && Hash::check((string) $request->input('password'), $subagent->password)) {
+            // Correct credentials but a suspended account: block with a clear, actionable message
+            // rather than the generic mismatch error. Safe to reveal — only the real owner reaches here.
+            if (! $subagent->is_active) {
+                return back()->withErrors([
+                    'login' => 'Your account has been suspended. Please contact your agent to restore access.',
+                ])->onlyInput('login');
+            }
+
             Auth::guard('subagent')->login($subagent, $request->boolean('remember'));
             $request->session()->regenerate();
 

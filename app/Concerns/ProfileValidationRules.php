@@ -21,8 +21,9 @@ trait ProfileValidationRules
             'name' => $this->nameRules(),
             'email' => $this->emailRules($userId),
             'phone' => ['required', 'string', 'max:20', $ignore()],
-            'username' => ['nullable', 'string', 'max:255', $ignore()],
-            'slug' => ['nullable', 'string', 'max:255', 'alpha_dash', $ignore()],
+            // Username is the store handle; slug is the (editable) handle. Both url-safe and unique.
+            'username' => Agent::handleRules($userId),
+            'slug' => Agent::handleRules($userId),
         ];
     }
 

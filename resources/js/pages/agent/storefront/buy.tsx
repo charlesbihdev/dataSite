@@ -1,5 +1,5 @@
 import { ShoppingBag } from "lucide-react";
-import { show, track } from "@/actions/App/Http/Controllers/Storefront/StorefrontController";
+import { checkout, show, track } from "@/actions/App/Http/Controllers/Storefront/StorefrontController";
 import { CheckoutDialog } from "@/components/storefront/checkout-dialog";
 import { type StorefrontPkg } from "@/components/storefront/package-card";
 import {
@@ -41,7 +41,7 @@ export default function AgentStorefrontBuy({
             renderCheckout={(pkg, close) => (
                 <CheckoutDialog
                     pkg={pkg}
-                    agentSlug={agentSlug}
+                    checkoutUrl={checkout.url({ agentSlug })}
                     networks={networks}
                     onClose={close}
                 />

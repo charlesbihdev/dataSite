@@ -47,6 +47,23 @@ class HandleInertiaRequests extends Middleware
         return method_exists($user, 'wallet') ? $user->load('wallet') : $user;
     }
 
+    /**
+     * For a signed-in subagent, the display name of the agent they resell under — surfaced on the
+     * subagent sidebar as "Sub-agent of {agent}". Null for every other guard.
+     */
+    private function resolveResellerOf(Request $request): ?string
+    {
+        $subagent = $request->user('subagent');
+
+        if ($subagent === null) {
+            return null;
+        }
+
+        $agent = $subagent->agent;
+
+        return $agent?->name;
+    }
+
     public function share(Request $request): array
     {
         return [
@@ -56,6 +73,8 @@ class HandleInertiaRequests extends Middleware
                 // Resolve whichever portal guard is active (agent is the default; subagents live on
                 // the agent-store domain) so the shared app shell shows the right signed-in user.
                 'user' => fn () => $this->resolveUser($request),
+                // The agent a subagent resells under (null for other guards) — sidebar label.
+                'resellerOf' => fn () => $this->resolveResellerOf($request),
             ],
             'flash' => [
                 'rawApiKey' => fn () => $request->session()->get('rawApiKey'),

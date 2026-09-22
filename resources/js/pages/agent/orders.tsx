@@ -128,7 +128,7 @@ export default function AgentOrders({ orders, filters, stats }: Props) {
                 />
 
                 <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                    <StatTile label="Total Revenue" value={cedis(stats.sales)} hint={inRange ? "For selected period" : "All time"} />
+                    <StatTile label="Paid revenue" value={cedis(stats.sales)} hint={inRange ? "For selected period" : "All time"} />
                     <StatTile label="Net Profit" value={cedis(stats.profit)} hint={inRange ? "For selected period" : "All time"} />
                     <StatTile label="Orders Count" value={String(stats.count)} hint={inRange ? "For selected period" : "All time"} />
                 </div>

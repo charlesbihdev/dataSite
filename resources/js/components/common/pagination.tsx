@@ -46,3 +46,37 @@ export function Pagination({ links }: { links: PageLink[] }) {
         </nav>
     );
 }
+
+/**
+ * A "simple" paginator (Laravel `simplePaginate`) — just Previous / Next, no page numbers or COUNT
+ * query. Hidden entirely when there's nothing on either side. Feed it the paginator's
+ * `prev_page_url` / `next_page_url`.
+ */
+export function SimplePagination({ prevUrl, nextUrl }: { prevUrl: string | null; nextUrl: string | null }) {
+    if (!prevUrl && !nextUrl) {
+        return null;
+    }
+
+    const base = 'rounded-md border border-border px-3 py-1.5 text-sm';
+    const disabled = 'cursor-not-allowed text-muted-foreground/50';
+    const enabled = 'text-foreground hover:bg-muted';
+
+    return (
+        <nav className="flex items-center justify-end gap-2">
+            {prevUrl ? (
+                <Link href={prevUrl} preserveScroll preserveState className={cn(base, enabled)}>
+                    ‹ Previous
+                </Link>
+            ) : (
+                <span className={cn(base, disabled)}>‹ Previous</span>
+            )}
+            {nextUrl ? (
+                <Link href={nextUrl} preserveScroll preserveState className={cn(base, enabled)}>
+                    Next ›
+                </Link>
+            ) : (
+                <span className={cn(base, disabled)}>Next ›</span>
+            )}
+        </nav>
+    );
+}

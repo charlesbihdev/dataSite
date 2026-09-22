@@ -32,8 +32,8 @@ class AnalyticsController extends Controller
             ->whereDate('created_at', '<=', $dateTo)
             ->selectRaw('DATE(created_at) as date')
             ->selectRaw('COUNT(*) as total_orders')
-            ->selectRaw("SUM(CASE WHEN status = '" . Order::STATUS_COMPLETED . "' THEN 1 ELSE 0 END) as completed_orders")
-            ->selectRaw("SUM(CASE WHEN status = '" . Order::STATUS_FAILED . "' THEN 1 ELSE 0 END) as failed_orders")
+            ->selectRaw("SUM(CASE WHEN status = '".Order::STATUS_COMPLETED."' THEN 1 ELSE 0 END) as completed_orders")
+            ->selectRaw("SUM(CASE WHEN status = '".Order::STATUS_FAILED."' THEN 1 ELSE 0 END) as failed_orders")
             ->selectRaw('SUM(customer_price) as total_revenue')
             ->groupBy(DB::raw('DATE(created_at)'))
             ->orderByDesc('date')
@@ -72,19 +72,19 @@ class AnalyticsController extends Controller
                 'orders' => (int) ($dataServed->total_orders ?? 0),
                 'revenue' => (float) ($dataServed->total_revenue ?? 0),
             ],
-            'dailyOrders' => $dailyOrders->map(fn($o) => [
+            'dailyOrders' => $dailyOrders->map(fn ($o) => [
                 'date' => $o->date,
                 'total_orders' => (int) $o->total_orders,
                 'completed_orders' => (int) $o->completed_orders,
                 'failed_orders' => (int) $o->failed_orders,
                 'revenue' => (float) $o->total_revenue,
             ]),
-            'dailyTopups' => $dailyTopups->map(fn($t) => [
+            'dailyTopups' => $dailyTopups->map(fn ($t) => [
                 'date' => $t->date,
                 'amount' => (float) $t->amount,
                 'count' => (int) $t->count,
             ]),
-            'topAgents' => $topAgents->map(fn($a) => [
+            'topAgents' => $topAgents->map(fn ($a) => [
                 'agent' => $a->agent,
                 'email' => $a->email,
                 'orders' => (int) $a->orders,

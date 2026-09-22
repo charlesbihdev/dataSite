@@ -1,7 +1,6 @@
 import { useForm } from "@inertiajs/react";
 import { useMemo, useState } from "react";
 import { Info, Loader2, Lock, Phone, ShoppingCart } from "lucide-react";
-import { checkout } from "@/actions/App/Http/Controllers/Storefront/StorefrontController";
 import type { StorefrontPkg } from "@/components/storefront/package-card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -17,25 +16,25 @@ import { cedis } from "@/lib/format";
  */
 export function CheckoutDialog({
     pkg,
-    agentSlug,
+    checkoutUrl,
     networks,
     onClose,
 }: {
     pkg: StorefrontPkg | null;
-    agentSlug: string;
+    checkoutUrl: string;
     networks: NetworkMeta[];
     onClose: () => void;
 }) {
     return (
         <Dialog open={pkg !== null} onOpenChange={(open) => !open && onClose()}>
             <DialogContent className="overflow-hidden p-0 sm:max-w-md">
-                {pkg && <CheckoutForm key={pkg.id} pkg={pkg} agentSlug={agentSlug} networks={networks} />}
+                {pkg && <CheckoutForm key={pkg.id} pkg={pkg} checkoutUrl={checkoutUrl} networks={networks} />}
             </DialogContent>
         </Dialog>
     );
 }
 
-function CheckoutForm({ pkg, agentSlug, networks }: { pkg: StorefrontPkg; agentSlug: string; networks: NetworkMeta[] }) {
+function CheckoutForm({ pkg, checkoutUrl, networks }: { pkg: StorefrontPkg; checkoutUrl: string; networks: NetworkMeta[] }) {
     const [phone, setPhone] = useState("");
     const detected = useMemo(() => detectNetwork(phone, networks), [phone, networks]);
     const mismatch = detected !== null && detected.code !== pkg.network;
@@ -55,7 +54,7 @@ function CheckoutForm({ pkg, agentSlug, networks }: { pkg: StorefrontPkg; agentS
             network: pkg.network,
             capacity_gb: pkg.capacityGb,
         }));
-        form.post(checkout.url({ agentSlug }), { preserveScroll: true });
+        form.post(checkoutUrl, { preserveScroll: true });
     };
 
     return (
