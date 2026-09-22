@@ -70,6 +70,20 @@ class ProfileUpdateTest extends TestCase
         $this->assertNotNull($user->refresh()->email_verified_at);
     }
 
+    public function test_profile_update_rejects_a_handle_taken_by_another_agent()
+    {
+        Agent::factory()->create(['username' => 'takenname', 'slug' => 'takenhandle']);
+        $user = Agent::factory()->create();
+
+        // "TakenHandle" normalises to "takenhandle" — the union rule must catch it.
+        $this->actingAs($user, 'agent')
+            ->patch(route('profile.update'), [
+                'name' => 'Test Agent', 'email' => 'test@example.com', 'phone' => '0551234567',
+                'username' => 'myagent', 'slug' => 'TakenHandle',
+            ])
+            ->assertSessionHasErrors('slug');
+    }
+
     public function test_user_can_delete_their_account()
     {
         $user = Agent::factory()->create();
