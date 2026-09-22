@@ -22,7 +22,7 @@ class ApiKeysController extends Controller
         $keys = $agent->apiKeys()
             ->latest('id')
             ->get()
-            ->map(fn(ApiKey $k): array => [
+            ->map(fn (ApiKey $k): array => [
                 'id' => $k->id,
                 'name' => $k->name,
                 'prefix' => $k->prefix,
@@ -43,11 +43,18 @@ class ApiKeysController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
+        $agent = $request->user();
+
+        if ($agent->apiKeys()->where('is_active', true)->count() >= 3) {
+            return back()->withErrors([
+                'name' => 'You already have the maximum of 3 active API keys. Revoke or suspend one to generate another.',
+            ]);
+        }
+
         $validated = $request->validate([
             'name' => ['nullable', 'string', 'max:100'],
         ]);
 
-        $agent = $request->user();
         $name = trim((string) ($validated['name'] ?? '')) ?: 'Default API Key';
 
         [$key, $raw] = ApiKey::generate($agent, $name);
@@ -69,6 +76,15 @@ class ApiKeysController extends Controller
     public function toggle(Request $request, ApiKey $apiKey): RedirectResponse
     {
         $this->authorizeOwner($request, $apiKey);
+
+        if (! $apiKey->is_active && $request->user()->apiKeys()->where('is_active', true)->count() >= 3) {
+            Inertia::flash('toast', [
+                'type' => 'error',
+                'message' => 'Maximum of 3 active API keys reached. Suspend or revoke another key first.',
+            ]);
+
+            return back();
+        }
 
         $apiKey->is_active = ! $apiKey->is_active;
         $apiKey->save();

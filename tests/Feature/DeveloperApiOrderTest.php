@@ -144,4 +144,95 @@ class DeveloperApiOrderTest extends TestCase
             ->assertJsonPath('data.orderStatus', 'completed')
             ->assertJsonPath('data.isCompleted', true);
     }
+
+    public function test_data_packages_endpoint_returns_packages_and_prices(): void
+    {
+        $response = $this->withHeaders(['X-API-Key' => $this->rawKey])
+            ->getJson('/api/developer/data-packages');
+
+        $response->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('meta.supportedNetworks', ['MTN', 'TELECEL', 'AT'])
+            ->assertJsonStructure([
+                'success',
+                'data' => [
+                    '*' => ['capacity', 'mb', 'price', 'network', 'pricePerGB'],
+                ],
+                'meta',
+            ]);
+    }
+
+    public function test_data_packages_can_be_filtered_by_network(): void
+    {
+        $response = $this->withHeaders(['X-API-Key' => $this->rawKey])
+            ->getJson('/api/developer/data-packages?network=mtn');
+
+        $response->assertOk()
+            ->assertJsonPath('success', true);
+
+        $data = $response->json('data');
+        $this->assertNotEmpty($data);
+        foreach ($data as $item) {
+            $this->assertSame('MTN', $item['network']);
+        }
+
+        $invalid = $this->withHeaders(['X-API-Key' => $this->rawKey])
+            ->getJson('/api/developer/data-packages?network=invalid');
+
+        $invalid->assertStatus(400)
+            ->assertJsonPath('code', 'INVALID_NETWORK');
+    }
+
+    public function test_api_auto_detects_network_when_omitted(): void
+    {
+        $this->fakeUpstream(['requestId' => 12, 'orderStatus' => 'completed', 'price' => 15.0]);
+
+        $response = $this->withHeaders(['X-API-Key' => $this->rawKey])
+            ->postJson('/api/create_order', [
+                'phoneNumber' => '0551234567', // 055 is MTN
+                'capacity' => 5,
+            ]);
+
+        $response->assertStatus(201)
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.network', 'MTN');
+    }
+
+    public function test_api_enforces_capacity_restrictions_per_network(): void
+    {
+        // Telecel minimum is 10 GB (020 is Telecel)
+        $response = $this->withHeaders(['X-API-Key' => $this->rawKey])
+            ->postJson('/api/create_order', [
+                'phoneNumber' => '0201234567',
+                'capacity' => 5,
+            ]);
+
+        $response->assertStatus(400)
+            ->assertJsonPath('code', 'INVALID_CAPACITY');
+
+        // MTN requires discrete packages (7 GB is not in MTN_PACKAGE_SIZES_GB)
+        $responseMtn = $this->withHeaders(['X-API-Key' => $this->rawKey])
+            ->postJson('/api/create_order', [
+                'phoneNumber' => '0551234567',
+                'capacity' => 7,
+            ]);
+
+        $responseMtn->assertStatus(400)
+            ->assertJsonPath('code', 'INVALID_CAPACITY');
+    }
+
+    public function test_api_can_check_status_via_query_param(): void
+    {
+        $this->fakeUpstream(['requestId' => 14, 'orderStatus' => 'completed', 'price' => 15.0]);
+        $orderRef = $this->withHeaders(['X-API-Key' => $this->rawKey])
+            ->postJson('/api/create_order', ['phoneNumber' => '0559999999', 'network' => 'mtn', 'capacity' => 5])
+            ->json('data.reference');
+
+        $response = $this->withHeaders(['X-API-Key' => $this->rawKey])
+            ->getJson("/api/check_order_status?reference={$orderRef}");
+
+        $response->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.reference', $orderRef);
+    }
 }

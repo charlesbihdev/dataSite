@@ -105,4 +105,48 @@ class AgentApiKeyTest extends TestCase
         $this->get(route('agent.api-keys'))
             ->assertRedirect(route('login'));
     }
+
+    public function test_agent_can_view_api_documentation_page(): void
+    {
+        $this->get(route('agent.api-documentation'))
+            ->assertOk()
+            ->assertInertia(
+                fn(Assert $page) => $page
+                    ->component('agent/api-documentation')
+                    ->has('baseUrl')
+                    ->has('catalog')
+                    ->where('role', 'agent')
+            );
+    }
+
+    public function test_agent_cannot_exceed_three_active_api_keys(): void
+    {
+        ApiKey::generate($this->agent, 'Key 1');
+        ApiKey::generate($this->agent, 'Key 2');
+        ApiKey::generate($this->agent, 'Key 3');
+
+        $response = $this->post(route('agent.api-keys.store'), [
+            'name' => 'Key 4',
+        ]);
+
+        $response->assertSessionHasErrors('name');
+        $this->assertDatabaseMissing('api_keys', ['name' => 'Key 4']);
+    }
+
+    public function test_agent_cannot_activate_fourth_key_if_three_are_already_active(): void
+    {
+        ApiKey::generate($this->agent, 'Key 1');
+        ApiKey::generate($this->agent, 'Key 2');
+        ApiKey::generate($this->agent, 'Key 3');
+
+        [$key4] = ApiKey::generate($this->agent, 'Key 4');
+        $key4->is_active = false;
+        $key4->save();
+
+        // Attempt to toggle key4 to active while 3 are already active
+        $response = $this->post(route('agent.api-keys.toggle', $key4));
+        $response->assertRedirect();
+
+        $this->assertFalse($key4->fresh()->is_active);
+    }
 }
