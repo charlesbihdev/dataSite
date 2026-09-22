@@ -36,6 +36,7 @@ use App\Http\Controllers\Admin\PricingController;
 use App\Http\Controllers\Admin\SettingsController;
 use App\Http\Controllers\Admin\TransactionsController;
 use App\Http\Controllers\Admin\WithdrawalsController;
+use App\Http\Controllers\Agent\ApiKeysController;
 use App\Http\Controllers\Agent\CartController;
 use App\Http\Controllers\Agent\PackagesController;
 use App\Http\Controllers\Agent\ReferralController;
@@ -78,6 +79,12 @@ Route::middleware(['auth:agent'])->group(function () {
     Route::get('withdrawals', [WithdrawalController::class, 'index'])->name('agent.withdrawals');
     Route::post('withdrawals', [WithdrawalController::class, 'store'])->name('agent.withdrawals.store');
     Route::post('withdrawals/{withdrawal}/cancel', [WithdrawalController::class, 'cancel'])->name('agent.withdrawals.cancel');
+
+    // Developer API credentials
+    Route::get('api-keys', [ApiKeysController::class, 'index'])->name('agent.api-keys');
+    Route::post('api-keys', [ApiKeysController::class, 'store'])->name('agent.api-keys.store');
+    Route::post('api-keys/{apiKey}/toggle', [ApiKeysController::class, 'toggle'])->name('agent.api-keys.toggle');
+    Route::delete('api-keys/{apiKey}', [ApiKeysController::class, 'destroy'])->name('agent.api-keys.destroy');
 
     // Wallet top-up (real money in via payment gateway): open checkout, then verify on return.
     Route::post('topup', [WalletTopupController::class, 'store'])->name('agent.topup');
