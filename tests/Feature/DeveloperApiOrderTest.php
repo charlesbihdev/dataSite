@@ -30,14 +30,21 @@ class DeveloperApiOrderTest extends TestCase
 
         $tier = PricingTier::create(['name' => 'Standard', 'is_active' => true]);
         TierPrice::create([
-            'pricing_tier_id' => $tier->id, 'network' => 'mtn',
-            'min_gb' => 1, 'max_gb' => 100, 'price_per_gb' => 5.0, 'is_active' => true,
+            'pricing_tier_id' => $tier->id,
+            'network' => 'mtn',
+            'min_gb' => 1,
+            'max_gb' => 100,
+            'price_per_gb' => 5.0,
+            'is_active' => true,
         ]);
         BaseCost::create(['network' => 'mtn', 'min_gb' => 1, 'max_gb' => 100, 'cost_per_gb' => 3.0, 'is_active' => true]);
 
         $this->agent = Agent::create([
-            'name' => 'Agent', 'phone' => '0551110000', 'password' => 'secret',
-            'is_active' => true, 'pricing_tier_id' => $tier->id,
+            'name' => 'Agent',
+            'phone' => '0551110000',
+            'password' => 'secret',
+            'is_active' => true,
+            'pricing_tier_id' => $tier->id,
         ]);
         $this->agent->walletOrCreate()->credit(100, 'topup');
 
@@ -218,6 +225,16 @@ class DeveloperApiOrderTest extends TestCase
             ]);
 
         $responseMtn->assertStatus(400)
+            ->assertJsonPath('code', 'INVALID_CAPACITY');
+
+        // AirtelTigo requires discrete packages (4 GB is not in AT_PACKAGE_SIZES_GB)
+        $responseAt = $this->withHeaders(['X-API-Key' => $this->rawKey])
+            ->postJson('/api/create_order', [
+                'phoneNumber' => '0261234567',
+                'capacity' => 4,
+            ]);
+
+        $responseAt->assertStatus(400)
             ->assertJsonPath('code', 'INVALID_CAPACITY');
     }
 
