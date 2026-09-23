@@ -17,19 +17,24 @@ final class GhanaMobileNetwork
     public const AT = 'at';
 
     /**
-     * The discrete GB packages MTN agents may buy (MTN rejects arbitrary sizes upstream).
+     * Fixed discrete GB packages agents may purchase across networks.
+     * Matches upstream Databundleshub provider allowlist.
      *
      * @var list<int>
      */
     public const MTN_PACKAGE_SIZES_GB = [1, 2, 3, 4, 5, 6, 8, 10, 15, 20, 25, 30, 40, 50];
 
+    public const TELECEL_PACKAGE_SIZES_GB = [10, 15, 20, 30, 50, 100];
+
+    public const AT_PACKAGE_SIZES_GB = [1, 2, 3, 5, 10, 15, 20, 30, 50, 100];
+
     /**
      * @var array<string, array{label: string, prefixes: list<string>, min_gb: int, max_gb: int}>
      */
     private const NETWORKS = [
-        self::MTN => ['label' => 'MTN', 'prefixes' => ['024', '025', '053', '054', '055', '059'], 'min_gb' => 1, 'max_gb' => 200],
-        self::TELECEL => ['label' => 'Telecel', 'prefixes' => ['020', '050'], 'min_gb' => 10, 'max_gb' => 200],
-        self::AT => ['label' => 'AirtelTigo', 'prefixes' => ['026', '027', '056', '057'], 'min_gb' => 1, 'max_gb' => 200],
+        self::MTN => ['label' => 'MTN', 'prefixes' => ['024', '025', '053', '054', '055', '059'], 'min_gb' => 1, 'max_gb' => 50],
+        self::TELECEL => ['label' => 'Telecel', 'prefixes' => ['020', '050'], 'min_gb' => 10, 'max_gb' => 100],
+        self::AT => ['label' => 'AirtelTigo', 'prefixes' => ['026', '027', '056', '057'], 'min_gb' => 1, 'max_gb' => 100],
     ];
 
     /**
@@ -43,9 +48,9 @@ final class GhanaMobileNetwork
             return '';
         }
         if (str_starts_with($digits, '233') && strlen($digits) === 12) {
-            $digits = '0'.substr($digits, 3);
+            $digits = '0' . substr($digits, 3);
         } elseif (strlen($digits) === 9 && in_array($digits[0], ['2', '5'], true)) {
-            $digits = '0'.$digits;
+            $digits = '0' . $digits;
         }
 
         return strlen($digits) === 10 && $digits[0] === '0' ? $digits : '';
@@ -87,10 +92,23 @@ final class GhanaMobileNetwork
     }
 
     /**
+     * Upstream Databundleshub API identifier for each network.
+     */
+    public static function apiCode(string $code): string
+    {
+        return match ($code) {
+            self::MTN => 'YELLO',
+            self::TELECEL => 'TELECEL',
+            self::AT => 'AIRTELTIGO',
+            default => strtoupper($code),
+        };
+    }
+
+    /**
      * Network reference data for the frontend: prefix table (for live detection) and the
      * allowed package sizes per network. Keeps the single source of truth on the server.
      *
-     * @return list<array{code: string, label: string, prefixes: list<string>, sizes: list<int>, min_gb: int, max_gb: int}>
+     * @return list<array{code: string, api_code: string, label: string, prefixes: list<string>, sizes: list<int>, min_gb: int, max_gb: int}>
      */
     public static function meta(): array
     {
@@ -98,6 +116,7 @@ final class GhanaMobileNetwork
         foreach (self::NETWORKS as $code => $definition) {
             $meta[] = [
                 'code' => $code,
+                'api_code' => self::apiCode($code),
                 'label' => $definition['label'],
                 'prefixes' => $definition['prefixes'],
                 'sizes' => self::packageSizesGb($code),
@@ -110,21 +129,19 @@ final class GhanaMobileNetwork
     }
 
     /**
-     * The GB packages an agent may order on a network. MTN is a fixed list; the others allow any
-     * whole GB inside their window.
+     * The fixed GB packages an agent may order on a network.
+     * Matches upstream provider allowlist.
      *
      * @return list<int>
      */
     public static function packageSizesGb(string $code): array
     {
-        if ($code === self::MTN) {
-            return self::MTN_PACKAGE_SIZES_GB;
-        }
-        if (! isset(self::NETWORKS[$code])) {
-            return [];
-        }
-
-        return range(self::NETWORKS[$code]['min_gb'], min(self::NETWORKS[$code]['max_gb'], 100));
+        return match ($code) {
+            self::MTN => self::MTN_PACKAGE_SIZES_GB,
+            self::TELECEL => self::TELECEL_PACKAGE_SIZES_GB,
+            self::AT => self::AT_PACKAGE_SIZES_GB,
+            default => [],
+        };
     }
 
     /**
@@ -138,13 +155,11 @@ final class GhanaMobileNetwork
             return 'Unrecognized number. Use a valid MTN, Telecel, or AirtelTigo line.';
         }
 
-        $definition = self::NETWORKS[$code];
-        if ($sizeGb < $definition['min_gb'] || $sizeGb > $definition['max_gb']) {
-            return "{$definition['label']} bundles must be between {$definition['min_gb']} and {$definition['max_gb']} GB.";
-        }
+        $allowed = self::packageSizesGb($code);
+        if (! in_array($sizeGb, $allowed, true)) {
+            $label = self::label($code);
 
-        if ($code === self::MTN && ! in_array($sizeGb, self::MTN_PACKAGE_SIZES_GB, true)) {
-            return 'Invalid MTN package. Allowed sizes: '.implode(', ', self::MTN_PACKAGE_SIZES_GB).' GB.';
+            return "Invalid {$label} package. Allowed sizes: " . implode(', ', $allowed) . ' GB.';
         }
 
         return null;
