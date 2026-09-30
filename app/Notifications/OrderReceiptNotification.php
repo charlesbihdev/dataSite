@@ -10,7 +10,8 @@ use Illuminate\Notifications\Notification;
 
 /**
  * Emailed to the storefront customer once their payment is confirmed. Carries the order details and
- * reference number so they can track the purchase. Queued so mail sending never blocks checkout.
+ * reference number so they can track the purchase. Queued so it never blocks checkout — on shared
+ * hosting the queue is drained by the scheduled `queue:work --stop-when-empty` (no persistent worker).
  */
 class OrderReceiptNotification extends Notification implements ShouldQueue
 {

@@ -3,82 +3,33 @@
 namespace App\Jobs;
 
 use App\Models\Order;
-use App\Services\Databundleshub\UpstreamClient;
-use App\Services\Orders\OrderSettlementService;
+use App\Services\Orders\OrderPoller;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
 
 /**
- * Databundleshub does not push callbacks — status is poll-only (ARCHITECTURE §2). This job
- * checks one order and, when it reaches a terminal state, hands off to settlement. While it
- * is still processing the job re-queues itself with a delay until a terminal state or the
- * attempt cap is hit; after that the order stays `processing` for an admin to retry.
+ * An INSTANT first status check right after an order is accepted, so a fast delivery settles within
+ * seconds. Ongoing polling is the scheduled `orders:poll-processing` sweep (mirrors DBH's cron sync),
+ * so this is one-shot: a transient failure here is swallowed because the sweep will re-check the order.
  */
 class PollUpstreamOrderStatus implements ShouldQueue
 {
     use Queueable;
 
-    private const REPOLL_DELAY_SECONDS = 60;
-
-    public int $tries = 12;
-
     public function __construct(public int $orderId) {}
 
-    /**
-     * Retry backoff for transport failures (UpstreamException bubbling out of handle()).
-     *
-     * @return list<int>
-     */
-    public function backoff(): array
-    {
-        return [30, 60, 120, 300];
-    }
-
-    public function handle(UpstreamClient $client, OrderSettlementService $settlement): void
+    public function handle(OrderPoller $poller): void
     {
         $order = Order::query()->find($this->orderId);
         if ($order === null) {
             return;
         }
-        if (in_array($order->status, [Order::STATUS_COMPLETED, Order::STATUS_FAILED], true)) {
-            return;
+
+        try {
+            $poller->poll($order);
+        } catch (\Throwable $e) {
+            Log::warning('Instant poll failed; sweep will retry', ['order' => $order->reference, 'error' => $e->getMessage()]);
         }
-        if ($order->upstream_request_id === null) {
-            return;
-        }
-
-        // A transport failure (incl. a bot-block HTML page → non-JSON) throws UpstreamException and
-        // lets the queue retry with backoff. Reaching here means the poll got through to DBH.
-        $result = $client->orderStatus($order->upstream_request_id, $order->network, $order->id);
-
-        Log::info('Upstream poll succeeded', [
-            'order' => $order->reference,
-            'attempt' => $this->attempts(),
-            'success' => $result->success,
-            'orderStatus' => $result->orderStatus,
-            'outcome' => $result->isCompleted() ? 'delivered' : ($result->isFailed() ? 'failed' : 'still processing'),
-        ]);
-
-        if ($result->isCompleted()) {
-            $settlement->settle($order, $result);
-
-            return;
-        }
-
-        if ($result->isFailed()) {
-            $settlement->reverse($order, $result->errorMessage ?? 'Upstream reported failure.');
-
-            return;
-        }
-
-        $order->forceFill([
-            'upstream_status' => $result->orderStatus,
-            'last_polled_at' => now(),
-        ])->save();
-
-        // Still working upstream — put the same job back with a delay. Re-queuing this way
-        // (not a fresh dispatch) keeps the attempt counter, so $tries caps the polling.
-        $this->release(self::REPOLL_DELAY_SECONDS);
     }
 }
