@@ -16,11 +16,12 @@ Schedule::command('model:prune', ['--model' => [UpstreamApiLog::class]])->daily(
 
 // Safety-net status poller: sweep every processing order and pull its DBH status. Mirrors DBH's own
 // cron sync — polling survives a queue-worker hiccup and never gives up after a fixed try count.
-Schedule::command('orders:poll-processing')->everyMinute()->withoutOverlapping();
+// runInBackground so a slow sweep (one HTTP call per order) never blocks the rest of schedule:run.
+Schedule::command('orders:poll-processing')->everyMinute()->withoutOverlapping()->runInBackground();
 
 // Drain the queue on shared hosting without a persistent worker: process pending jobs (receipt
-// emails, the instant poll) then exit. --max-time caps a run; withoutOverlapping stops stacking.
-Schedule::command('queue:work --stop-when-empty --max-time=50')->everyMinute()->withoutOverlapping(5);
+// emails, the instant poll) then exit. Backgrounded so it can't hold schedule:run for up to 50s.
+Schedule::command('queue:work --stop-when-empty --max-time=50')->everyMinute()->withoutOverlapping(5)->runInBackground();
 
 // Heartbeat: proof the scheduler itself is firing. The /up/scheduler health route reads this and
 // reports stale (503) if it hasn't updated in the last 2 minutes.
