@@ -1,12 +1,12 @@
 import { useForm } from "@inertiajs/react";
 import { useState } from "react";
-import { Upload } from "lucide-react";
-import { upload } from "@/routes/agent/cart";
+import { Download, Upload } from "lucide-react";
+import { template, upload } from "@/routes/agent/cart";
 import { Button } from "@/components/ui/button";
 
 /**
- * Upload a CSV / Excel sheet of orders — column A: phone, column B: size in GB. Rows are parsed,
- * validated, and priced server-side; invalid rows are skipped.
+ * Upload a CSV / Excel sheet of orders — A: phone, B: size in GB, C: network (optional). Rows are
+ * parsed, validated, and priced server-side; invalid rows are skipped.
  */
 export function UploadOrderForm() {
     const form = useForm<{ orders_file: File | null }>({ orders_file: null });
@@ -32,7 +32,7 @@ export function UploadOrderForm() {
             >
                 <Upload className="size-6 text-muted-foreground" />
                 <span className="text-sm font-medium text-foreground">{fileName || "Choose a CSV or Excel file"}</span>
-                <span className="text-xs text-muted-foreground">Column A: phone · Column B: size in GB</span>
+                <span className="text-xs text-muted-foreground">A: phone · B: size in GB · C: network (optional)</span>
                 <input
                     id="orders_file"
                     type="file"
@@ -46,6 +46,14 @@ export function UploadOrderForm() {
                 />
             </label>
             {form.errors.orders_file && <p className="text-xs text-destructive">{form.errors.orders_file}</p>}
+
+            <a
+                href={template.url()}
+                className="inline-flex items-center gap-1.5 text-xs font-medium text-brand hover:underline"
+            >
+                <Download className="size-3.5" />
+                Download sample template
+            </a>
 
             <Button type="submit" className="w-full" disabled={form.processing || !form.data.orders_file}>
                 Upload &amp; add to cart

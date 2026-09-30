@@ -87,4 +87,38 @@ class UpstreamClientTest extends TestCase
 
         app(UpstreamClient::class)->orderStatus('42');
     }
+
+    public function test_status_poll_hits_developer_purchase_status_from_api_root(): void
+    {
+        $this->activeConfig();
+        Http::fake(['dbh.test/api/developer/purchase-status*' => Http::response([
+            'success' => true,
+            'data' => ['orderStatus' => 'delivered'],
+        ])]);
+
+        $result = app(UpstreamClient::class)->orderStatus('42');
+
+        $this->assertTrue($result->isCompleted());
+        Http::assertSent(fn ($request) => str_contains($request->url(), '/api/developer/purchase-status')
+            && ! str_contains($request->url(), '/developer/developer/'));
+    }
+
+    public function test_base_url_with_trailing_developer_is_normalized_to_api_root(): void
+    {
+        // Prod misconfiguration guard: an admin who enters ".../api/developer" must NOT produce
+        // /api/developer/developer/purchase-status (the 404 that stalled every status poll).
+        DbhConfig::create([
+            'base_url' => 'https://dbh.test/api/developer/',
+            'api_key' => 'secret-key',
+            'is_active' => true,
+        ]);
+        Http::fake(['dbh.test/api/developer/purchase-status*' => Http::response([
+            'success' => true,
+            'data' => ['orderStatus' => 'delivered'],
+        ])]);
+
+        app(UpstreamClient::class)->orderStatus('42');
+
+        Http::assertSent(fn ($request) => ! str_contains($request->url(), '/developer/developer/'));
+    }
 }

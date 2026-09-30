@@ -137,6 +137,11 @@ class UpstreamClient
      */
     private function record(string $operation, string $network, ?int $orderId, string $url, array $payload, ?Response $response, ?UpstreamOrderResult $result, ?string $error, int $durationMs): void
     {
+        // Errors-only: skip clean successes (order placed / "still processing" poll) to avoid flooding.
+        if ($result !== null && $result->success && $error === null) {
+            return;
+        }
+
         try {
             UpstreamApiLog::create([
                 'order_id' => $orderId,
@@ -207,14 +212,13 @@ class UpstreamClient
         return self::normalizeBaseUrl($this->config()->base_url).'/'.ltrim($path, '/');
     }
 
-    /**
-     * Clean a configured base URL: trim surrounding whitespace and a single trailing slash so paths
-     * don't double up ("//"). Nothing Databundleshub-specific — the base URL is stored exactly as
-     * entered otherwise, so it stays fully configurable if the supplier's URL ever changes.
-     */
+    // Normalize to the /api root. A misconfigured ".../api/developer" would 404 every status poll as
+    // /developer/developer/... (create_order survived it only because DBH aliases it under both paths).
     public static function normalizeBaseUrl(string $baseUrl): string
     {
-        return rtrim(trim($baseUrl), '/');
+        $base = rtrim(trim($baseUrl), '/');
+
+        return preg_replace('#/developer$#', '', $base) ?? $base;
     }
 
     /**

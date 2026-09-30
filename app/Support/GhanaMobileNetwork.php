@@ -81,6 +81,17 @@ final class GhanaMobileNetwork
         return $code !== null && isset(self::NETWORKS[$code]) ? self::NETWORKS[$code]['label'] : null;
     }
 
+    /** Canonical code (mtn/telecel/at) from a label or common alias, or null if unrecognized. */
+    public static function normalizeCode(string $raw): ?string
+    {
+        return match (strtolower(trim($raw))) {
+            'mtn', 'yello' => self::MTN,
+            'telecel', 'vodafone' => self::TELECEL,
+            'at', 'airteltigo', 'airtel', 'tigo' => self::AT,
+            default => null,
+        };
+    }
+
     /**
      * Canonical display order of the networks: MTN, Telecel, AirtelTigo.
      *
@@ -148,10 +159,11 @@ final class GhanaMobileNetwork
      * Validate an agent order (phone + size) before pricing/checkout. Returns a human error
      * message, or null when the order is valid.
      */
-    public static function validateOrder(string $phone, int $sizeGb): ?string
+    public static function validateOrder(string $phone, int $sizeGb, ?string $network = null): ?string
     {
-        $code = self::detect($phone);
-        if ($code === null) {
+        // An explicit network (e.g. a ported line on the upload sheet) wins over prefix detection.
+        $code = $network ?? self::detect($phone);
+        if ($code === null || ! isset(self::NETWORKS[$code])) {
             return 'Unrecognized number. Use a valid MTN, Telecel, or AirtelTigo line.';
         }
 

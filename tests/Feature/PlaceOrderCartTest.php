@@ -9,6 +9,7 @@ use App\Models\Order;
 use App\Models\PricingTier;
 use App\Models\TierPrice;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Http;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
@@ -31,6 +32,11 @@ class PlaceOrderCartTest extends TestCase
             'min_gb' => 1, 'max_gb' => 100, 'price_per_gb' => 5.0, 'is_active' => true,
         ]);
         BaseCost::create(['network' => 'mtn', 'min_gb' => 1, 'max_gb' => 100, 'cost_per_gb' => 3.0, 'is_active' => true]);
+        TierPrice::create([
+            'pricing_tier_id' => $tier->id, 'network' => 'at',
+            'min_gb' => 1, 'max_gb' => 100, 'price_per_gb' => 4.0, 'is_active' => true,
+        ]);
+        BaseCost::create(['network' => 'at', 'min_gb' => 1, 'max_gb' => 100, 'cost_per_gb' => 2.0, 'is_active' => true]);
 
         $this->agent = Agent::factory()->create(['pricing_tier_id' => $tier->id]);
         $this->agent->walletOrCreate()->credit(100, 'topup');
@@ -73,6 +79,62 @@ class PlaceOrderCartTest extends TestCase
         ])->assertRedirect(route('agent.dashboard'));
 
         $this->assertCount(2, session('agent_cart'));
+    }
+
+    public function test_upload_honors_an_explicit_network_column_over_prefix_detection(): void
+    {
+        // 055 is an MTN prefix, but column C forces AT — the line should price and store as AT.
+        $csv = "Receiver,Capacity (GB),Network\n0559999999,5,AT\n0244000000,10,\n";
+        $file = UploadedFile::fake()->createWithContent('orders.csv', $csv);
+
+        $this->post(route('agent.cart.upload'), ['orders_file' => $file])
+            ->assertRedirect(route('agent.dashboard'));
+
+        $cart = collect(session('agent_cart'));
+        $this->assertCount(2, $cart);
+        $this->assertSame('at', $cart->firstWhere('beneficiary_phone', '0559999999')['network']);
+        $this->assertSame(20.0, $cart->firstWhere('beneficiary_phone', '0559999999')['cost']); // 5 GB * 4.00 (AT)
+        $this->assertSame('mtn', $cart->firstWhere('beneficiary_phone', '0244000000')['network']); // blank → auto-detect
+    }
+
+    public function test_upload_falls_back_to_detection_for_an_unrecognized_network(): void
+    {
+        // "Telcel" is a typo → not a recognized code, so we auto-detect from the phone (055 = MTN).
+        $csv = "Receiver,Capacity (GB),Network\n0559999999,5,Telcel\n";
+        $file = UploadedFile::fake()->createWithContent('orders.csv', $csv);
+
+        $this->post(route('agent.cart.upload'), ['orders_file' => $file])
+            ->assertRedirect(route('agent.dashboard'));
+
+        $cart = collect(session('agent_cart'));
+        $this->assertCount(1, $cart);
+        $this->assertSame('mtn', $cart->first()['network']);
+    }
+
+    public function test_a_full_admin_export_csv_can_be_re_uploaded(): void
+    {
+        // Columns are located by header name, so the export's leading Reference/Seller/Type are ignored.
+        $csv = "Reference,Seller,Type,Receiver,Capacity (GB),Network,Customer Price,Seller Cost,Status,Source,Payment,Upstream Ref,Created\n"
+            ."DS-0001,Kwame,Agent,0559999999,5,MTN,25,15,completed,portal,paid,,2026-09-30 10:00:00\n"
+            ."DS-0002,Kwame,Agent,0244000000,10,MTN,50,30,completed,portal,paid,,2026-09-30 10:05:00\n";
+        $file = UploadedFile::fake()->createWithContent('export.csv', $csv);
+
+        $this->post(route('agent.cart.upload'), ['orders_file' => $file])
+            ->assertRedirect(route('agent.dashboard'));
+
+        $cart = collect(session('agent_cart'));
+        $this->assertCount(2, $cart);
+        $this->assertSame('0559999999', $cart->first()['beneficiary_phone']);
+        $this->assertSame('mtn', $cart->first()['network']);
+        $this->assertSame(5, $cart->first()['capacity_gb']);
+    }
+
+    public function test_template_download_headers_match_the_admin_export(): void
+    {
+        $response = $this->get(route('agent.cart.template'));
+
+        $response->assertOk();
+        $this->assertStringContainsString('Receiver,"Capacity (GB)",Network', $response->streamedContent());
     }
 
     public function test_checkout_places_orders_and_debits_the_wallet(): void

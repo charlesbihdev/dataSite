@@ -3,6 +3,7 @@
 use App\Http\Middleware\AdminIpAllowlist;
 use App\Http\Middleware\AuthenticateApiKey;
 use App\Http\Middleware\HandleAppearance;
+use App\Http\Middleware\LogApiRequest;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\SetSurface;
 use Illuminate\Foundation\Application;
@@ -34,6 +35,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'surface' => SetSurface::class,
             'api.key' => AuthenticateApiKey::class,
+            'api.log' => LogApiRequest::class,
             'admin.ip' => AdminIpAllowlist::class,
         ]);
 

@@ -12,6 +12,7 @@ use App\Services\Cart\OrderFileParser;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * The agent's Place-Order basket: three ways in (single, bulk paste, file upload), remove a line,
@@ -41,6 +42,23 @@ class CartController extends Controller
     public function upload(UploadCartRequest $request, OrderFileParser $parser): RedirectResponse
     {
         return $this->summarize($this->cart->addMany($request->user(), $parser->parse($request->file('orders_file'))));
+    }
+
+    /**
+     * A blank sample sheet in exactly the shape the uploader expects. Headers mirror the admin
+     * export so both files speak the same language; Network is optional (blank = auto-detect).
+     */
+    public function template(): StreamedResponse
+    {
+        return response()->streamDownload(function (): void {
+            $out = fopen('php://output', 'wb');
+            fwrite($out, "\xEF\xBB\xBF");
+            fputcsv($out, ['Receiver', 'Capacity (GB)', 'Network']);
+            fputcsv($out, ['0551234567', '5', 'MTN']);
+            fputcsv($out, ['0201234567', '10', 'Telecel']);
+            fputcsv($out, ['0261234567', '3', 'AT']);
+            fclose($out);
+        }, 'bulk-orders-template.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
     }
 
     public function destroy(string $id): RedirectResponse
@@ -75,7 +93,7 @@ class CartController extends Controller
         foreach (preg_split('/\r\n|\r|\n/', $text) ?: [] as $line) {
             $parts = preg_split('/\s+/', trim($line));
             if (is_array($parts) && count($parts) >= 2 && $parts[0] !== '') {
-                $rows[] = [$parts[0], $parts[1]];
+                $rows[] = [$parts[0], $parts[1], $parts[2] ?? ''];
             }
         }
 

@@ -47,7 +47,7 @@ class CartService
     /**
      * Validate, price, and append one line. Returns a human error message, or null on success.
      */
-    public function add(Agent|Subagent $seller, string $phone, int $sizeGb): ?string
+    public function add(Agent|Subagent $seller, string $phone, int $sizeGb, ?string $network = null): ?string
     {
         $phone = GhanaMobileNetwork::normalize($phone);
         if ($phone === '') {
@@ -58,7 +58,12 @@ class CartService
             return 'Enter a bundle size of at least 1 GB.';
         }
 
-        if (($validationError = GhanaMobileNetwork::validateOrder($phone, $sizeGb)) !== null) {
+        // Network column: a recognized code overrides prefix detection; blank OR unrecognized (typo)
+        // falls back to auto-detecting from the phone.
+        $network = ($network !== null && $network !== '' ? GhanaMobileNetwork::normalizeCode($network) : null)
+            ?? GhanaMobileNetwork::detect($phone);
+
+        if (($validationError = GhanaMobileNetwork::validateOrder($phone, $sizeGb, $network)) !== null) {
             return $validationError;
         }
 
@@ -69,7 +74,6 @@ class CartService
             }
         }
 
-        $network = GhanaMobileNetwork::detect($phone);
         $price = $network !== null ? $this->quote->for($seller, $network, $sizeGb) : null;
         if ($network === null || $price === null) {
             return 'No active pricing is configured for this network and size.';
@@ -92,7 +96,7 @@ class CartService
     /**
      * Add many lines (bulk paste / file upload). Silently skips invalid or duplicate lines.
      *
-     * @param  iterable<array{0: string, 1: int|string|float}>  $rows  [phone, sizeGb] pairs
+     * @param  iterable<array{0: string, 1: int|string|float, 2?: string}>  $rows  [phone, sizeGb, network?]
      * @return array{added: int, skipped: int}
      */
     public function addMany(Agent|Subagent $seller, iterable $rows): array
@@ -103,8 +107,9 @@ class CartService
         foreach ($rows as $row) {
             $phone = trim((string) ($row[0] ?? ''));
             $sizeGb = (int) ($row[1] ?? 0);
+            $network = trim((string) ($row[2] ?? ''));
 
-            if ($phone === '' || $this->add($seller, $phone, $sizeGb) !== null) {
+            if ($phone === '' || $this->add($seller, $phone, $sizeGb, $network) !== null) {
                 $skipped++;
 
                 continue;

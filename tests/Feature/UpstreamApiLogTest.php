@@ -27,7 +27,7 @@ class UpstreamApiLogTest extends TestCase
 
     private function agent(): Agent
     {
-        return Agent::create(['name' => 'Agent', 'phone' => '0551110000', 'password' => 'secret', 'is_active' => true]);
+        return Agent::create(['name' => 'Agent', 'phone' => '055'.fake()->unique()->numerify('#######'), 'password' => 'secret', 'is_active' => true]);
     }
 
     private function placeOrder(): Order
@@ -41,41 +41,47 @@ class UpstreamApiLogTest extends TestCase
         ));
     }
 
-    public function test_create_order_records_a_successful_api_log(): void
+    public function test_successful_create_order_is_not_logged(): void
     {
+        // Errors-only: the upstream log keeps failures worth investigating, not every clean sale.
         Http::fake(['dbh.test/api/create_order' => Http::response([
             'success' => true, 'data' => ['requestId' => 7, 'orderStatus' => 'completed', 'price' => 15.0],
         ])]);
 
-        $order = $this->placeOrder();
+        $this->placeOrder();
 
-        $log = UpstreamApiLog::where('operation', 'create')->firstOrFail();
-        $this->assertSame($order->id, $log->order_id);
-        $this->assertSame('mtn', $log->network);
-        $this->assertTrue($log->success);
-        $this->assertSame(200, $log->http_status);
-        $this->assertSame('delivered', $log->outcome);
-        $this->assertSame('0559999999', $log->request_payload['phoneNumber']);
-        $this->assertNotNull($log->duration_ms);
+        $this->assertSame(0, UpstreamApiLog::count());
     }
 
-    public function test_poll_records_a_status_api_log(): void
+    public function test_successful_poll_is_not_logged(): void
     {
         Queue::fake();
-        Http::fake(['dbh.test/api/create_order' => Http::response([
-            'success' => true, 'data' => ['requestId' => 9, 'orderStatus' => 'processing'],
-        ])]);
-        $order = $this->placeOrder();
+        Http::fake([
+            'dbh.test/api/create_order' => Http::response(['success' => true, 'data' => ['requestId' => 9, 'orderStatus' => 'processing']]),
+            'dbh.test/api/developer/purchase-status*' => Http::response(['success' => true, 'data' => ['requestId' => 9, 'orderStatus' => 'delivered', 'price' => 15.0]]),
+        ]);
 
-        Http::fake(['dbh.test/api/developer/purchase-status*' => Http::response([
-            'success' => true, 'data' => ['requestId' => 9, 'orderStatus' => 'delivered', 'price' => 15.0],
-        ])]);
+        $order = $this->placeOrder();
+        (new PollUpstreamOrderStatus($order->id))->handle(app(OrderPoller::class));
+
+        $this->assertSame(0, UpstreamApiLog::count());
+    }
+
+    public function test_a_failed_poll_is_logged_with_the_response(): void
+    {
+        Queue::fake();
+        Http::fake([
+            'dbh.test/api/create_order' => Http::response(['success' => true, 'data' => ['requestId' => 9, 'orderStatus' => 'processing']]),
+            'dbh.test/api/developer/purchase-status*' => Http::response(['message' => 'The route could not be found.'], 404),
+        ]);
+
+        $order = $this->placeOrder();
         (new PollUpstreamOrderStatus($order->id))->handle(app(OrderPoller::class));
 
         $log = UpstreamApiLog::where('operation', 'status')->firstOrFail();
-        $this->assertSame($order->id, $log->order_id);
-        $this->assertTrue($log->success);
-        $this->assertSame('delivered', $log->outcome);
+        $this->assertFalse($log->success);
+        $this->assertSame(404, $log->http_status);
+        $this->assertStringContainsString('could not be found', (string) $log->response_body);
     }
 
     public function test_bot_blocked_call_records_a_failed_api_log_with_the_response_body(): void

@@ -147,15 +147,16 @@ class OrdersController extends Controller
         return response()->streamDownload(function () use ($orders): void {
             $out = fopen('php://output', 'wb');
             fwrite($out, "\xEF\xBB\xBF");
-            fputcsv($out, ['Reference', 'Seller', 'Type', 'Network', 'Capacity (GB)', 'Receiver', 'Customer Price', 'Seller Cost', 'Status', 'Source', 'Payment', 'Upstream Ref', 'Created']);
+            // Receiver, Capacity (GB), Network mirror the agent upload template's column order/names.
+            fputcsv($out, ['Reference', 'Seller', 'Type', 'Receiver', 'Capacity (GB)', 'Network', 'Customer Price', 'Seller Cost', 'Status', 'Source', 'Payment', 'Upstream Ref', 'Created']);
             foreach ($orders as $o) {
                 fputcsv($out, [
                     $o->reference,
                     $o->seller?->name ?? 'Unknown',
                     class_basename($o->seller_type),
-                    strtoupper($o->network),
-                    (float) $o->capacity_gb,
                     $o->beneficiary_phone,
+                    (float) $o->capacity_gb,
+                    strtoupper($o->network),
                     (float) $o->customer_price,
                     (float) $o->seller_cost,
                     $o->status,
