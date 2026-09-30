@@ -48,17 +48,16 @@ class PollUpstreamOrderStatus implements ShouldQueue
             return;
         }
 
-        // A transport failure throws UpstreamException and lets the queue retry with backoff.
+        // A transport failure (incl. a bot-block HTML page → non-JSON) throws UpstreamException and
+        // lets the queue retry with backoff. Reaching here means the poll got through to DBH.
         $result = $client->orderStatus($order->upstream_request_id);
 
-        // TEMP DIAG (grep "DBH DIAG"): each poll's outcome + attempt, to confirm polling no longer bounces.
-        Log::warning('DBH DIAG poll', [
+        Log::info('Upstream poll succeeded', [
             'order' => $order->reference,
             'attempt' => $this->attempts(),
+            'success' => $result->success,
             'orderStatus' => $result->orderStatus,
-            'processingStatus' => $result->processingStatus,
-            'completedAt' => $result->completedAt,
-            'branch' => $result->isCompleted() ? 'settle' : ($result->isFailed() ? 'reverse' : 'repoll'),
+            'outcome' => $result->isCompleted() ? 'delivered' : ($result->isFailed() ? 'failed' : 'still processing'),
         ]);
 
         if ($result->isCompleted()) {
