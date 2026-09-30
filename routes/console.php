@@ -10,21 +10,20 @@ Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
 
-// Prune upstream API logs older than 6 months (UpstreamApiLog::prunable). Runs off the existing
-// every-minute schedule:run cron — no extra prod cron needed.
-Schedule::command('model:prune', ['--model' => [UpstreamApiLog::class]])->daily();
-
-// Safety-net status poller: sweep every processing order and pull its DBH status. Mirrors DBH's own
-// cron sync — polling survives a queue-worker hiccup and never gives up after a fixed try count.
-// runInBackground so a slow sweep (one HTTP call per order) never blocks the rest of schedule:run.
-Schedule::command('orders:poll-processing')->everyMinute()->withoutOverlapping()->runInBackground();
-
-// Drain the queue on shared hosting without a persistent worker: process pending jobs (receipt
-// emails, the instant poll) then exit. Backgrounded so it can't hold schedule:run for up to 50s.
-Schedule::command('queue:work --stop-when-empty --max-time=50')->everyMinute()->withoutOverlapping(5)->runInBackground();
-
-// Heartbeat: proof the scheduler itself is firing. The /up/scheduler health route reads this and
-// reports stale (503) if it hasn't updated in the last 2 minutes.
+// Heartbeat FIRST: proof the scheduler is firing, written before the heavier tasks below so it stays
+// fresh even if a run is slow or overlaps. The /up/scheduler route reports stale (503) after 2 min.
 Schedule::call(fn () => Cache::put('scheduler:last-run', now()->toIso8601String(), now()->addDay()))
     ->everyMinute()
     ->name('scheduler-heartbeat');
+
+// Safety-net status poller: sweep every processing order and pull its DBH status (mirrors DBH's own
+// cron sync). Foreground + withoutOverlapping: if one run is still busy, the next minute's copy is
+// skipped by the lock rather than piling up — no background-process dependency on shared hosting.
+Schedule::command('orders:poll-processing')->everyMinute()->withoutOverlapping();
+
+// Drain the queue without a persistent worker: process pending jobs (receipt emails, the instant
+// poll) then exit. Short --max-time keeps a single schedule:run comfortably under a minute.
+Schedule::command('queue:work --stop-when-empty --max-time=30')->everyMinute()->withoutOverlapping(5);
+
+// Prune upstream API logs older than 6 months (UpstreamApiLog::prunable).
+Schedule::command('model:prune', ['--model' => [UpstreamApiLog::class]])->daily();
