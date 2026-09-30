@@ -1,6 +1,22 @@
 <?php
 
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Route;
+
+// Scheduler health: reports whether `schedule:run` is actually firing in prod. The heartbeat
+// (routes/console.php) refreshes this every minute; older than 2 minutes → stale (HTTP 503).
+Route::get('up/scheduler', function () {
+    $last = Cache::get('scheduler:last-run');
+    $secondsAgo = $last !== null ? (int) Carbon::parse($last)->diffInSeconds(now()) : null;
+    $ok = $secondsAgo !== null && $secondsAgo < 120;
+
+    return response()->json([
+        'ok' => $ok,
+        'last_run' => $last,
+        'seconds_ago' => $secondsAgo,
+    ], $ok ? 200 : 503);
+});
 
 /*
 |--------------------------------------------------------------------------
