@@ -9,10 +9,10 @@ use App\Models\DbhConfig;
 use App\Models\Earning;
 use App\Models\Order;
 use App\Models\Subagent;
-use App\Services\Databundleshub\UpstreamClient;
 use App\Services\Orders\NewOrderData;
 use App\Services\Orders\OrderBulkService;
 use App\Services\Orders\OrderDispatchService;
+use App\Services\Orders\OrderPoller;
 use App\Services\Orders\OrderSettlementService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
@@ -223,9 +223,7 @@ class OrderDispatchServiceTest extends TestCase
             'success' => true, 'data' => ['requestId' => 9, 'orderStatus' => 'completed', 'price' => 15.0],
         ])]);
 
-        (new PollUpstreamOrderStatus($order->id))->handle(
-            app(UpstreamClient::class), app(OrderSettlementService::class)
-        );
+        (new PollUpstreamOrderStatus($order->id))->handle(app(OrderPoller::class));
 
         $this->assertSame(Order::STATUS_COMPLETED, $order->fresh()->status);
         $this->assertSame(1, Earning::where('status', Earning::STATUS_CREDITED)->count());
@@ -279,9 +277,7 @@ class OrderDispatchServiceTest extends TestCase
             ],
         ])]);
 
-        (new PollUpstreamOrderStatus($order->id))->handle(
-            app(UpstreamClient::class), app(OrderSettlementService::class)
-        );
+        (new PollUpstreamOrderStatus($order->id))->handle(app(OrderPoller::class));
 
         $this->assertSame(Order::STATUS_COMPLETED, $order->fresh()->status);
         $this->assertSame('15.00', $order->fresh()->upstream_cost);

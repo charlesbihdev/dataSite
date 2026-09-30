@@ -7,10 +7,9 @@ use App\Models\Agent;
 use App\Models\DbhConfig;
 use App\Models\Order;
 use App\Models\UpstreamApiLog;
-use App\Services\Databundleshub\UpstreamClient;
 use App\Services\Orders\NewOrderData;
 use App\Services\Orders\OrderDispatchService;
-use App\Services\Orders\OrderSettlementService;
+use App\Services\Orders\OrderPoller;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
@@ -71,9 +70,7 @@ class UpstreamApiLogTest extends TestCase
         Http::fake(['dbh.test/api/developer/purchase-status*' => Http::response([
             'success' => true, 'data' => ['requestId' => 9, 'orderStatus' => 'delivered', 'price' => 15.0],
         ])]);
-        (new PollUpstreamOrderStatus($order->id))->handle(
-            app(UpstreamClient::class), app(OrderSettlementService::class),
-        );
+        (new PollUpstreamOrderStatus($order->id))->handle(app(OrderPoller::class));
 
         $log = UpstreamApiLog::where('operation', 'status')->firstOrFail();
         $this->assertSame($order->id, $log->order_id);
