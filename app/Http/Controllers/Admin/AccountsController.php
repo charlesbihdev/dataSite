@@ -11,6 +11,7 @@ use App\Models\Agent;
 use App\Models\PricingTier;
 use App\Models\Subagent;
 use App\Services\Accounts\AccountsPresenter;
+use App\Support\CsvExport;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -248,22 +249,17 @@ class AccountsController extends Controller
     {
         $file = "{$type}-".now()->format('Y-m-d').'.csv';
 
-        return response()->streamDownload(function () use ($models): void {
-            $out = fopen('php://output', 'wb');
-            fputcsv($out, ['Name', 'Phone', 'Email', 'Username', 'Status', 'Wallet', 'Orders']);
-            foreach ($models as $m) {
-                fputcsv($out, [
-                    $this->csvSafe($m->name),
-                    $this->csvSafe($m->phone),
-                    $this->csvSafe($m->email),
-                    $this->csvSafe($m->username),
-                    $m->is_active ? 'active' : 'suspended',
-                    number_format((float) ($m->wallet?->balance ?? 0), 2),
-                    (int) $m->orders()->count(),
-                ]);
-            }
-            fclose($out);
-        }, $file, ['Content-Type' => 'text/csv']);
+        $rows = $models->map(fn ($m): array => [
+            $this->csvSafe($m->name),
+            CsvExport::text($m->phone),
+            $this->csvSafe($m->email),
+            $this->csvSafe($m->username),
+            $m->is_active ? 'active' : 'suspended',
+            number_format((float) ($m->wallet?->balance ?? 0), 2),
+            (int) $m->orders()->count(),
+        ]);
+
+        return CsvExport::download($file, ['Name', 'Phone', 'Email', 'Username', 'Status', 'Wallet', 'Orders'], $rows);
     }
 
     /**

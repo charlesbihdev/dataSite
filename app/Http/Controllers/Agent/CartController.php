@@ -12,6 +12,10 @@ use App\Services\Cart\OrderFileParser;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
+use PhpOffice\PhpSpreadsheet\Cell\DataType;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Style\NumberFormat;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
@@ -45,20 +49,30 @@ class CartController extends Controller
     }
 
     /**
-     * A blank sample sheet in exactly the shape the uploader expects. Headers mirror the admin
-     * export so both files speak the same language; Network is optional (blank = auto-detect).
+     * A blank sample sheet in the shape the uploader expects. Delivered as XLSX with the phone column
+     * typed as text so Excel keeps the leading 0 and never mangles it to scientific notation. Headers
+     * mirror the admin export so both files speak the same language; Network is optional.
      */
     public function template(): StreamedResponse
     {
-        return response()->streamDownload(function (): void {
-            $out = fopen('php://output', 'wb');
-            fwrite($out, "\xEF\xBB\xBF");
-            fputcsv($out, ['Receiver', 'Capacity (GB)', 'Network']);
-            fputcsv($out, ['0551234567', '5', 'MTN']);
-            fputcsv($out, ['0201234567', '10', 'Telecel']);
-            fputcsv($out, ['0261234567', '3', 'AT']);
-            fclose($out);
-        }, 'bulk-orders-template.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->fromArray(['Receiver', 'Capacity (GB)', 'Network'], null, 'A1');
+
+        $samples = [['0551234567', 5, 'MTN'], ['0201234567', 10, 'Telecel'], ['0261234567', 3, 'AT']];
+        foreach ($samples as $i => [$phone, $capacity, $network]) {
+            $row = $i + 2;
+            $sheet->setCellValueExplicit("A{$row}", $phone, DataType::TYPE_STRING);
+            $sheet->setCellValue("B{$row}", $capacity);
+            $sheet->setCellValue("C{$row}", $network);
+        }
+        $sheet->getStyle('A1:A1000')->getNumberFormat()->setFormatCode(NumberFormat::FORMAT_TEXT);
+
+        return response()->streamDownload(
+            fn () => (new Xlsx($spreadsheet))->save('php://output'),
+            'bulk-orders-template.xlsx',
+            ['Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'],
+        );
     }
 
     public function destroy(string $id): RedirectResponse

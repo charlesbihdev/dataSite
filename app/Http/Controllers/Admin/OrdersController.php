@@ -10,6 +10,7 @@ use App\Services\Orders\OrderDispatchService;
 use App\Services\Orders\OrderListPresenter;
 use App\Services\Orders\OrderSettlementService;
 use App\Services\Payments\PaymentVerifier;
+use App\Support\CsvExport;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -144,30 +145,25 @@ class OrdersController extends Controller
 
         $filename = "{$segment}-orders-".now()->format('Y-m-d_His').'.csv';
 
-        return response()->streamDownload(function () use ($orders): void {
-            $out = fopen('php://output', 'wb');
-            fwrite($out, "\xEF\xBB\xBF");
-            // Receiver, Capacity (GB), Network mirror the agent upload template's column order/names.
-            fputcsv($out, ['Reference', 'Seller', 'Type', 'Receiver', 'Capacity (GB)', 'Network', 'Customer Price', 'Seller Cost', 'Status', 'Source', 'Payment', 'Upstream Ref', 'Created']);
-            foreach ($orders as $o) {
-                fputcsv($out, [
-                    $o->reference,
-                    $o->seller?->name ?? 'Unknown',
-                    class_basename($o->seller_type),
-                    $o->beneficiary_phone,
-                    (float) $o->capacity_gb,
-                    strtoupper($o->network),
-                    (float) $o->customer_price,
-                    (float) $o->seller_cost,
-                    $o->status,
-                    $o->source,
-                    $o->payment_status,
-                    $o->upstream_reference,
-                    $o->created_at?->toDateTimeString(),
-                ]);
-            }
-            fclose($out);
-        }, $filename, ['Content-Type' => 'text/csv; charset=UTF-8']);
+        // Receiver, Capacity (GB), Network mirror the agent upload template's column order/names.
+        $headers = ['Reference', 'Seller', 'Type', 'Receiver', 'Capacity (GB)', 'Network', 'Amount', 'Status', 'Source', 'Payment', 'Upstream Ref', 'Created'];
+
+        $rows = $orders->map(fn (Order $o): array => [
+            $o->reference,
+            $o->seller?->name ?? 'Unknown',
+            class_basename($o->seller_type),
+            CsvExport::text($o->beneficiary_phone),
+            (float) $o->capacity_gb,
+            strtoupper($o->network),
+            (float) $o->customer_price,
+            $o->status,
+            $o->source,
+            $o->payment_status,
+            $o->upstream_reference,
+            $o->created_at?->toDateTimeString(),
+        ]);
+
+        return CsvExport::download($filename, $headers, $rows);
     }
 
     /**

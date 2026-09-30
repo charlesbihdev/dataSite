@@ -191,6 +191,27 @@ class VerifyPaymentTest extends TestCase
         $this->assertStringContainsString('DS-EXP0001', $res->streamedContent());
     }
 
+    public function test_regular_storefront_orders_export_streams_csv(): void
+    {
+        $agent = Agent::create(['name' => 'Store', 'phone' => '0559990001', 'password' => 'secret', 'is_active' => true]);
+        $agent->orders()->create([
+            'reference' => 'DS-REG0001',
+            'source' => Order::SOURCE_STOREFRONT,
+            'payment_status' => Order::PAYMENT_PAID,
+            'network' => 'mtn', 'capacity_gb' => 5, 'beneficiary_phone' => '0559999999',
+            'channel' => Order::CHANNEL_PREPAID,
+            'customer_price' => 30, 'seller_cost' => 20, 'agent_cost' => 20, 'base_cost' => 15,
+            'status' => Order::STATUS_COMPLETED,
+        ]);
+
+        $res = $this->get('/admin/orders/export?segment=regular');
+
+        $res->assertOk();
+        $this->assertStringContainsString('text/csv', (string) $res->headers->get('Content-Type'));
+        $this->assertStringContainsString('DS-REG0001', $res->streamedContent());
+        $this->assertStringContainsString('=""0559999999""', $res->streamedContent()); // phone guard applies
+    }
+
     public function test_bulk_retry_redebits_and_redispatches_failed_order(): void
     {
         Http::fake(['dbh.test/api/create_order' => Http::response([

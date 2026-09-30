@@ -131,7 +131,11 @@ class AccountManagementTest extends TestCase
 
         $response->assertOk();
         $this->assertStringContainsString('text/csv', (string) $response->headers->get('content-type'));
-        $this->assertStringContainsString('Kofi', $response->streamedContent());
+        $content = $response->streamedContent();
+        $this->assertStringContainsString('Kofi', $content);
+        // Phone is wrapped as an Excel text-literal ="0551000001" so the leading 0 survives
+        // (fputcsv escapes the inner quotes, hence the doubled form here).
+        $this->assertStringContainsString('=""0551000001""', $content);
     }
 
     public function test_search_narrows_the_list(): void
