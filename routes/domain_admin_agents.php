@@ -94,6 +94,7 @@ Route::middleware(['auth:agent'])->group(function () {
     Route::get('topup/callback', [WalletTopupController::class, 'callback'])->name('agent.topup.callback');
 
     // Place-Order cart (session-backed): add one, add many (paste/upload), remove, checkout.
+    Route::get('cart/template', [CartController::class, 'template'])->name('agent.cart.template');
     Route::post('cart', [CartController::class, 'store'])->name('agent.cart.store');
     Route::post('cart/bulk', [CartController::class, 'storeBulk'])->name('agent.cart.bulk');
     Route::post('cart/upload', [CartController::class, 'upload'])->name('agent.cart.upload');
