@@ -237,6 +237,7 @@ export function OrdersPage({
                     search={search}
                     onSearchChange={onSearchChange}
                     onApply={apply}
+                    selectedIds={selectedIds}
                 />
 
                 {selectedIds.length > 0 ? (
