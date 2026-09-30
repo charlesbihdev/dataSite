@@ -26,6 +26,7 @@ class CheckoutRequest extends FormRequest
             'beneficiary_phone' => ['required', 'string', 'max:20'],
             'network' => ['required', Rule::in([GhanaMobileNetwork::MTN, GhanaMobileNetwork::TELECEL, GhanaMobileNetwork::AT])],
             'capacity_gb' => ['required', 'integer', 'min:1', 'max:200'],
+            'customer_email' => ['nullable', 'email', 'max:255'],
         ];
     }
 }

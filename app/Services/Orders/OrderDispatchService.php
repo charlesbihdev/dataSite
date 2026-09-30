@@ -6,10 +6,12 @@ use App\Exceptions\InsufficientBalanceException;
 use App\Jobs\PollUpstreamOrderStatus;
 use App\Models\Earning;
 use App\Models\Order;
+use App\Notifications\OrderReceiptNotification;
 use App\Services\Databundleshub\UpstreamClient;
 use App\Services\Databundleshub\UpstreamException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Str;
 
 /**
@@ -110,10 +112,29 @@ class OrderDispatchService
         $fresh = $order->refresh();
 
         if ($fresh->status === Order::STATUS_PENDING && $fresh->upstream_request_id === null) {
+            // Payment just cleared (first confirmation) — email the customer their receipt + reference.
+            $this->notifyCustomer($fresh);
             $this->sendUpstream($fresh);
         }
 
         return $fresh->refresh();
+    }
+
+    /**
+     * Email a storefront customer their receipt once payment is confirmed. Only fires when an email
+     * was captured at checkout; queued and guarded so mail issues never break fulfillment.
+     */
+    private function notifyCustomer(Order $order): void
+    {
+        if (empty($order->customer_email)) {
+            return;
+        }
+
+        try {
+            Notification::route('mail', $order->customer_email)->notify(new OrderReceiptNotification($order));
+        } catch (\Throwable $e) {
+            Log::warning('Failed to queue order receipt email', ['order' => $order->reference, 'error' => $e->getMessage()]);
+        }
     }
 
     /**
@@ -235,7 +256,7 @@ class OrderDispatchService
     private function sendUpstream(Order $order): void
     {
         try {
-            $result = $this->client->placeOrder($order->reference, $order->beneficiary_phone, (int) $order->capacity_gb);
+            $result = $this->client->placeOrder($order->reference, $order->beneficiary_phone, (int) $order->capacity_gb, $order->network, $order->id);
         } catch (UpstreamException $e) {
             // We never reached the supplier (no config / cURL error / DNS / 5xx). Hold, don't reverse.
             $this->hold($order, 'supplier unavailable', $e->getMessage());

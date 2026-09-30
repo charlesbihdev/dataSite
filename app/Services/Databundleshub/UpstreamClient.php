@@ -3,6 +3,7 @@
 namespace App\Services\Databundleshub;
 
 use App\Models\DbhConfig;
+use App\Models\UpstreamApiLog;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
@@ -29,19 +30,13 @@ class UpstreamClient
      *
      * @throws UpstreamException on transport failure or missing config
      */
-    public function placeOrder(string $reference, string $phone, int $capacityGb): UpstreamOrderResult
+    public function placeOrder(string $reference, string $phone, int $capacityGb, string $network = '', ?int $orderId = null): UpstreamOrderResult
     {
-        $response = $this->send(
-            'create_order',
-            ['reference' => $reference],
-            fn (PendingRequest $http) => $http->post($this->url('create_order'), [
-                'phoneNumber' => $phone,
-                'capacity' => $capacityGb,
-                'idempotencyKey' => $reference,
-            ]),
-        );
+        $url = $this->url('create_order');
+        $payload = ['phoneNumber' => $phone, 'capacity' => $capacityGb, 'idempotencyKey' => $reference];
 
-        return $this->toResult($response, 'create_order', ['reference' => $reference]);
+        return $this->execute('create', 'create_order', $network, $orderId, $url, $payload, ['reference' => $reference],
+            fn (PendingRequest $http) => $http->post($url, $payload));
     }
 
     /**
@@ -49,17 +44,13 @@ class UpstreamClient
      *
      * @throws UpstreamException on transport failure or missing config
      */
-    public function orderStatus(string $requestId): UpstreamOrderResult
+    public function orderStatus(string $requestId, string $network = '', ?int $orderId = null): UpstreamOrderResult
     {
-        $response = $this->send(
-            'purchase-status',
-            ['request_id' => $requestId],
-            fn (PendingRequest $http) => $http->get($this->url('developer/purchase-status'), [
-                'request_id' => $requestId,
-            ]),
-        );
+        $url = $this->url('developer/purchase-status');
+        $payload = ['request_id' => $requestId];
 
-        return $this->toResult($response, 'purchase-status', ['request_id' => $requestId]);
+        return $this->execute('status', 'purchase-status', $network, $orderId, $url, $payload, ['request_id' => $requestId],
+            fn (PendingRequest $http) => $http->get($url, $payload));
     }
 
     /**
@@ -102,6 +93,80 @@ class UpstreamClient
         }
 
         return ['ok' => true, 'message' => 'Connection verified.'];
+    }
+
+    /**
+     * Run one endpoint call end to end: time it, translate failures via send()/toResult(), and write
+     * an audit row (on success OR failure) to upstream_api_logs. The audit write never affects the
+     * caller — any logging error is swallowed so a sale is never blocked by observability.
+     *
+     * @param  array<string, mixed>  $payload
+     * @param  array<string, mixed>  $context
+     * @param  callable(PendingRequest): Response  $call
+     *
+     * @throws UpstreamException
+     */
+    private function execute(string $operation, string $endpoint, string $network, ?int $orderId, string $url, array $payload, array $context, callable $call): UpstreamOrderResult
+    {
+        $start = microtime(true);
+        $response = null;
+        $result = null;
+        $error = null;
+
+        try {
+            $response = $this->send($endpoint, $context, $call);
+            $result = $this->toResult($response, $endpoint, $context);
+            if (! $result->success) {
+                $error = $result->errorMessage;
+            }
+
+            return $result;
+        } catch (UpstreamException $e) {
+            $error = $e->getMessage();
+
+            throw $e;
+        } finally {
+            $this->record($operation, $network, $orderId, $url, $payload, $response, $result, $error, (int) round((microtime(true) - $start) * 1000));
+        }
+    }
+
+    /**
+     * Write one audit row. Never throws — a logging failure must not break a sale.
+     *
+     * @param  array<string, mixed>  $payload
+     */
+    private function record(string $operation, string $network, ?int $orderId, string $url, array $payload, ?Response $response, ?UpstreamOrderResult $result, ?string $error, int $durationMs): void
+    {
+        try {
+            UpstreamApiLog::create([
+                'order_id' => $orderId,
+                'operation' => $operation,
+                'network' => $network !== '' ? $network : null,
+                'request_url' => $url,
+                'request_payload' => $payload,
+                'http_status' => $response?->status(),
+                'response_body' => $response !== null ? mb_substr((string) $response->body(), 0, 5000) : null,
+                'upstream_request_id' => $result?->requestId,
+                'success' => $result?->success ?? false,
+                'outcome' => $this->outcomeOf($operation, $result),
+                'error_message' => $error !== null ? mb_substr($error, 0, 500) : null,
+                'duration_ms' => $durationMs,
+                'created_at' => now(),
+            ]);
+        } catch (\Throwable $e) {
+            Log::warning('Failed to record upstream API log', ['error' => $e->getMessage()]);
+        }
+    }
+
+    private function outcomeOf(string $operation, ?UpstreamOrderResult $result): string
+    {
+        return match (true) {
+            $result === null => 'error',
+            $result->isCompleted() => 'delivered',
+            $result->isFailed() => 'failed',
+            $operation === 'create' && $result->isAccepted() => 'accepted',
+            default => 'processing',
+        };
     }
 
     /**

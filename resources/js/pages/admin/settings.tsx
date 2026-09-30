@@ -4,6 +4,7 @@ import {
     sendTestEmail,
     updateConnection,
     updateEmail,
+    updateWithdrawals,
 } from '@/actions/App/Http/Controllers/Admin/SettingsController';
 import { Column, DataTable } from '@/components/common/data-table';
 import { PageHeader } from '@/components/common/page-header';
@@ -37,10 +38,11 @@ interface Props {
     connection: { baseUrl: string; isActive: boolean; hasKey: boolean };
     email: EmailCfg;
     registration: { fee: number; isEnabled: boolean };
+    withdrawals: { min: number; max: number | null };
     admins: Admin[];
 }
 
-export default function AdminSettings({ connection, email, admins }: Props) {
+export default function AdminSettings({ connection, email, withdrawals, admins }: Props) {
     const form = useForm({
         base_url: connection.baseUrl,
         api_key: '',
@@ -57,6 +59,11 @@ export default function AdminSettings({ connection, email, admins }: Props) {
         smtp_password: '',
         smtp_encryption: email.smtpEncryption,
         is_active: email.isActive,
+    });
+
+    const withdrawalForm = useForm({
+        min_amount: String(withdrawals.min),
+        max_amount: withdrawals.max !== null ? String(withdrawals.max) : '',
     });
 
     const testForm = useForm({ email: '' });
@@ -227,6 +234,53 @@ export default function AdminSettings({ connection, email, admins }: Props) {
                                 <Button type="submit" variant="outline" disabled={testForm.processing}>Send</Button>
                             </form>
                         ) : null}
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="text-base">Withdrawal limits</CardTitle>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                            The minimum and maximum amount an agent or sub-agent may request per withdrawal. Leave the maximum blank for no cap.
+                        </p>
+                    </CardHeader>
+                    <CardContent>
+                        <form
+                            className="max-w-lg space-y-4"
+                            onSubmit={(e) => {
+                                e.preventDefault();
+                                withdrawalForm.put(updateWithdrawals().url, { preserveScroll: true });
+                            }}
+                        >
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="space-y-1.5">
+                                    <Label>Minimum (GHS)</Label>
+                                    <Input
+                                        type="number"
+                                        step="0.01"
+                                        min="0.01"
+                                        value={withdrawalForm.data.min_amount}
+                                        onChange={(e) => withdrawalForm.setData('min_amount', e.target.value)}
+                                    />
+                                    {withdrawalForm.errors.min_amount ? <p className="text-xs text-danger">{withdrawalForm.errors.min_amount}</p> : null}
+                                </div>
+                                <div className="space-y-1.5">
+                                    <Label>Maximum (GHS)</Label>
+                                    <Input
+                                        type="number"
+                                        step="0.01"
+                                        placeholder="No cap"
+                                        value={withdrawalForm.data.max_amount}
+                                        onChange={(e) => withdrawalForm.setData('max_amount', e.target.value)}
+                                    />
+                                    {withdrawalForm.errors.max_amount ? <p className="text-xs text-danger">{withdrawalForm.errors.max_amount}</p> : null}
+                                </div>
+                            </div>
+
+                            <Button type="submit" disabled={withdrawalForm.processing}>
+                                Save limits
+                            </Button>
+                        </form>
                     </CardContent>
                 </Card>
             </div>

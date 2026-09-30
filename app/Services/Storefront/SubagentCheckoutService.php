@@ -31,7 +31,7 @@ class SubagentCheckoutService
     /**
      * @throws CheckoutException when the number/package is invalid or the store doesn't sell it
      */
-    public function checkout(Subagent $subagent, string $phone, string $network, int $capacityGb): Order
+    public function checkout(Subagent $subagent, string $phone, string $network, int $capacityGb, ?string $email = null): Order
     {
         $normalized = GhanaMobileNetwork::normalize($phone);
         if ($normalized === '') {
@@ -71,6 +71,7 @@ class SubagentCheckoutService
             baseCost: $baseCost,
             channel: Order::CHANNEL_ONLINE,
             source: Order::SOURCE_STOREFRONT,
+            customerEmail: $email,
         ));
     }
 

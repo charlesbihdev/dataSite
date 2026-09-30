@@ -29,6 +29,7 @@
 
 use App\Http\Controllers\Admin\AccountApiKeysController;
 use App\Http\Controllers\Admin\AccountsController;
+use App\Http\Controllers\Admin\ApiLogController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\OrdersController;
 use App\Http\Controllers\Admin\PaymentConfigController;
@@ -160,6 +161,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::delete('api-keys/{apiKey}', [AccountApiKeysController::class, 'destroy'])->name('api-keys.destroy');
 
         Route::get('ledger', [TransactionsController::class, 'ledger'])->name('ledger');
+        Route::get('api-logs', [ApiLogController::class, 'index'])->name('api-logs');
         Route::get('withdrawals', [WithdrawalsController::class, 'index'])->name('withdrawals');
         Route::put('withdrawals/{withdrawal}', [WithdrawalsController::class, 'update'])->name('withdrawals.update');
         Route::get('payment-config', [PaymentConfigController::class, 'index'])->name('payment-config');
@@ -170,5 +172,6 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::put('settings/email', [SettingsController::class, 'updateEmail'])->name('settings.email');
         Route::post('settings/email/test', [SettingsController::class, 'sendTestEmail'])->name('settings.email.test');
         Route::put('settings/registration', [SettingsController::class, 'updateRegistration'])->name('settings.registration');
+        Route::put('settings/withdrawals', [SettingsController::class, 'updateWithdrawals'])->name('settings.withdrawals');
     }); // close auth:admin middleware group
 }); // close admin prefix group
