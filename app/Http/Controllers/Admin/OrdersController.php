@@ -154,7 +154,8 @@ class OrdersController extends Controller
                     $o->reference,
                     $o->seller?->name ?? 'Unknown',
                     class_basename($o->seller_type),
-                    $o->beneficiary_phone,
+                    // Excel text-literal so the phone keeps its leading 0 (and re-uploads cleanly).
+                    '="'.$o->beneficiary_phone.'"',
                     (float) $o->capacity_gb,
                     strtoupper($o->network),
                     (float) $o->customer_price,

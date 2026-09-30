@@ -129,12 +129,48 @@ class PlaceOrderCartTest extends TestCase
         $this->assertSame(5, $cart->first()['capacity_gb']);
     }
 
-    public function test_template_download_headers_match_the_admin_export(): void
+    public function test_upload_handles_the_excel_text_literal_phone_the_export_writes(): void
+    {
+        // The admin export writes the phone as ="0559999999" (Excel text-literal); it must still parse.
+        $csv = "Reference,Seller,Type,Receiver,Capacity (GB),Network\nDS-1,Kwame,Agent,\"=\"\"0559999999\"\"\",5,MTN\n";
+        $file = UploadedFile::fake()->createWithContent('export.csv', $csv);
+
+        $this->post(route('agent.cart.upload'), ['orders_file' => $file])
+            ->assertRedirect(route('agent.dashboard'));
+
+        $cart = collect(session('agent_cart'));
+        $this->assertCount(1, $cart);
+        $this->assertSame('0559999999', $cart->first()['beneficiary_phone']);
+    }
+
+    public function test_upload_recovers_a_phone_that_lost_its_leading_zero(): void
+    {
+        // Excel drops the leading 0 (0551234567 → 551234567); normalize() restores it on upload.
+        $csv = "Receiver,Capacity (GB),Network\n551234567,5,\n";
+        $file = UploadedFile::fake()->createWithContent('orders.csv', $csv);
+
+        $this->post(route('agent.cart.upload'), ['orders_file' => $file])
+            ->assertRedirect(route('agent.dashboard'));
+
+        $cart = collect(session('agent_cart'));
+        $this->assertCount(1, $cart);
+        $this->assertSame('0551234567', $cart->first()['beneficiary_phone']);
+    }
+
+    public function test_template_is_excel_with_the_phone_column_kept_as_text(): void
     {
         $response = $this->get(route('agent.cart.template'));
-
         $response->assertOk();
-        $this->assertStringContainsString('Receiver,"Capacity (GB)",Network', $response->streamedContent());
+
+        $tmp = tempnam(sys_get_temp_dir(), 'tpl').'.xlsx';
+        file_put_contents($tmp, $response->streamedContent());
+        $sheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($tmp)->getActiveSheet();
+
+        $this->assertSame('Receiver', $sheet->getCell('A1')->getValue());
+        $this->assertSame('Capacity (GB)', $sheet->getCell('B1')->getValue());
+        $this->assertSame('Network', $sheet->getCell('C1')->getValue());
+        $this->assertSame('0551234567', (string) $sheet->getCell('A2')->getValue()); // leading 0 preserved
+        @unlink($tmp);
     }
 
     public function test_checkout_places_orders_and_debits_the_wallet(): void
