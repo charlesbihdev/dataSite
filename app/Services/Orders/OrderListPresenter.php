@@ -44,7 +44,7 @@ class OrderListPresenter
             ->with('seller')
             ->when($status !== 'all', fn ($q) => $q->where('status', $status))
             ->latest('id')
-            ->paginate(30)
+            ->paginate(50)
             ->withQueryString()
             ->through(fn (Order $order): array => $this->present($order));
 

@@ -137,8 +137,13 @@ class OrdersController extends Controller
             : OrderListPresenter::SEGMENT_AGENT;
         $status = (string) $request->query('status', 'all');
 
+        // When rows are checked on the page, export only those; otherwise the whole filtered set.
+        // Still scoped by segment + filters, so a stray id can't pull another segment's order.
+        $ids = array_values(array_filter(array_map('intval', (array) $request->query('ids', []))));
+
         $orders = $presenter->scopedQuery($request, $segment)
             ->when($status !== 'all', fn ($q) => $q->where('status', $status))
+            ->when($ids !== [], fn ($q) => $q->whereIn('id', $ids))
             ->with('seller')
             ->latest('id')
             ->get();

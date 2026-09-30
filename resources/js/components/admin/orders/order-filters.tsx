@@ -15,6 +15,7 @@ export function OrderFilters({
     search,
     onSearchChange,
     onApply,
+    selectedIds,
 }: {
     filters: Filters;
     isRegular: boolean;
@@ -22,7 +23,16 @@ export function OrderFilters({
     search: string;
     onSearchChange: (value: string) => void;
     onApply: (patch: Partial<Filters>) => void;
+    selectedIds: (string | number)[];
 }) {
+    const exportQuery: Record<string, string | null | (string | number)[]> = Object.fromEntries(
+        Object.entries({ ...filters, segment }).filter(([, v]) => v !== null && v !== '' && v !== 'all'),
+    );
+    // With rows checked, export just those; otherwise the whole filtered set.
+    if (selectedIds.length > 0) {
+        exportQuery.ids = selectedIds;
+    }
+
     return (
         <div className="flex flex-wrap items-center gap-3">
             <Select value={filters.status} onValueChange={(v) => onApply({ status: v })}>
@@ -102,14 +112,8 @@ export function OrderFilters({
             />
 
             <Button asChild variant="outline" size="sm">
-                <a
-                    href={exportOrders.url({
-                        query: Object.fromEntries(
-                            Object.entries({ ...filters, segment }).filter(([, v]) => v !== null && v !== '' && v !== 'all'),
-                        ),
-                    })}
-                >
-                    Export CSV
+                <a href={exportOrders.url({ query: exportQuery })}>
+                    {selectedIds.length > 0 ? `Export selected (${selectedIds.length})` : 'Export CSV'}
                 </a>
             </Button>
         </div>
