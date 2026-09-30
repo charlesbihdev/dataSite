@@ -1,9 +1,10 @@
 import { router, useForm } from "@inertiajs/react";
-import { CreditCard, ShoppingCart, Trash2 } from "lucide-react";
+import { AlertTriangle, CreditCard, ShoppingCart, Trash2 } from "lucide-react";
 import { checkout, destroy } from "@/routes/agent/cart";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cedis } from "@/lib/format";
+import { cn } from "@/lib/utils";
 
 export interface CartItem {
     id: string;
@@ -21,6 +22,13 @@ export function CartPanel({ items, total }: { items: CartItem[]; total: number }
 
     const remove = (id: string) => router.delete(destroy.url(id), { preserveScroll: true });
     const pay = () => checkoutForm.post(checkout.url(), { preserveScroll: true });
+
+    // Repeats are allowed, but flag numbers that appear 2+ times so an accidental one is caught.
+    const phoneCounts = items.reduce<Record<string, number>>((acc, item) => {
+        acc[item.beneficiary_phone] = (acc[item.beneficiary_phone] ?? 0) + 1;
+        return acc;
+    }, {});
+    const duplicates = Object.keys(phoneCounts).filter((phone) => phoneCounts[phone] > 1);
 
     return (
         <Card>
@@ -43,11 +51,25 @@ export function CartPanel({ items, total }: { items: CartItem[]; total: number }
                     </div>
                 ) : (
                     <>
+                        {duplicates.length > 0 && (
+                            <div className="mb-3 flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 p-2.5 text-xs text-destructive">
+                                <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+                                <span>
+                                    {duplicates.length} number{duplicates.length === 1 ? "" : "s"} appear more than once ({duplicates.join(", ")}). Each
+                                    line is a separate order — remove any repeats you didn't intend.
+                                </span>
+                            </div>
+                        )}
                         <ul className="divide-y divide-border">
-                            {items.map((item) => (
+                            {items.map((item) => {
+                                const isDuplicate = phoneCounts[item.beneficiary_phone] > 1;
+                                return (
                                 <li key={item.id} className="flex items-center justify-between gap-3 py-3">
                                     <div className="min-w-0">
-                                        <p className="truncate font-mono text-sm font-medium">{item.beneficiary_phone}</p>
+                                        <p className={cn("truncate font-mono text-sm font-medium", isDuplicate && "text-destructive")}>
+                                            {item.beneficiary_phone}
+                                            {isDuplicate && <span className="ml-2 font-sans text-[10px] uppercase tracking-wide">repeated</span>}
+                                        </p>
                                         <p className="text-xs text-muted-foreground">
                                             {item.network_label} · {item.bundle}
                                         </p>
@@ -64,7 +86,8 @@ export function CartPanel({ items, total }: { items: CartItem[]; total: number }
                                         </button>
                                     </div>
                                 </li>
-                            ))}
+                                );
+                            })}
                         </ul>
 
                         <div className="mt-2 flex items-center justify-between border-t border-border py-3">

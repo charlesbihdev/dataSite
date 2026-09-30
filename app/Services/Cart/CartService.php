@@ -67,12 +67,9 @@ class CartService
             return $validationError;
         }
 
+        // Repeats of the same number are allowed (e.g. several bundles to one line); the UI flags
+        // duplicates in red so an accidental one is noticed before checkout.
         $items = $this->items();
-        foreach ($items as $item) {
-            if ($item['beneficiary_phone'] === $phone) {
-                return "{$phone} is already in your cart. Remove it first to change the bundle.";
-            }
-        }
 
         $price = $network !== null ? $this->quote->for($seller, $network, $sizeGb) : null;
         if ($network === null || $price === null) {
@@ -94,7 +91,7 @@ class CartService
     }
 
     /**
-     * Add many lines (bulk paste / file upload). Silently skips invalid or duplicate lines.
+     * Add many lines (bulk paste / file upload). Silently skips invalid lines (repeats are kept).
      *
      * @param  iterable<array{0: string, 1: int|string|float, 2?: string}>  $rows  [phone, sizeGb, network?]
      * @return array{added: int, skipped: int}

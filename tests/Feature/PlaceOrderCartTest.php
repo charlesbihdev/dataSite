@@ -64,6 +64,15 @@ class PlaceOrderCartTest extends TestCase
         );
     }
 
+    public function test_the_same_number_can_be_added_more_than_once(): void
+    {
+        // Repeats are allowed (several bundles to one line); the cart UI flags them in red.
+        $this->post(route('agent.cart.store'), ['beneficiary_phone' => '0559999999', 'bundle_size' => 5]);
+        $this->post(route('agent.cart.store'), ['beneficiary_phone' => '0559999999', 'bundle_size' => 5]);
+
+        $this->assertCount(2, session('agent_cart'));
+    }
+
     public function test_invalid_phone_is_rejected_and_nothing_is_added(): void
     {
         $this->post(route('agent.cart.store'), ['beneficiary_phone' => '12345', 'bundle_size' => 5])
