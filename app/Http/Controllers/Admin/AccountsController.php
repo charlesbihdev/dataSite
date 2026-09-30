@@ -254,7 +254,7 @@ class AccountsController extends Controller
             foreach ($models as $m) {
                 fputcsv($out, [
                     $this->csvSafe($m->name),
-                    $this->csvSafe($m->phone),
+                    $this->excelPhone($m->phone),
                     $this->csvSafe($m->email),
                     $this->csvSafe($m->username),
                     $m->is_active ? 'active' : 'suspended',
@@ -279,6 +279,15 @@ class AccountsController extends Controller
         }
 
         return $value;
+    }
+
+    /**
+     * Excel text-literal so a phone keeps its leading 0 (and re-uploads cleanly) instead of being
+     * read as a number and mangled to 551234567 / 5.5E+09.
+     */
+    private function excelPhone(?string $phone): string
+    {
+        return $phone === null || $phone === '' ? '' : '="'.$phone.'"';
     }
 
     private function isDeletable(Agent|Subagent $model): bool
