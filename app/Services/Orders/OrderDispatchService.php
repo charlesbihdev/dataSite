@@ -249,6 +249,15 @@ class OrderDispatchService
             'upstream_status' => $result->orderStatus,
         ])->save();
 
+        // TEMP DIAG (grep "DBH DIAG"): which branch create_order took for this order.
+        Log::warning('DBH DIAG create_order decision', [
+            'order' => $order->reference,
+            'orderStatus' => $result->orderStatus,
+            'processingStatus' => $result->processingStatus,
+            'completedAt' => $result->completedAt,
+            'branch' => $result->isFailed() ? 'reverse' : ($result->isCompleted() ? 'settle_now' : (! $result->success || $result->requestId === null ? 'hold' : 'processing_poll')),
+        ]);
+
         if ($result->isFailed()) {
             $this->settlement->reverse($order, $result->errorMessage ?? 'Upstream rejected the order.');
 
