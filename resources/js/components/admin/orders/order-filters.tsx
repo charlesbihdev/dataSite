@@ -6,7 +6,7 @@ import { type Filters, NETWORKS, type OrderSegment, PAYMENTS, SELLERS, SOURCES, 
 
 /**
  * Filter toolbar for the admin order pages. Regular (storefront) shows the payment filter; the
- * Agent page shows seller + source filters and the CSV export.
+ * Agent page shows seller + source filters. Both segments export to CSV.
  */
 export function OrderFilters({
     filters,
@@ -101,19 +101,17 @@ export function OrderFilters({
                 className="ml-auto w-72"
             />
 
-            {!isRegular ? (
-                <Button asChild variant="outline" size="sm">
-                    <a
-                        href={exportOrders.url({
-                            query: Object.fromEntries(
-                                Object.entries({ ...filters, segment }).filter(([, v]) => v !== null && v !== '' && v !== 'all'),
-                            ),
-                        })}
-                    >
-                        Export CSV
-                    </a>
-                </Button>
-            ) : null}
+            <Button asChild variant="outline" size="sm">
+                <a
+                    href={exportOrders.url({
+                        query: Object.fromEntries(
+                            Object.entries({ ...filters, segment }).filter(([, v]) => v !== null && v !== '' && v !== 'all'),
+                        ),
+                    })}
+                >
+                    Export CSV
+                </a>
+            </Button>
         </div>
     );
 }

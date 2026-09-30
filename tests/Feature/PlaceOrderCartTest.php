@@ -114,9 +114,9 @@ class PlaceOrderCartTest extends TestCase
     public function test_a_full_admin_export_csv_can_be_re_uploaded(): void
     {
         // Columns are located by header name, so the export's leading Reference/Seller/Type are ignored.
-        $csv = "Reference,Seller,Type,Receiver,Capacity (GB),Network,Customer Price,Seller Cost,Status,Source,Payment,Upstream Ref,Created\n"
-            ."DS-0001,Kwame,Agent,0559999999,5,MTN,25,15,completed,portal,paid,,2026-09-30 10:00:00\n"
-            ."DS-0002,Kwame,Agent,0244000000,10,MTN,50,30,completed,portal,paid,,2026-09-30 10:05:00\n";
+        $csv = "Reference,Seller,Type,Receiver,Capacity (GB),Network,Amount,Status,Source,Payment,Upstream Ref,Created\n"
+            ."DS-0001,Kwame,Agent,0559999999,5,MTN,25,completed,portal,paid,,2026-09-30 10:00:00\n"
+            ."DS-0002,Kwame,Agent,0244000000,10,MTN,50,completed,portal,paid,,2026-09-30 10:05:00\n";
         $file = UploadedFile::fake()->createWithContent('export.csv', $csv);
 
         $this->post(route('agent.cart.upload'), ['orders_file' => $file])
