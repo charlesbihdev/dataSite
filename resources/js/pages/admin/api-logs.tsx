@@ -15,28 +15,36 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import { cn } from "@/lib/utils";
+
+type Source = "incoming" | "upstream";
 
 interface Log {
     id: number;
     time: string | null;
+    caller: string;
     network: string | null;
-    operation: string;
     success: boolean;
     httpStatus: number | null;
     error: string | null;
-    outcome: string | null;
-    requestUrl: string;
+    endpoint: string;
     requestBody: string | null;
     responseBody: string | null;
     durationMs: number | null;
 }
 
 interface Props {
+    source: Source;
     logs: { data: Log[]; links: PageLink[] };
     filters: { network: string; result: string; from: string; to: string };
     networks: string[];
     stats: { total: number; success: number; failed: number; avgMs: number };
 }
+
+const TABS: { key: Source; label: string }[] = [
+    { key: "incoming", label: "Incoming API" },
+    { key: "upstream", label: "Upstream errors" },
+];
 
 // Native disclosure for a request/response body — no per-row React state.
 function Body({ label, content }: { label: string; content: string | null }) {
@@ -53,16 +61,18 @@ function Body({ label, content }: { label: string; content: string | null }) {
     );
 }
 
-export default function AdminApiLogs({ logs, filters, networks, stats }: Props) {
+export default function AdminApiLogs({ source, logs, filters, networks, stats }: Props) {
     const [network, setNetwork] = useState(filters.network || "all");
     const [result, setResult] = useState(filters.result || "all");
     const [from, setFrom] = useState(filters.from || "");
     const [to, setTo] = useState(filters.to || "");
 
+    const isUpstream = source === "upstream";
+
     const applyFilters = () =>
         router.get(
             apiLogsRoute.url(),
-            { network, result, from, to },
+            { source, network, result, from, to },
             { preserveState: true, replace: true },
         );
 
@@ -71,14 +81,23 @@ export default function AdminApiLogs({ logs, filters, networks, stats }: Props) 
         setResult("all");
         setFrom("");
         setTo("");
-        router.get(apiLogsRoute.url(), {}, { preserveState: true, replace: true });
+        router.get(apiLogsRoute.url(), { source }, { preserveState: true, replace: true });
     };
+
+    const switchTab = (next: Source) =>
+        router.get(apiLogsRoute.url(), { source: next }, { preserveState: false });
 
     const columns: Column<Log>[] = [
         {
             key: "time",
             header: "Time",
             render: (l) => <span className="whitespace-nowrap text-muted-foreground">{l.time ?? "—"}</span>,
+        },
+        {
+            key: "caller",
+            header: isUpstream ? "Call" : "Reseller",
+            className: "max-w-xs whitespace-normal",
+            render: (l) => <span className="font-medium">{l.caller}</span>,
         },
         {
             key: "network",
@@ -99,9 +118,7 @@ export default function AdminApiLogs({ logs, filters, networks, stats }: Props) 
             key: "error",
             header: "Error",
             className: "max-w-xs whitespace-normal",
-            render: (l) => (
-                <span className="text-danger">{l.error ?? "—"}</span>
-            ),
+            render: (l) => <span className="text-danger">{l.error ?? "—"}</span>,
         },
         {
             key: "response",
@@ -122,7 +139,7 @@ export default function AdminApiLogs({ logs, filters, networks, stats }: Props) 
             className: "max-w-xs whitespace-normal",
             render: (l) => (
                 <div className="space-y-1">
-                    <span className="break-all text-xs text-muted-foreground">{l.requestUrl}</span>
+                    <span className="break-all text-xs text-muted-foreground">{l.endpoint}</span>
                     <Body label="Request body" content={l.requestBody} />
                 </div>
             ),
@@ -135,13 +152,35 @@ export default function AdminApiLogs({ logs, filters, networks, stats }: Props) 
             <div className="flex flex-1 flex-col gap-6 p-4">
                 <PageHeader
                     title="API Logs"
-                    description="Every call to Databundleshub — request, response, and timing for the upstream pipe."
+                    description={
+                        isUpstream
+                            ? "Failures from our own calls out to Databundleshub — the supplier pipe, errors only."
+                            : "Every developer-API request resellers make against our API to buy data and poll status."
+                    }
                 />
 
+                <div className="flex flex-wrap gap-2">
+                    {TABS.map((tab) => (
+                        <button
+                            key={tab.key}
+                            type="button"
+                            onClick={() => switchTab(tab.key)}
+                            className={cn(
+                                "rounded-lg border px-4 py-2 text-sm font-medium transition-colors",
+                                tab.key === source
+                                    ? "border-brand bg-brand text-white"
+                                    : "border-border bg-card text-muted-foreground hover:text-foreground",
+                            )}
+                        >
+                            {tab.label}
+                        </button>
+                    ))}
+                </div>
+
                 <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                    <StatTile label="Total Calls" value={String(stats.total)} hint="In selected range" />
+                    <StatTile label={isUpstream ? "Total Errors" : "Total Requests"} value={String(stats.total)} hint="In selected range" />
                     <StatTile label="Successful" value={String(stats.success)} hint="2xx with success" />
-                    <StatTile label="Failed" value={String(stats.failed)} hint="Rejected or unreachable" />
+                    <StatTile label="Failed" value={String(stats.failed)} hint={isUpstream ? "Rejected or unreachable" : "Rejected or errored"} />
                     <StatTile label="Avg Duration" value={`${stats.avgMs} ms`} hint="Round-trip time" />
                 </div>
 
@@ -205,7 +244,7 @@ export default function AdminApiLogs({ logs, filters, networks, stats }: Props) 
                     columns={columns}
                     rows={logs.data}
                     rowKey={(l) => l.id}
-                    emptyMessage="No API calls in this range."
+                    emptyMessage={isUpstream ? "No upstream errors in this range." : "No API requests in this range."}
                 />
                 <Pagination links={logs.links} />
             </div>
