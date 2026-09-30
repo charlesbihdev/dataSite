@@ -6,10 +6,12 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\DbhConnectionRequest;
 use App\Http\Requests\Admin\EmailConfigRequest;
 use App\Http\Requests\Admin\RegistrationConfigRequest;
+use App\Http\Requests\Admin\WithdrawalConfigRequest;
 use App\Models\Admin;
 use App\Models\DbhConfig;
 use App\Models\EmailConfig;
 use App\Models\RegistrationConfig;
+use App\Models\WithdrawalConfig;
 use App\Notifications\TestEmailNotification;
 use App\Services\Databundleshub\UpstreamClient;
 use Illuminate\Http\RedirectResponse;
@@ -50,6 +52,10 @@ class SettingsController extends Controller
             'registration' => [
                 'fee' => (float) ($registration?->registration_fee ?? 0),
                 'isEnabled' => (bool) ($registration?->is_enabled ?? true),
+            ],
+            'withdrawals' => [
+                'min' => WithdrawalConfig::minAmount(),
+                'max' => WithdrawalConfig::maxAmount(),
             ],
             'admins' => Admin::query()->orderBy('name')->get()->map(fn (Admin $a): array => [
                 'id' => $a->id,
@@ -114,6 +120,19 @@ class SettingsController extends Controller
         $row->save();
 
         Inertia::flash('toast', ['type' => 'success', 'message' => 'Registration settings saved.']);
+
+        return back();
+    }
+
+    public function updateWithdrawals(WithdrawalConfigRequest $request): RedirectResponse
+    {
+        $data = $request->validated();
+        $row = WithdrawalConfig::current() ?? new WithdrawalConfig;
+        $row->min_amount = $data['min_amount'];
+        $row->max_amount = ($data['max_amount'] ?? null) !== null && $data['max_amount'] !== '' ? $data['max_amount'] : null;
+        $row->save();
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => 'Withdrawal limits saved.']);
 
         return back();
     }

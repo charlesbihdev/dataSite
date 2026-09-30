@@ -1,6 +1,6 @@
 import { useForm } from "@inertiajs/react";
 import { useMemo, useState } from "react";
-import { Info, Loader2, Lock, Phone, ShoppingCart } from "lucide-react";
+import { Info, Loader2, Lock, Mail, Phone, ShoppingCart } from "lucide-react";
 import type { StorefrontPkg } from "@/components/storefront/package-card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -36,13 +36,15 @@ export function CheckoutDialog({
 
 function CheckoutForm({ pkg, checkoutUrl, networks }: { pkg: StorefrontPkg; checkoutUrl: string; networks: NetworkMeta[] }) {
     const [phone, setPhone] = useState("");
+    const [email, setEmail] = useState("");
     const detected = useMemo(() => detectNetwork(phone, networks), [phone, networks]);
     const mismatch = detected !== null && detected.code !== pkg.network;
 
-    const form = useForm<{ beneficiary_phone: string; network: string; capacity_gb: number }>({
+    const form = useForm<{ beneficiary_phone: string; network: string; capacity_gb: number; customer_email: string }>({
         beneficiary_phone: "",
         network: pkg.network,
         capacity_gb: pkg.capacityGb,
+        customer_email: "",
     });
 
     const canPay = normalizeMsisdn(phone) !== "" && !mismatch && !form.processing;
@@ -53,6 +55,7 @@ function CheckoutForm({ pkg, checkoutUrl, networks }: { pkg: StorefrontPkg; chec
             beneficiary_phone: normalizeMsisdn(phone) || phone,
             network: pkg.network,
             capacity_gb: pkg.capacityGb,
+            customer_email: email,
         }));
         form.post(checkoutUrl, { preserveScroll: true });
     };
@@ -98,6 +101,25 @@ function CheckoutForm({ pkg, checkoutUrl, networks }: { pkg: StorefrontPkg; chec
                         </p>
                     ) : (
                         <p className="text-xs text-muted-foreground">Enter the number that will receive the data bundle.</p>
+                    )}
+                </div>
+
+                <div className="space-y-2">
+                    <Label htmlFor="checkout-email" className="flex items-center gap-1.5 text-sm font-semibold">
+                        <Mail className="size-4" /> Email <span className="font-normal text-muted-foreground">(optional)</span>
+                    </Label>
+                    <Input
+                        id="checkout-email"
+                        type="email"
+                        placeholder="you@example.com"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        className="h-12 text-base"
+                    />
+                    {form.errors.customer_email ? (
+                        <p className="text-xs text-destructive">{form.errors.customer_email}</p>
+                    ) : (
+                        <p className="text-xs text-muted-foreground">We'll email your receipt and reference number for tracking.</p>
                     )}
                 </div>
 

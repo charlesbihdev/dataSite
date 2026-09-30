@@ -4,6 +4,7 @@ import {
     CreditCard,
     LayoutGrid,
     LogOut,
+    Radio,
     ScrollText,
     Settings,
     ShoppingCart,
@@ -11,7 +12,6 @@ import {
     Tags,
     TrendingUp,
     Users,
-    Wallet,
 } from "lucide-react";
 import AppLogo from "@/components/app-logo";
 import { NavMain } from "@/components/nav-main";
@@ -59,6 +59,12 @@ const adminNavGroups = [
                 href: "/admin/withdrawals",
                 icon: Banknote,
             },
+        ],
+    },
+    {
+        title: "Observability",
+        items: [
+            { title: "API Logs", href: "/admin/api-logs", icon: Radio },
         ],
     },
     {

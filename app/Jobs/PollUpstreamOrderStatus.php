@@ -50,7 +50,7 @@ class PollUpstreamOrderStatus implements ShouldQueue
 
         // A transport failure (incl. a bot-block HTML page → non-JSON) throws UpstreamException and
         // lets the queue retry with backoff. Reaching here means the poll got through to DBH.
-        $result = $client->orderStatus($order->upstream_request_id);
+        $result = $client->orderStatus($order->upstream_request_id, $order->network, $order->id);
 
         Log::info('Upstream poll succeeded', [
             'order' => $order->reference,

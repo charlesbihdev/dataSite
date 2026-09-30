@@ -54,6 +54,7 @@ class StorefrontController extends Controller
                 (string) $request->input('beneficiary_phone'),
                 (string) $request->input('network'),
                 (int) $request->integer('capacity_gb'),
+                $request->input('customer_email'),
             );
 
             $payment = $payments->initiate(

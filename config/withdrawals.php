@@ -7,15 +7,14 @@ return [
     | Withdrawal methods
     |--------------------------------------------------------------------------
     |
-    | The payout rails an agent/subagent may withdraw earnings to, and the
-    | minimum matured (available) balance required before each is offered.
-    | A method is only enabled in the UI once the available balance ≥ its min.
+    | The payout rails an agent/subagent may withdraw earnings to. The min/max
+    | withdrawal amount is admin-configurable and lives in WithdrawalConfig, not here.
     |
     */
 
     'methods' => [
-        'momo' => ['label' => 'Mobile Money', 'min' => 20.0],
-        'credit' => ['label' => 'Credit', 'min' => 20.0],
+        'momo' => ['label' => 'Mobile Money'],
+        'credit' => ['label' => 'Credit'],
     ],
 
 ];

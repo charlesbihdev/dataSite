@@ -18,10 +18,11 @@ interface Wd { id: number; method: string; amount: number; status: string; date:
 interface Props {
     stats: { totalEarnings: number; available: number; pending: number; withdrawn: number };
     methods: Method[];
+    limits: { min: number; max: number | null };
     withdrawals: { data: Wd[]; from: number | null; prev_page_url: string | null; next_page_url: string | null };
 }
 
-export default function SubagentWithdrawals({ stats, methods, withdrawals }: Props) {
+export default function SubagentWithdrawals({ stats, methods, limits, withdrawals }: Props) {
     const form = useForm({ method: "", amount: "", destination: "" });
     const eligible = methods.some((m) => m.enabled);
     const selected = methods.find((m) => m.key === form.data.method);
@@ -115,13 +116,16 @@ export default function SubagentWithdrawals({ stats, methods, withdrawals }: Pro
                                     id="amount"
                                     type="number"
                                     step="0.01"
-                                    min={selected?.min ?? 0}
+                                    min={limits.min}
+                                    max={limits.max ?? undefined}
                                     placeholder="Enter amount"
                                     value={form.data.amount}
                                     onChange={(e) => form.setData("amount", e.target.value)}
                                     disabled={!eligible}
                                 />
-                                <p className="text-xs text-muted-foreground">Available: {cedis(stats.available)}</p>
+                                <p className="text-xs text-muted-foreground">
+                                    Available: {cedis(stats.available)} · Min {cedis(limits.min)}{limits.max !== null ? ` · Max ${cedis(limits.max)}` : ""}
+                                </p>
                                 {form.errors.amount && <p className="text-xs text-destructive">{form.errors.amount}</p>}
                             </div>
 

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Agent\StoreWithdrawalRequest;
 use App\Models\Earning;
 use App\Models\Withdrawal;
+use App\Models\WithdrawalConfig;
 use App\Services\Withdrawals\WithdrawalService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -25,6 +26,7 @@ class WithdrawalController extends Controller
     {
         $earner = $request->user();
         $available = $earner->earningsBalance();
+        $min = WithdrawalConfig::minAmount();
 
         return Inertia::render('agent/withdrawals', [
             'stats' => [
@@ -33,12 +35,13 @@ class WithdrawalController extends Controller
                 'pending' => (float) $earner->withdrawals()->whereIn('status', [Withdrawal::STATUS_PENDING, Withdrawal::STATUS_APPROVED])->sum('amount'),
                 'withdrawn' => (float) $earner->withdrawals()->where('status', Withdrawal::STATUS_PAID)->sum('amount'),
             ],
+            'limits' => ['min' => $min, 'max' => WithdrawalConfig::maxAmount()],
             'methods' => collect(config('withdrawals.methods'))
                 ->map(fn (array $m, string $key): array => [
                     'key' => $key,
                     'label' => $m['label'],
-                    'min' => (float) $m['min'],
-                    'enabled' => $available >= (float) $m['min'],
+                    'min' => $min,
+                    'enabled' => $available >= $min,
                 ])
                 ->values(),
             'withdrawals' => $earner->withdrawals()->latest('id')->simplePaginate(30)->through(fn (Withdrawal $w): array => [
@@ -57,11 +60,9 @@ class WithdrawalController extends Controller
         $earner = $request->user();
         $method = $request->string('method')->value();
         $amount = round((float) $request->input('amount'), 2);
-        $min = (float) config("withdrawals.methods.{$method}.min");
 
-        if ($amount < $min) {
-            return $this->toast('error', "The minimum {$this->methodLabel($method)} withdrawal is GHS ".number_format($min, 2).'.');
-        }
+        // Min/max thresholds are enforced by StoreWithdrawalRequest (WithdrawalConfig). Here we only
+        // guard against withdrawing more than the matured balance.
         if ($amount > $earner->earningsBalance()) {
             return $this->toast('error', 'Amount exceeds your available balance.');
         }
