@@ -7,6 +7,7 @@ use App\Services\Databundleshub\UpstreamClient;
 use App\Services\Orders\OrderSettlementService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Databundleshub does not push callbacks — status is poll-only (ARCHITECTURE §2). This job
@@ -49,6 +50,16 @@ class PollUpstreamOrderStatus implements ShouldQueue
 
         // A transport failure throws UpstreamException and lets the queue retry with backoff.
         $result = $client->orderStatus($order->upstream_request_id);
+
+        // TEMP DIAG (grep "DBH DIAG"): each poll's outcome + attempt, to confirm polling no longer bounces.
+        Log::warning('DBH DIAG poll', [
+            'order' => $order->reference,
+            'attempt' => $this->attempts(),
+            'orderStatus' => $result->orderStatus,
+            'processingStatus' => $result->processingStatus,
+            'completedAt' => $result->completedAt,
+            'branch' => $result->isCompleted() ? 'settle' : ($result->isFailed() ? 'reverse' : 'repoll'),
+        ]);
 
         if ($result->isCompleted()) {
             $settlement->settle($order, $result);
