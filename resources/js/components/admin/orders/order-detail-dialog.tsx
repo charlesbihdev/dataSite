@@ -149,8 +149,8 @@ export function OrderDetailDialog({
                         </h3>
                         <Row label="Request ID" value={upstream.requestId ?? '—'} />
                         <Row label="Reference" value={upstream.reference ?? '—'} />
-                        <Row label="Reported status" value={upstream.status ?? '—'} />
-                        <Row label="Actual cost" value={upstream.cost !== null ? cedis(upstream.cost) : '—'} />
+                        <Row label="Supplier status" value={upstream.status ?? '—'} />
+                        <Row label="Supplier cost (DBH)" value={upstream.cost !== null ? cedis(upstream.cost) : '—'} />
                         <Row label="Last polled" value={upstream.lastPolledAt ?? '—'} />
                         {upstream.failureReason ? (
                             <p

@@ -163,7 +163,7 @@ export default function AgentOrders({ orders, filters, stats }: Props) {
                         <Input
                             value={search}
                             onChange={(e) => onSearchChange(e.target.value)}
-                            placeholder="Search reference, phone, or upstream ref…"
+                            placeholder="Search reference, phone, or network…"
                             className="ml-auto w-full bg-background sm:w-80"
                         />
                     </div>
