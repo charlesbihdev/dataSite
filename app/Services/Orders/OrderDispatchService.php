@@ -249,15 +249,6 @@ class OrderDispatchService
             'upstream_status' => $result->orderStatus,
         ])->save();
 
-        // TEMP DIAG (grep "DBH DIAG"): which branch create_order took for this order.
-        Log::warning('DBH DIAG create_order decision', [
-            'order' => $order->reference,
-            'orderStatus' => $result->orderStatus,
-            'processingStatus' => $result->processingStatus,
-            'completedAt' => $result->completedAt,
-            'branch' => $result->isFailed() ? 'reverse' : ($result->isCompleted() ? 'settle_now' : (! $result->success || $result->requestId === null ? 'hold' : 'processing_poll')),
-        ]);
-
         if ($result->isFailed()) {
             $this->settlement->reverse($order, $result->errorMessage ?? 'Upstream rejected the order.');
 
@@ -270,10 +261,9 @@ class OrderDispatchService
             return;
         }
 
-        // A genuine acceptance MUST carry success:true AND a requestId to poll. Anything else — an
-        // error envelope, a bot-block page, a malformed body — is HELD as pending, never faked as
-        // processing: the money stays reserved and an admin can retry once the cause is fixed.
-        if (! $result->success || $result->requestId === null) {
+        // Not accepted (no success / no pollable requestId — error envelope, bot-block, malformed body)
+        // is HELD as pending, never faked as processing: money stays reserved, an admin can retry.
+        if (! $result->isAccepted()) {
             $this->hold($order, 'not accepted by supplier', trim(($result->errorCode ?? '').' '.($result->errorMessage ?? '')));
 
             return;

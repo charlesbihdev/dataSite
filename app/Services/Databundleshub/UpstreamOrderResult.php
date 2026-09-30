@@ -53,16 +53,15 @@ final class UpstreamOrderResult
     }
 
     /**
-     * Terminal success. Databundleshub reports fulfilment in three overlapping ways: the order
-     * row flips to `delivered` (its success value — NOT `completed`), the purchase request's
-     * `processingStatus` becomes `completed`, and a `completedAt` timestamp is stamped. We accept
-     * any of them so a delivered order always settles even if the order-row status lags.
+     * Real delivery = the DBH ORDER row reaches a success status. The live pipeline writes
+     * `delivered`; `completed`/`success` are legacy/alternate terminals DBH's own checks accept
+     * (PublicApiController, VendorGh sync). `processingStatus:completed` and `completedAt` only
+     * mean the purchase was ACCEPTED (charged), not delivered — trusting them settled orders on
+     * placement, before the bundle was sent (prod bug, 2026-09-30). Poll until orderStatus lands here.
      */
     public function isCompleted(): bool
     {
-        return in_array($this->orderStatus, ['completed', 'delivered'], true)
-            || $this->processingStatus === 'completed'
-            || $this->completedAt !== null;
+        return in_array($this->orderStatus, ['delivered', 'completed', 'success'], true);
     }
 
     /**
@@ -75,6 +74,15 @@ final class UpstreamOrderResult
         return in_array($this->orderStatus, ['failed', 'rejected'], true)
             || in_array($this->processingStatus, ['failed', 'rejected'], true)
             || $this->failedAt !== null;
+    }
+
+    /**
+     * Accepted by the supplier and trackable: create_order returned success AND a requestId to poll.
+     * This is the ACCEPTANCE signal (→ our order goes PROCESSING), distinct from delivery (isCompleted).
+     */
+    public function isAccepted(): bool
+    {
+        return $this->success && $this->requestId !== null;
     }
 
     /**

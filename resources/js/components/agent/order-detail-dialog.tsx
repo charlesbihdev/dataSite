@@ -15,8 +15,6 @@ export interface Order {
     seller_cost: string;
     payment_status: string;
     status: string;
-    upstream_reference: string | null;
-    upstream_status: string | null;
 }
 
 // Read-only detail of one order. Everything shown is already on the row, so no extra request.
@@ -40,8 +38,6 @@ export function OrderDetailDialog({ order, onClose }: { order: Order | null; onC
                         <Row label="Your cost" value={cedis(order.seller_cost)} />
                         <Row label="Profit" value={<Amount value={profit} />} />
                         <Row label="Date" value={new Date(order.created_at).toLocaleString()} />
-                        <Row label="Upstream ref" value={order.upstream_reference ? <span className="font-mono text-xs">{order.upstream_reference}</span> : "—"} />
-                        <Row label="Upstream status" value={order.upstream_status ?? "—"} />
                     </dl>
                 ) : null}
             </DialogContent>

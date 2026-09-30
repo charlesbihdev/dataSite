@@ -185,24 +185,6 @@ class UpstreamClient
 
         $result = UpstreamOrderResult::fromApiResponse($json);
 
-        // TEMP DIAG (grep "DBH DIAG"): raw supplier reply + how we read it, so prod can confirm
-        // whether create_order returns completedAt/processingStatus=completed before actual delivery.
-        Log::warning('DBH DIAG response', [
-            'endpoint' => $endpoint,
-            'http_status' => $response->status(),
-            'raw' => $json,
-            'parsed' => [
-                'success' => $result->success,
-                'orderStatus' => $result->orderStatus,
-                'processingStatus' => $result->processingStatus,
-                'completedAt' => $result->completedAt,
-                'failedAt' => $result->failedAt,
-                'requestId' => $result->requestId,
-                'isCompleted' => $result->isCompleted(),
-                'isFailed' => $result->isFailed(),
-            ],
-        ] + $context);
-
         // A non-2xx or success:false envelope is not a transport failure (so we don't throw and let
         // the poller retry), but it IS an error the operator must see — log it so a held/rejected
         // order can be traced back to what Databundleshub actually said.

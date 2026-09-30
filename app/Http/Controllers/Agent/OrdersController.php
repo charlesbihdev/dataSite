@@ -32,7 +32,6 @@ class OrdersController extends Controller
                 $like = "%{$search}%";
                 $inner->where('reference', 'like', $like)
                     ->orWhere('beneficiary_phone', 'like', $like)
-                    ->orWhere('upstream_reference', 'like', $like)
                     ->orWhere('network', 'like', $like)
                     ->orWhere('status', 'like', $like);
             }))
@@ -51,7 +50,20 @@ class OrdersController extends Controller
         $totalSales = $paid->sum('customer_price');
         $totalProfit = $totalSales - $paid->sum('seller_cost');
 
-        $orders = $query->paginate(30)->withQueryString();
+        // Whitelist what the reseller sees. The raw row carries platform-internal fields
+        // (base/agent/upstream cost, upstream refs/status) that must never reach the agent's browser.
+        $orders = $query->paginate(30)->withQueryString()->through(fn (Order $o): array => [
+            'id' => $o->id,
+            'reference' => $o->reference,
+            'created_at' => $o->created_at,
+            'network' => $o->network,
+            'capacity_gb' => $o->capacity_gb,
+            'beneficiary_phone' => $o->beneficiary_phone,
+            'customer_price' => $o->customer_price,
+            'seller_cost' => $o->seller_cost,
+            'payment_status' => $o->payment_status,
+            'status' => $o->status,
+        ]);
 
         return Inertia::render('agent/orders', [
             'orders' => $orders,

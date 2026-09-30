@@ -231,6 +231,28 @@ class OrderDispatchServiceTest extends TestCase
         $this->assertSame(1, Earning::where('status', Earning::STATUS_CREDITED)->count());
     }
 
+    public function test_create_order_accepted_but_not_delivered_stays_processing(): void
+    {
+        Queue::fake();
+        $agent = $this->agent();
+        $this->fund($agent, 100);
+
+        // Real prod shape: DBH accepts the purchase (processingStatus=completed) while the bundle
+        // is NOT delivered yet (orderStatus=pending). We must NOT settle — poll until delivered.
+        $this->fakeUpstream(['success' => true, 'data' => [
+            'requestId' => 12, 'orderStatus' => 'pending', 'processingStatus' => 'completed', 'completedAt' => null,
+        ]]);
+
+        $order = app(OrderDispatchService::class)->dispatch(new NewOrderData(
+            seller: $agent, network: 'mtn', capacityGb: 5, beneficiaryPhone: '0559999999',
+            customerPrice: 30, sellerCost: 20, agentCost: 20, baseCost: 15,
+        ));
+
+        $this->assertSame(Order::STATUS_PROCESSING, $order->fresh()->status);
+        Queue::assertPushed(PollUpstreamOrderStatus::class);
+        $this->assertSame(0, Earning::where('status', Earning::STATUS_CREDITED)->count());
+    }
+
     public function test_poll_settles_when_upstream_reports_delivered_order_status(): void
     {
         Queue::fake();
