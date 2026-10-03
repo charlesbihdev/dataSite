@@ -16,6 +16,10 @@ import {
     NetworkFilter,
     type NetworkCount,
 } from "@/components/storefront/network-filter";
+import {
+    StoreAssistant,
+    type AssistantProps,
+} from "@/components/storefront/assistant/store-assistant";
 import { type NetworkMeta } from "@/lib/networks";
 import { networkBrand } from "@/lib/network-brand";
 import { cn } from "@/lib/utils";
@@ -41,6 +45,7 @@ export function StoreShell({
     renderCheckout,
     topBanner,
     promo,
+    assistant,
 }: {
     store: StorefrontStore;
     packages: StorefrontPkg[];
@@ -50,6 +55,7 @@ export function StoreShell({
     renderCheckout: (pkg: StorefrontPkg | null, close: () => void) => ReactNode;
     topBanner?: ReactNode;
     promo?: ReactNode;
+    assistant?: AssistantProps;
 }) {
     const [filter, setFilter] = useState("all");
     const [buying, setBuying] = useState<StorefrontPkg | null>(null);
@@ -77,7 +83,11 @@ export function StoreShell({
             <Head title={`Buy Data · ${store.name}`} />
             <div className="min-h-screen bg-background text-foreground">
                 {topBanner}
-                <StoreHeader store={store} homeHref={homeHref} trackHref={trackHref} />
+                <StoreHeader
+                    store={store}
+                    homeHref={homeHref}
+                    trackHref={trackHref}
+                />
 
                 <main className="mx-auto w-full max-w-5xl px-4 pb-20 sm:px-6">
                     <section className="py-10 text-center sm:py-14">
@@ -158,6 +168,10 @@ export function StoreShell({
             </div>
 
             {renderCheckout(buying, () => setBuying(null))}
+
+            {assistant && (
+                <StoreAssistant storeName={store.name} assistant={assistant} />
+            )}
         </>
     );
 }
@@ -222,7 +236,10 @@ function StoreHeader({
     return (
         <header className="border-b border-border bg-card/60 backdrop-blur">
             <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-3 px-4 py-3.5 sm:px-6 sm:py-4">
-                <Link href={homeHref} className="flex min-w-0 items-center gap-2.5 transition hover:opacity-90">
+                <Link
+                    href={homeHref}
+                    className="flex min-w-0 items-center gap-2.5 transition hover:opacity-90"
+                >
                     <span className="hidden size-9 shrink-0 items-center justify-center rounded-lg bg-brand text-brand-fg sm:flex">
                         <ShoppingBag className="size-5" />
                     </span>
@@ -246,7 +263,9 @@ function StoreHeader({
                             className="inline-flex items-center gap-1.5 text-sm font-medium text-brand hover:underline"
                         >
                             <MessageCircle className="size-4 shrink-0" />
-                            <span className="sr-only sm:not-sr-only">Contact</span>
+                            <span className="sr-only sm:not-sr-only">
+                                Contact
+                            </span>
                         </a>
                     )}
                 </div>
@@ -255,12 +274,21 @@ function StoreHeader({
     );
 }
 
-function StoreFooter({ store, trackHref }: { store: StorefrontStore; trackHref: string }) {
+function StoreFooter({
+    store,
+    trackHref,
+}: {
+    store: StorefrontStore;
+    trackHref: string;
+}) {
     return (
         <footer className="border-t border-border py-8 text-center text-xs text-muted-foreground">
             <p>Powered by {store.name}</p>
             <div className="mt-2 flex flex-wrap items-center justify-center gap-x-4 gap-y-1">
-                <Link href={trackHref} className="inline-flex items-center gap-1.5 text-brand hover:underline">
+                <Link
+                    href={trackHref}
+                    className="inline-flex items-center gap-1.5 text-brand hover:underline"
+                >
                     <PackageSearch className="size-3.5" /> Track your order
                 </Link>
                 {store.whatsappGroup && (

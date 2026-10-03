@@ -10,6 +10,7 @@ use App\Models\SubagentPackagePrice;
 use App\Services\Payments\OrderPaymentConfirmer;
 use App\Services\Payments\OrderPaymentInitiator;
 use App\Services\Storefront\CheckoutException;
+use App\Services\Storefront\StoreAssistant\StoreAssistantService;
 use App\Services\Storefront\SubagentCheckoutService;
 use App\Support\GhanaMobileNetwork;
 use Illuminate\Http\RedirectResponse;
@@ -37,6 +38,10 @@ class SubagentStorefrontController extends Controller
             'store' => $this->storeProps($subagent),
             'packages' => $this->packages($subagent),
             'networks' => GhanaMobileNetwork::meta(),
+            'assistant' => [
+                'postUrl' => route('subagent.storefront.assistant', ['subagentSlug' => $slug]),
+                'presets' => StoreAssistantService::presetQuestions(),
+            ],
         ]);
     }
 

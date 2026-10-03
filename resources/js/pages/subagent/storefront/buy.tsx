@@ -1,10 +1,15 @@
-import { checkout, show, track } from "@/actions/App/Http/Controllers/Storefront/SubagentStorefrontController";
+import {
+    checkout,
+    show,
+    track,
+} from "@/actions/App/Http/Controllers/Storefront/SubagentStorefrontController";
 import { CheckoutDialog } from "@/components/storefront/checkout-dialog";
 import { type StorefrontPkg } from "@/components/storefront/package-card";
 import {
     StoreShell,
     type StorefrontStore,
 } from "@/components/storefront/store-shell";
+import { type AssistantProps } from "@/components/storefront/assistant/store-assistant";
 import { type NetworkMeta } from "@/lib/networks";
 
 interface Props {
@@ -12,6 +17,7 @@ interface Props {
     packages: StorefrontPkg[];
     networks: NetworkMeta[];
     subagentSlug: string;
+    assistant: AssistantProps;
 }
 
 /**
@@ -19,7 +25,13 @@ interface Props {
  * but passes NONE of the recruitment slots (no reseller strip, no "become a sub-agent" section) — a
  * customer here can only buy. Buy-only by construction (ARCHITECTURE, LADDER RULE).
  */
-export default function SubagentStorefrontBuy({ store, packages, networks, subagentSlug }: Props) {
+export default function SubagentStorefrontBuy({
+    store,
+    packages,
+    networks,
+    subagentSlug,
+    assistant,
+}: Props) {
     return (
         <StoreShell
             store={store}
@@ -27,6 +39,7 @@ export default function SubagentStorefrontBuy({ store, packages, networks, subag
             networks={networks}
             homeHref={show.url({ subagentSlug })}
             trackHref={track.url({ subagentSlug })}
+            assistant={assistant}
             renderCheckout={(pkg, close) => (
                 <CheckoutDialog
                     pkg={pkg}

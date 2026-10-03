@@ -10,6 +10,7 @@ use App\Models\Order;
 use App\Services\Payments\OrderPaymentConfirmer;
 use App\Services\Payments\OrderPaymentInitiator;
 use App\Services\Storefront\CheckoutException;
+use App\Services\Storefront\StoreAssistant\StoreAssistantService;
 use App\Services\Storefront\StorefrontCheckoutService;
 use App\Support\GhanaMobileNetwork;
 use App\Support\SurfaceUrl;
@@ -41,6 +42,10 @@ class StorefrontController extends Controller
             // Recruitment is the MIDDLE rung of the ladder and lives ONLY on this D2 domain
             // (ARCHITECTURE, LADDER RULE) — a visitor here may become this agent's sub-agent.
             'recruitUrl' => $this->recruitUrl($agent),
+            'assistant' => [
+                'postUrl' => route('agent.storefront.assistant', ['agentSlug' => $slug]),
+                'presets' => StoreAssistantService::presetQuestions(),
+            ],
         ]);
     }
 
