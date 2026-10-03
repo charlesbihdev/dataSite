@@ -1,11 +1,16 @@
 import { ShoppingBag } from "lucide-react";
-import { checkout, show, track } from "@/actions/App/Http/Controllers/Storefront/StorefrontController";
+import {
+    checkout,
+    show,
+    track,
+} from "@/actions/App/Http/Controllers/Storefront/StorefrontController";
 import { CheckoutDialog } from "@/components/storefront/checkout-dialog";
 import { type StorefrontPkg } from "@/components/storefront/package-card";
 import {
     StoreShell,
     type StorefrontStore,
 } from "@/components/storefront/store-shell";
+import { type AssistantProps } from "@/components/storefront/assistant/store-assistant";
 import { Button } from "@/components/ui/button";
 import { type NetworkMeta } from "@/lib/networks";
 
@@ -15,6 +20,7 @@ interface Props {
     networks: NetworkMeta[];
     agentSlug: string;
     recruitUrl: string;
+    assistant: AssistantProps;
 }
 
 /**
@@ -28,6 +34,7 @@ export default function AgentStorefrontBuy({
     networks,
     agentSlug,
     recruitUrl,
+    assistant,
 }: Props) {
     return (
         <StoreShell
@@ -36,6 +43,7 @@ export default function AgentStorefrontBuy({
             networks={networks}
             homeHref={show.url({ agentSlug })}
             trackHref={track.url({ agentSlug })}
+            assistant={assistant}
             topBanner={<ResellerStrip store={store} recruitUrl={recruitUrl} />}
             promo={<RecruitSection store={store} recruitUrl={recruitUrl} />}
             renderCheckout={(pkg, close) => (
@@ -99,11 +107,7 @@ function RecruitSection({
                         </p>
                     </div>
                 </div>
-                <Button
-                    asChild
-                    size="lg"
-                    className="w-full shrink-0 sm:w-auto"
-                >
+                <Button asChild size="lg" className="w-full shrink-0 sm:w-auto">
                     <a href={recruitUrl}>Become a sub-agent</a>
                 </Button>
             </div>

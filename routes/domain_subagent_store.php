@@ -21,6 +21,7 @@
 |
 */
 
+use App\Http\Controllers\Storefront\StoreAssistantController;
 use App\Http\Controllers\Storefront\SubagentStorefrontController;
 use Illuminate\Support\Facades\Route;
 
@@ -32,4 +33,6 @@ Route::prefix('{subagentSlug}')->where(['subagentSlug' => '[A-Za-z0-9\-]+', 'ord
     Route::get('callback', [SubagentStorefrontController::class, 'paymentCallback'])->name('subagent.storefront.callback');
     Route::get('receipt/{order}', [SubagentStorefrontController::class, 'receipt'])->name('subagent.storefront.receipt');
     Route::get('track', [SubagentStorefrontController::class, 'track'])->name('subagent.storefront.track');
+    // Scoped AI shopping assistant (JSON). Store-public context only; sealed D3 shows no ladder either.
+    Route::post('assistant', [StoreAssistantController::class, 'subagent'])->name('subagent.storefront.assistant');
 });
