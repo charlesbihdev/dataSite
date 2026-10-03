@@ -1,4 +1,5 @@
 import { Bot } from "lucide-react";
+import { FormattedText } from "./formatted-text";
 import { type ChatMessage } from "@/hooks/use-store-assistant";
 import { cn } from "@/lib/utils";
 
@@ -20,13 +21,17 @@ export function AssistantMessage({ message }: { message: ChatMessage }) {
             )}
             <div
                 className={cn(
-                    "max-w-[80%] rounded-2xl px-3.5 py-2 text-sm leading-relaxed whitespace-pre-wrap",
+                    "max-w-[80%] rounded-2xl px-3.5 py-2 text-sm leading-relaxed",
                     isUser
-                        ? "rounded-br-sm bg-brand text-brand-fg"
+                        ? "rounded-br-sm bg-brand whitespace-pre-wrap text-brand-fg"
                         : "rounded-bl-sm bg-muted text-foreground",
                 )}
             >
-                {message.content}
+                {isUser ? (
+                    message.content
+                ) : (
+                    <FormattedText content={message.content} />
+                )}
             </div>
         </div>
     );
