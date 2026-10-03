@@ -7,6 +7,7 @@ use App\Http\Requests\Admin\MoolreConfigRequest;
 use App\Http\Requests\Admin\PaystackConfigRequest;
 use App\Models\PaymentGateway;
 use App\Services\Payments\PaymentGatewayResolver;
+use App\Support\EncryptedSecret;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -97,6 +98,9 @@ class PaymentConfigController extends Controller
      */
     private function present(?PaymentGateway $row): array
     {
+        $secret = EncryptedSecret::status($row, 'secret_key');
+        $webhook = EncryptedSecret::status($row, 'webhook_secret');
+
         return [
             'isActive' => (bool) ($row?->is_active ?? false),
             'isLive' => (bool) ($row?->is_live ?? false),
@@ -107,8 +111,10 @@ class PaymentConfigController extends Controller
             'chargePercent' => (float) ($row?->charge_percent ?? 0),
             'moolreUsername' => $row?->moolre_username ?? '',
             'moolreAccountNumber' => $row?->moolre_account_number ?? '',
-            'hasSecret' => $row !== null && (string) $row->secret_key !== '',
-            'hasWebhookSecret' => $row !== null && (string) $row->webhook_secret !== '',
+            'hasSecret' => $secret['set'],
+            'secretUnreadable' => $secret['unreadable'],
+            'hasWebhookSecret' => $webhook['set'],
+            'webhookSecretUnreadable' => $webhook['unreadable'],
         ];
     }
 }

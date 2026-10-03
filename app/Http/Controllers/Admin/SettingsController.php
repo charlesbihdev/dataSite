@@ -14,6 +14,7 @@ use App\Models\RegistrationConfig;
 use App\Models\WithdrawalConfig;
 use App\Notifications\TestEmailNotification;
 use App\Services\Databundleshub\UpstreamClient;
+use App\Support\EncryptedSecret;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Notification;
@@ -32,11 +33,15 @@ class SettingsController extends Controller
         $email = EmailConfig::current();
         $registration = RegistrationConfig::current();
 
+        $dbhKey = EncryptedSecret::status($config, 'api_key');
+        $smtpPassword = EncryptedSecret::status($email, 'smtp_password');
+
         return Inertia::render('admin/settings', [
             'connection' => [
                 'baseUrl' => $config?->base_url ?? '',
                 'isActive' => (bool) ($config?->is_active ?? true),
-                'hasKey' => $config !== null && $config->api_key !== '',
+                'hasKey' => $dbhKey['set'],
+                'keyUnreadable' => $dbhKey['unreadable'],
             ],
             'email' => [
                 'fromEmail' => $email?->from_email ?? '',
@@ -47,7 +52,8 @@ class SettingsController extends Controller
                 'smtpUsername' => $email?->smtp_username ?? '',
                 'smtpEncryption' => $email?->smtp_encryption ?? 'tls',
                 'isActive' => (bool) ($email?->is_active ?? true),
-                'hasPassword' => $email !== null && (string) $email->smtp_password !== '',
+                'hasPassword' => $smtpPassword['set'],
+                'passwordUnreadable' => $smtpPassword['unreadable'],
             ],
             'registration' => [
                 'fee' => (float) ($registration?->registration_fee ?? 0),

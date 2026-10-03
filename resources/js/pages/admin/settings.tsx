@@ -8,6 +8,7 @@ import {
 } from '@/actions/App/Http/Controllers/Admin/SettingsController';
 import { Column, DataTable } from '@/components/common/data-table';
 import { PageHeader } from '@/components/common/page-header';
+import { SecretUnreadableNotice } from '@/components/common/secret-unreadable-notice';
 import { StatusBadge } from '@/components/common/status-badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -32,10 +33,11 @@ interface EmailCfg {
     smtpEncryption: string;
     isActive: boolean;
     hasPassword: boolean;
+    passwordUnreadable: boolean;
 }
 
 interface Props {
-    connection: { baseUrl: string; isActive: boolean; hasKey: boolean };
+    connection: { baseUrl: string; isActive: boolean; hasKey: boolean; keyUnreadable: boolean };
     email: EmailCfg;
     registration: { fee: number; isEnabled: boolean };
     withdrawals: { min: number; max: number | null };
@@ -114,6 +116,7 @@ export default function AdminSettings({ connection, email, withdrawals, admins }
                                     onChange={(e) => form.setData('api_key', e.target.value)}
                                     placeholder={connection.hasKey ? '•••••••• (leave blank to keep)' : 'Enter API key'}
                                 />
+                                <SecretUnreadableNotice show={connection.keyUnreadable} label="saved API key" />
                                 {form.errors.api_key ? <p className="text-xs text-danger">{form.errors.api_key}</p> : null}
                             </div>
 
@@ -191,6 +194,7 @@ export default function AdminSettings({ connection, email, withdrawals, admins }
                                         <div className="space-y-1.5">
                                             <Label>Password</Label>
                                             <Input type="password" value={emailForm.data.smtp_password} onChange={(e) => emailForm.setData('smtp_password', e.target.value)} placeholder={email.hasPassword ? '•••••••• (leave blank to keep)' : 'SMTP password'} />
+                                            <SecretUnreadableNotice show={email.passwordUnreadable} label="saved SMTP password" />
                                         </div>
                                     </div>
                                     <div className="space-y-1.5">

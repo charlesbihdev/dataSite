@@ -23,6 +23,32 @@ class PaymentConfigTest extends TestCase
         $this->get('/admin/payment-config')->assertOk();
     }
 
+    public function test_page_still_loads_and_warns_when_a_stored_secret_cannot_be_decrypted(): void
+    {
+        // Simulate an APP_KEY change: a real-looking row whose secret ciphertext no longer decrypts.
+        $row = PaymentGateway::query()->create([
+            'gateway' => PaymentGateway::PAYSTACK,
+            'is_active' => true,
+            'public_key' => 'pk_test',
+            'secret_key' => 'sk_live_secret',
+            'currency' => 'GHS',
+            'min_topup' => 10,
+            'max_topup' => 5000,
+            'charge_percent' => 0,
+        ]);
+        DB::table('payment_gateways')->where('id', $row->id)->update([
+            'secret_key' => 'this-is-not-valid-ciphertext-under-the-current-key',
+        ]);
+
+        // The page must NOT 500 — it renders and flags the secret as unreadable so it can be replaced.
+        $this->get('/admin/payment-config')->assertOk()->assertInertia(
+            fn ($page) => $page
+                ->component('admin/payment-config')
+                ->where('paystack.hasSecret', false)
+                ->where('paystack.secretUnreadable', true)
+        );
+    }
+
     public function test_paystack_config_saves_and_encrypts_secret(): void
     {
         $this->put('/admin/payment-config/paystack', [

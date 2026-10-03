@@ -1,6 +1,7 @@
 import { Head, useForm } from '@inertiajs/react';
 import { updateMoolre, updatePaystack } from '@/actions/App/Http/Controllers/Admin/PaymentConfigController';
 import { PageHeader } from '@/components/common/page-header';
+import { SecretUnreadableNotice } from '@/components/common/secret-unreadable-notice';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -15,7 +16,9 @@ interface Paystack {
     maxTopup: number;
     chargePercent: number;
     hasSecret: boolean;
+    secretUnreadable: boolean;
     hasWebhookSecret: boolean;
+    webhookSecretUnreadable: boolean;
 }
 
 interface Moolre {
@@ -25,6 +28,7 @@ interface Moolre {
     moolreUsername: string;
     moolreAccountNumber: string;
     hasWebhookSecret: boolean;
+    webhookSecretUnreadable: boolean;
 }
 
 interface Props {
@@ -122,6 +126,7 @@ export default function PaymentConfig({ paystack, moolre, routing, webhooks }: P
                                     onChange={(e) => paystackForm.setData('secret_key', e.target.value)}
                                     placeholder={paystack.hasSecret ? '•••••••• (leave blank to keep)' : 'sk_...'}
                                 />
+                                <SecretUnreadableNotice show={paystack.secretUnreadable} label="saved secret key" />
                                 {paystackForm.errors.secret_key ? <p className="text-xs text-danger">{paystackForm.errors.secret_key}</p> : null}
                             </div>
 
@@ -133,6 +138,7 @@ export default function PaymentConfig({ paystack, moolre, routing, webhooks }: P
                                     onChange={(e) => paystackForm.setData('webhook_secret', e.target.value)}
                                     placeholder={paystack.hasWebhookSecret ? '•••••••• (leave blank to keep)' : 'Optional'}
                                 />
+                                <SecretUnreadableNotice show={paystack.webhookSecretUnreadable} label="saved webhook secret" />
                                 <p className="text-xs text-muted-foreground">Webhook URL: <span className="font-mono">{webhooks.paystack}</span></p>
                             </div>
 
@@ -211,6 +217,7 @@ export default function PaymentConfig({ paystack, moolre, routing, webhooks }: P
                                     onChange={(e) => moolreForm.setData('webhook_secret', e.target.value)}
                                     placeholder={moolre.hasWebhookSecret ? '•••••••• (leave blank to keep)' : 'Optional'}
                                 />
+                                <SecretUnreadableNotice show={moolre.webhookSecretUnreadable} label="saved webhook secret" />
                                 <p className="text-xs text-muted-foreground">Webhook URL: <span className="font-mono">{webhooks.moolre}</span></p>
                             </div>
 
