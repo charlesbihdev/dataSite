@@ -3,6 +3,7 @@
 namespace App\Services\Payments;
 
 use App\Models\PaymentGateway;
+use App\Support\EncryptedSecret;
 
 /**
  * Routes a payment to Paystack or Moolre (both may be active at once):
@@ -54,7 +55,9 @@ class PaymentGatewayResolver
         }
 
         return match ($gateway) {
-            PaymentGateway::PAYSTACK => (string) $row->public_key !== '' && (string) $row->secret_key !== '',
+            // secret_key via EncryptedSecret so an undecryptable value (e.g. after an APP_KEY change)
+            // reads as "not usable" instead of throwing — the shop degrades gracefully, never 500s.
+            PaymentGateway::PAYSTACK => (string) $row->public_key !== '' && EncryptedSecret::status($row, 'secret_key')['set'],
             PaymentGateway::MOOLRE => (string) $row->public_key !== ''
                 && (string) $row->moolre_username !== ''
                 && (string) $row->moolre_account_number !== '',
