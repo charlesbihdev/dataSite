@@ -87,7 +87,8 @@ class PaymentConfigController extends Controller
     private function applySecret(PaymentGateway $row, string $attribute, ?string $value): void
     {
         if ($value !== null && $value !== '') {
-            $row->{$attribute} = $value;
+            // Safe even if the stored ciphertext is stale after an APP_KEY change.
+            EncryptedSecret::put($row, $attribute, $value);
         } elseif (! $row->exists) {
             $row->{$attribute} = null;
         }
