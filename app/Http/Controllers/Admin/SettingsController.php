@@ -88,10 +88,11 @@ class SettingsController extends Controller
             'is_active' => (bool) ($data['is_active'] ?? true),
         ]);
 
-        // Blank password on update keeps the stored one.
+        // Blank password on update keeps the stored one (replacing is safe even if the stored
+        // ciphertext is stale after an APP_KEY change).
         $password = $data['smtp_password'] ?? null;
         if ($password !== null && $password !== '') {
-            $row->smtp_password = $password;
+            EncryptedSecret::put($row, 'smtp_password', $password);
         } elseif (! $row->exists) {
             $row->smtp_password = null;
         }
@@ -166,9 +167,10 @@ class SettingsController extends Controller
         $config->base_url = $baseUrl;
         $config->is_active = (bool) ($data['is_active'] ?? true);
 
-        // Blank key on update keeps the stored one; a new value replaces it.
+        // Blank key on update keeps the stored one; a new value replaces it (safe even if the stored
+        // ciphertext is stale after an APP_KEY change).
         if ($newKey !== '') {
-            $config->api_key = $newKey;
+            EncryptedSecret::put($config, 'api_key', $newKey);
         } elseif (! $config->exists) {
             $config->api_key = '';
         }

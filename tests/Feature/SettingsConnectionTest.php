@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\DbhConfig;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
@@ -40,6 +41,23 @@ class SettingsConnectionTest extends TestCase
         $this->assertNotNull($config);
         $this->assertSame('https://dbh.test/api', $config->base_url);
         $this->assertSame('live-key', $config->api_key); // decrypted via cast
+    }
+
+    public function test_a_new_key_replaces_a_stale_undecryptable_one_without_500(): void
+    {
+        $this->fakeHealthyConnection();
+
+        // Simulate an APP_KEY change: the stored ciphertext no longer decrypts.
+        $config = DbhConfig::query()->create(['base_url' => 'https://dbh.test/api', 'api_key' => 'old', 'is_active' => true]);
+        DB::table('dbh_configs')->where('id', $config->id)->update(['api_key' => 'corrupt-not-valid-ciphertext']);
+
+        $this->put('/admin/settings/connection', [
+            'base_url' => 'https://dbh.test/api',
+            'api_key' => 'brand-new-key',
+            'is_active' => true,
+        ])->assertRedirect()->assertSessionHasNoErrors();
+
+        $this->assertSame('brand-new-key', DbhConfig::query()->latest('id')->first()->api_key);
     }
 
     public function test_base_url_is_stored_as_entered_apart_from_a_trailing_slash(): void

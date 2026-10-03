@@ -34,4 +34,24 @@ final class EncryptedSecret
             return ['set' => false, 'unreadable' => true];
         }
     }
+
+    /**
+     * Assign a new value to an `encrypted`-cast attribute even when the stored ciphertext is stale.
+     *
+     * Saving a changed encrypted attribute makes Eloquent decrypt the ORIGINAL value to decide whether
+     * it changed — which throws if that original was written under a different APP_KEY. We first drop the
+     * stored original (so nothing decrypts it), then set the new value through the cast as usual.
+     */
+    public static function put(Model $model, string $attribute, string $value): void
+    {
+        $attributes = $model->getAttributes();
+        $attributes[$attribute] = null;
+        $model->setRawAttributes($attributes);
+
+        if ($model->exists) {
+            $model->syncOriginal();
+        }
+
+        $model->{$attribute} = $value;
+    }
 }

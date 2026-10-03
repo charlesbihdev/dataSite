@@ -73,6 +73,23 @@ class PaymentConfigTest extends TestCase
         $this->assertNotSame('sk_test_secret', $raw);
     }
 
+    public function test_a_new_secret_replaces_a_stale_undecryptable_one_without_500(): void
+    {
+        $row = PaymentGateway::query()->create([
+            'gateway' => PaymentGateway::PAYSTACK, 'public_key' => 'pk', 'secret_key' => 'sk_old',
+            'is_active' => true, 'currency' => 'GHS', 'min_topup' => 10, 'max_topup' => 5000, 'charge_percent' => 0,
+        ]);
+        DB::table('payment_gateways')->where('id', $row->id)->update(['secret_key' => 'corrupt-ciphertext']);
+
+        $this->put('/admin/payment-config/paystack', [
+            'public_key' => 'pk', 'secret_key' => 'sk_fresh', 'webhook_secret' => '',
+            'is_active' => true, 'is_live' => false, 'currency' => 'GHS',
+            'min_topup' => 10, 'max_topup' => 5000, 'charge_percent' => 0,
+        ])->assertRedirect()->assertSessionHasNoErrors();
+
+        $this->assertSame('sk_fresh', PaymentGateway::forGateway(PaymentGateway::PAYSTACK)->secret_key);
+    }
+
     public function test_blank_secret_keeps_existing(): void
     {
         PaymentGateway::create([
