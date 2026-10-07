@@ -11,9 +11,11 @@ import {
     Store,
     Tags,
     TrendingUp,
+    User,
     Users,
 } from "lucide-react";
 import AppLogo from "@/components/app-logo";
+import { AdminNavUser } from "@/components/admin/admin-nav-user";
 import { NavMain } from "@/components/nav-main";
 import {
     Sidebar,
@@ -78,6 +80,7 @@ const adminNavGroups = [
                 icon: CreditCard,
             },
             { title: "Settings", href: "/admin/settings", icon: Settings },
+            { title: "Profile", href: "/admin/profile", icon: User },
         ],
     },
 ];
@@ -108,20 +111,7 @@ export function AdminSidebar() {
             </SidebarContent>
 
             <SidebarFooter>
-                <SidebarMenu>
-                    <SidebarMenuItem>
-                        <SidebarMenuButton asChild>
-                            <Link
-                                href={logout()}
-                                as="button"
-                                data-test="logout-button"
-                            >
-                                <LogOut />
-                                <span>Log out</span>
-                            </Link>
-                        </SidebarMenuButton>
-                    </SidebarMenuItem>
-                </SidebarMenu>
+                <AdminNavUser />
             </SidebarFooter>
         </Sidebar>
     );

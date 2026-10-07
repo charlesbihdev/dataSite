@@ -38,7 +38,7 @@ class HandleInertiaRequests extends Middleware
      */
     private function resolveUser(Request $request): mixed
     {
-        $user = $request->user('agent') ?? $request->user('subagent');
+        $user = $request->user('admin') ?? $request->user('agent') ?? $request->user('subagent');
 
         if ($user === null) {
             return null;
