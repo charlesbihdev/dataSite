@@ -23,7 +23,7 @@ class DatabaseSeeder extends Seeder
                 'name' => 'Super Admin',
                 'email' => 'admin@datasite.com',
                 'phone' => '0548715098',
-                'password' => '@TestAdmin2026',
+                'password' => '@Admin2026',
                 'is_active' => true,
             ]
         );

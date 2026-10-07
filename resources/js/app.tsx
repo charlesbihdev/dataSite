@@ -8,7 +8,7 @@ import AuthLayout from "@/layouts/auth-layout";
 import SettingsLayout from "@/layouts/settings/layout";
 import SubagentLayout from "@/layouts/subagent-layout";
 
-const appName = import.meta.env.VITE_APP_NAME || "DataSite";
+const appName = import.meta.env.VITE_APP_NAME || "E-cubetechsolutions";
 
 void createInertiaApp({
     title: (title) => (title ? `${title} - ${appName}` : appName),

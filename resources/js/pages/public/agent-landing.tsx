@@ -4,7 +4,7 @@ import { login, register } from "@/routes";
 import { dashboard } from "@/routes/agent";
 import { Button } from "@/components/ui/button";
 
-const appName = import.meta.env.VITE_APP_NAME || "DataSite";
+const appName = import.meta.env.VITE_APP_NAME || "E-cubetechsolutions";
 
 const FEATURES = [
     { icon: Wallet, title: "Wholesale prices", body: "Buy every bundle at agent rates and set your own selling price on each package." },

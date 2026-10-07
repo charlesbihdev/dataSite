@@ -24,10 +24,12 @@ class TestEmailNotification extends Notification
 
     public function toMail(object $notifiable): MailMessage
     {
+        $appName = config('app.name', 'E-cubetechsolutions');
+
         return (new MailMessage)
-            ->subject('DataSite — test email')
+            ->subject("{$appName} — test email")
             ->greeting('It works.')
-            ->line('This confirms your DataSite email configuration can send mail.')
+            ->line("This confirms your {$appName} email configuration can send mail.")
             ->line('Sent at '.now()->toDayDateTimeString().'.');
     }
 }
