@@ -165,7 +165,7 @@ export default function AdminSettings({ connection, email, withdrawals, admins }
                                 </div>
                                 <div className="space-y-1.5">
                                     <Label>From name</Label>
-                                    <Input value={emailForm.data.from_name} onChange={(e) => emailForm.setData('from_name', e.target.value)} placeholder="DataSite" />
+                                    <Input value={emailForm.data.from_name} onChange={(e) => emailForm.setData('from_name', e.target.value)} placeholder="E-cubetechsolutions" />
                                 </div>
                             </div>
 
