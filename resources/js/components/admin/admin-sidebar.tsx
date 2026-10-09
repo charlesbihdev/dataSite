@@ -11,7 +11,6 @@ import {
     Store,
     Tags,
     TrendingUp,
-    User,
     Users,
 } from "lucide-react";
 import AppLogo from "@/components/app-logo";
@@ -80,7 +79,6 @@ const adminNavGroups = [
                 icon: CreditCard,
             },
             { title: "Settings", href: "/admin/settings", icon: Settings },
-            { title: "Profile", href: "/admin/profile", icon: User },
         ],
     },
 ];
