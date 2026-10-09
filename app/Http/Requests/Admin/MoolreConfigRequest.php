@@ -21,8 +21,8 @@ class MoolreConfigRequest extends FormRequest
         $requiredIfActive = $this->boolean('is_active') ? 'required' : 'nullable';
 
         return [
-            'public_key' => [$requiredIfActive, 'string', 'max:255'],
-            'webhook_secret' => ['nullable', 'string', 'max:255'],
+            'public_key' => [$requiredIfActive, 'string', 'max:2048'],
+            'webhook_secret' => ['nullable', 'string', 'max:2048'],
             'is_active' => ['boolean'],
             'currency' => ['required', 'string', 'max:8'],
             'moolre_username' => [$requiredIfActive, 'string', 'max:255'],

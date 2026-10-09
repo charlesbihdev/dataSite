@@ -18,7 +18,7 @@ return new class extends Migration
             $table->decimal('balance_before', 14, 2);
             $table->decimal('balance_after', 14, 2);
             $table->string('reference')->nullable()->index(); // links to order/payment/etc.
-            $table->string('description')->nullable();
+            $table->text('description')->nullable();
             $table->timestamps();
 
             $table->index(['wallet_id', 'type']);

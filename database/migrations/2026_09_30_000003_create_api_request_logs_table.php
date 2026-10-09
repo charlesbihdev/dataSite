@@ -22,7 +22,7 @@ return new class extends Migration
             $table->text('response_body')->nullable();
             $table->boolean('success')->default(false);         // 2xx AND business success
             $table->string('error_code')->nullable();
-            $table->string('error_message')->nullable();
+            $table->text('error_message')->nullable();
             $table->unsignedInteger('duration_ms')->nullable();
             $table->string('ip', 45)->nullable();
             $table->timestamp('created_at')->nullable()->index();

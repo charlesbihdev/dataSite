@@ -15,14 +15,14 @@ return new class extends Migration
             $table->foreignId('order_id')->nullable()->constrained('orders')->nullOnDelete();
             $table->string('operation');                        // create | status
             $table->string('network')->nullable();              // mtn | telecel | at
-            $table->string('request_url');
+            $table->text('request_url');
             $table->json('request_payload')->nullable();
             $table->unsignedSmallInteger('http_status')->nullable(); // null when the supplier was never reached
             $table->text('response_body')->nullable();
             $table->string('upstream_request_id')->nullable();
             $table->boolean('success')->default(false);
             $table->string('outcome')->nullable();              // delivered | failed | accepted | processing | error
-            $table->string('error_message')->nullable();
+            $table->text('error_message')->nullable();
             $table->unsignedInteger('duration_ms')->nullable();
             $table->timestamp('created_at')->nullable()->index();
 

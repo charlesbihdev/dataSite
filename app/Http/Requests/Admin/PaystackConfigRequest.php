@@ -17,10 +17,10 @@ class PaystackConfigRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'public_key' => ['nullable', 'string', 'max:255'],
+            'public_key' => ['nullable', 'string', 'max:2048'],
             // Blank secrets on update keep the stored value.
-            'secret_key' => ['nullable', 'string', 'max:255'],
-            'webhook_secret' => ['nullable', 'string', 'max:255'],
+            'secret_key' => ['nullable', 'string', 'max:2048'],
+            'webhook_secret' => ['nullable', 'string', 'max:2048'],
             'is_active' => ['boolean'],
             'is_live' => ['boolean'],
             'currency' => ['required', 'string', 'max:8'],
