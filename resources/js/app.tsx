@@ -11,7 +11,25 @@ import SubagentLayout from "@/layouts/subagent-layout";
 const appName = import.meta.env.VITE_APP_NAME || "E-cubetechsolutions";
 
 void createInertiaApp({
-    title: (title) => (title ? `${title} - ${appName}` : appName),
+    title: (title) => {
+        if (!title) return appName;
+        if (typeof window !== "undefined") {
+            const host = window.location.hostname;
+            if (host !== "e-cubetechsolutions.com" && host !== "localhost" && host !== "127.0.0.1") {
+                return title;
+            }
+            try {
+                const el = document.getElementById("app");
+                if (el?.dataset?.page) {
+                    const page = JSON.parse(el.dataset.page);
+                    if (page.component?.startsWith("subagent/") || page.component?.includes("storefront/")) {
+                        return title;
+                    }
+                }
+            } catch {}
+        }
+        return `${title} - ${appName}`;
+    },
     layout: (name) => {
         switch (true) {
             case name.startsWith("public/"):

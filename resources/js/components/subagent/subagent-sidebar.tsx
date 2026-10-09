@@ -1,6 +1,5 @@
 import { Link, usePage } from "@inertiajs/react";
-import { ArrowLeftRight, Banknote, LayoutGrid, Link2, Package, ShoppingBag } from "lucide-react";
-import AppLogo from "@/components/app-logo";
+import { ArrowLeftRight, Banknote, LayoutGrid, Link2, Package, ShoppingBag, Store } from "lucide-react";
 import { NavMain } from "@/components/nav-main";
 import { SubagentNavUser } from "@/components/subagent/subagent-nav-user";
 import {
@@ -36,7 +35,14 @@ export function SubagentSidebar() {
                     <SidebarMenuItem>
                         <SidebarMenuButton size="lg" asChild>
                             <Link href={dashboard().url} prefetch>
-                                <AppLogo />
+                                <div className="flex aspect-square size-8 items-center justify-center rounded-md bg-sidebar-primary text-sidebar-primary-foreground">
+                                    <Store className="size-5" />
+                                </div>
+                                <div className="ml-1 grid flex-1 text-left text-sm">
+                                    <span className="mb-0.5 truncate font-semibold leading-tight">
+                                        Partner Portal
+                                    </span>
+                                </div>
                             </Link>
                         </SidebarMenuButton>
                     </SidebarMenuItem>
