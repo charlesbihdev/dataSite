@@ -16,7 +16,7 @@ return new class extends Migration
             $table->string('gateway')->unique(); // paystack | moolre
             $table->boolean('is_active')->default(false);
             $table->boolean('is_live')->default(false); // paystack test/live
-            $table->string('public_key')->nullable();
+            $table->text('public_key')->nullable();
             $table->text('secret_key')->nullable();      // encrypted
             $table->text('webhook_secret')->nullable();  // encrypted
             $table->string('currency', 8)->default('GHS');

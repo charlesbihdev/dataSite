@@ -37,7 +37,7 @@ return new class extends Migration
             $table->string('upstream_reference')->nullable()->index();
             $table->string('upstream_status')->nullable();
             $table->decimal('upstream_cost', 12, 2)->nullable(); // our base cost from DBH
-            $table->string('failure_reason')->nullable();
+            $table->text('failure_reason')->nullable();
             $table->timestamp('last_polled_at')->nullable();
             $table->timestamp('completed_at')->nullable();
             $table->timestamp('failed_at')->nullable();

@@ -48,14 +48,9 @@ export default function AgentLanding() {
                                     <Link href={dashboard()}>Go to dashboard</Link>
                                 </Button>
                             ) : (
-                                <>
-                                    <Button asChild variant="ghost">
-                                        <Link href={login()}>Log in</Link>
-                                    </Button>
-                                    <Button asChild className="bg-brand text-brand-fg hover:bg-brand-hover">
-                                        <Link href={register()}>Become an agent</Link>
-                                    </Button>
-                                </>
+                                <Button asChild variant="outline">
+                                    <Link href={login()}>Log in</Link>
+                                </Button>
                             )}
                         </nav>
                     </div>
