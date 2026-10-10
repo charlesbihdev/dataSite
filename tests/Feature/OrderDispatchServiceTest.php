@@ -380,4 +380,31 @@ class OrderDispatchServiceTest extends TestCase
         $this->assertFalse($second['refunded']);
         $this->assertSame(100.0, (float) $agent->walletOrCreate()->balance); // not double-credited
     }
+
+    public function test_unapproved_beneficiary_marks_order_verifying_and_stores_reason(): void
+    {
+        $agent = $this->agent();
+        $this->fund($agent, 100);
+        $this->fakeUpstream([
+            'success' => false,
+            'code' => 'BENEFICIARY_NOT_APPROVED',
+            'error' => '0558119182 is not approved and has been automatically saved for approval.',
+            'data' => [
+                'msisdn' => '0558119182',
+                'status' => 'not_approved',
+            ],
+        ], 422);
+
+        $order = app(OrderDispatchService::class)->dispatch(new NewOrderData(
+            seller: $agent, network: 'mtn', capacityGb: 5, beneficiaryPhone: '0558119182',
+            customerPrice: 30, sellerCost: 20, agentCost: 20, baseCost: 15,
+        ));
+
+        $fresh = $order->fresh();
+        $this->assertSame(Order::STATUS_VERIFYING, $fresh->status);
+        $this->assertSame('0558119182 is not approved and has been automatically saved for approval.', $fresh->failure_reason);
+        // Money stays reserved
+        $this->assertSame(80.0, (float) $agent->walletOrCreate()->balance);
+        $this->assertSame(1, Earning::where('status', Earning::STATUS_PENDING)->count());
+    }
 }

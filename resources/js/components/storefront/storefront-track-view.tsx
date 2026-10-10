@@ -31,6 +31,7 @@ const PAYMENT_TONE = {
 
 const STATUS_TONE: Record<string, { label: string; icon: typeof CheckCircle2; class: string }> = {
     pending: { label: "Pending", icon: Clock, class: "text-muted-foreground" },
+    verifying: { label: "Awaiting Approval", icon: Clock, class: "text-amber-500" },
     processing: { label: "Processing", icon: Clock, class: "text-brand" },
     completed: { label: "Delivered", icon: CheckCircle2, class: "text-success" },
     failed: { label: "Failed", icon: XCircle, class: "text-destructive" },

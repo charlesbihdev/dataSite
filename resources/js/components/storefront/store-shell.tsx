@@ -20,6 +20,7 @@ import {
     StoreAssistant,
     type AssistantProps,
 } from "@/components/storefront/assistant/store-assistant";
+import { EligibilityChecker } from "@/components/storefront/eligibility-checker";
 import { type NetworkMeta } from "@/lib/networks";
 import { networkBrand } from "@/lib/network-brand";
 import { cn } from "@/lib/utils";
@@ -46,6 +47,7 @@ export function StoreShell({
     topBanner,
     promo,
     assistant,
+    eligibilityUrl,
 }: {
     store: StorefrontStore;
     packages: StorefrontPkg[];
@@ -56,6 +58,7 @@ export function StoreShell({
     topBanner?: ReactNode;
     promo?: ReactNode;
     assistant?: AssistantProps;
+    eligibilityUrl?: string;
 }) {
     const [filter, setFilter] = useState("all");
     const [buying, setBuying] = useState<StorefrontPkg | null>(null);
@@ -127,6 +130,12 @@ export function StoreShell({
                                     </span>
                                 </span>
                             </a>
+                        )}
+
+                        {eligibilityUrl && (
+                            <div className="mx-auto mt-6">
+                                <EligibilityChecker checkUrl={eligibilityUrl} />
+                            </div>
                         )}
                     </section>
 

@@ -18,6 +18,7 @@ interface Props {
     networks: NetworkMeta[];
     subagentSlug: string;
     assistant: AssistantProps;
+    eligibilityUrl?: string;
 }
 
 /**
@@ -31,6 +32,7 @@ export default function SubagentStorefrontBuy({
     networks,
     subagentSlug,
     assistant,
+    eligibilityUrl,
 }: Props) {
     return (
         <StoreShell
@@ -40,6 +42,7 @@ export default function SubagentStorefrontBuy({
             homeHref={show.url({ subagentSlug })}
             trackHref={track.url({ subagentSlug })}
             assistant={assistant}
+            eligibilityUrl={eligibilityUrl}
             renderCheckout={(pkg, close) => (
                 <CheckoutDialog
                     pkg={pkg}

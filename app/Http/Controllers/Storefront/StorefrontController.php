@@ -7,6 +7,7 @@ use App\Http\Requests\Storefront\CheckoutRequest;
 use App\Models\Agent;
 use App\Models\AgentPackagePrice;
 use App\Models\Order;
+use App\Services\Databundleshub\UpstreamClient;
 use App\Services\Payments\OrderPaymentConfirmer;
 use App\Services\Payments\OrderPaymentInitiator;
 use App\Services\Storefront\CheckoutException;
@@ -14,6 +15,7 @@ use App\Services\Storefront\StoreAssistant\StoreAssistantService;
 use App\Services\Storefront\StorefrontCheckoutService;
 use App\Support\GhanaMobileNetwork;
 use App\Support\SurfaceUrl;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -42,11 +44,23 @@ class StorefrontController extends Controller
             // Recruitment is the MIDDLE rung of the ladder and lives ONLY on this D2 domain
             // (ARCHITECTURE, LADDER RULE) — a visitor here may become this agent's sub-agent.
             'recruitUrl' => $this->recruitUrl($agent),
+            'eligibilityUrl' => route('agent.storefront.eligibility', ['agentSlug' => $slug]),
             'assistant' => [
                 'postUrl' => route('agent.storefront.assistant', ['agentSlug' => $slug]),
                 'presets' => StoreAssistantService::presetQuestions(),
             ],
         ]);
+    }
+
+    public function checkEligibility(Request $request, \App\Services\Beneficiaries\BeneficiaryEligibilityService $eligibility): JsonResponse
+    {
+        $request->validate([
+            'phone' => ['required', 'string', 'min:9', 'max:15'],
+        ]);
+
+        $result = $eligibility->check((string) $request->input('phone'));
+
+        return response()->json($result);
     }
 
     public function checkout(CheckoutRequest $request, string $slug, StorefrontCheckoutService $checkout, OrderPaymentInitiator $payments): HttpResponse
