@@ -34,7 +34,7 @@ interface Props {
     stats: Stats;
 }
 
-const STATUSES = ["all", "pending", "processing", "completed", "failed", "refunded"];
+const STATUSES = ["all", "pending", "verifying", "processing", "completed", "failed", "refunded"];
 const NETWORKS = ["all", "mtn", "telecel", "at"];
 
 export default function SubagentOrders({ orders, filters, stats }: Props) {

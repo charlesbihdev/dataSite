@@ -134,6 +134,7 @@ class OrderListPresenter
         return [
             'total' => $total,
             'pending' => (int) ($byStatus[Order::STATUS_PENDING] ?? 0),
+            'verifying' => (int) ($byStatus[Order::STATUS_VERIFYING] ?? 0),
             'processing' => (int) ($byStatus[Order::STATUS_PROCESSING] ?? 0),
             'completed' => $completed,
             'failed' => (int) ($byStatus[Order::STATUS_FAILED] ?? 0),

@@ -21,6 +21,7 @@ interface Props {
     agentSlug: string;
     recruitUrl: string;
     assistant: AssistantProps;
+    eligibilityUrl?: string;
 }
 
 /**
@@ -35,6 +36,7 @@ export default function AgentStorefrontBuy({
     agentSlug,
     recruitUrl,
     assistant,
+    eligibilityUrl,
 }: Props) {
     return (
         <StoreShell
@@ -44,6 +46,7 @@ export default function AgentStorefrontBuy({
             homeHref={show.url({ agentSlug })}
             trackHref={track.url({ agentSlug })}
             assistant={assistant}
+            eligibilityUrl={eligibilityUrl}
             topBanner={<ResellerStrip store={store} recruitUrl={recruitUrl} />}
             promo={<RecruitSection store={store} recruitUrl={recruitUrl} />}
             renderCheckout={(pkg, close) => (

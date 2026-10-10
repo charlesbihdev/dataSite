@@ -54,6 +54,83 @@ class UpstreamClient
     }
 
     /**
+     * Check whether a phone number is approved before ordering (safe, read-only pre-check).
+     * Does not debit wallet, does not create an order, and does not add numbers to unapproved list.
+     *
+     * @return array{ok: bool, msisdn: string, approved: bool, status: string, enforced: bool, message: ?string}
+     */
+    public function checkBeneficiary(string $phone): array
+    {
+        $cleanPhone = preg_replace('/\D+/', '', $phone);
+        if ($cleanPhone === '') {
+            return [
+                'ok' => false,
+                'msisdn' => $phone,
+                'approved' => false,
+                'status' => 'invalid_number',
+                'enforced' => true,
+                'message' => 'Please enter a valid phone number.',
+            ];
+        }
+
+        try {
+            $this->config();
+        } catch (UpstreamException $e) {
+            return [
+                'ok' => false,
+                'msisdn' => $cleanPhone,
+                'approved' => false,
+                'status' => 'not_configured',
+                'enforced' => true,
+                'message' => 'Supplier connection is not configured.',
+            ];
+        }
+
+        $url = $this->url('beneficiaries/check');
+
+        try {
+            $response = $this->request()->get($url, ['msisdn' => $cleanPhone]);
+        } catch (ConnectionException $e) {
+            return [
+                'ok' => false,
+                'msisdn' => $cleanPhone,
+                'approved' => false,
+                'status' => 'connection_error',
+                'enforced' => true,
+                'message' => 'Could not connect to verification service.',
+            ];
+        }
+
+        $json = $response->json();
+        if (! is_array($json)) {
+            return [
+                'ok' => false,
+                'msisdn' => $cleanPhone,
+                'approved' => false,
+                'status' => 'error',
+                'enforced' => true,
+                'message' => 'Supplier returned an unexpected response.',
+            ];
+        }
+
+        $enforced = (bool) ($json['enforced'] ?? true);
+        $items = is_array($json['data'] ?? null) ? $json['data'] : [];
+        $first = $items[0] ?? [];
+
+        $status = strtolower(trim((string) ($first['status'] ?? '')));
+        $isApproved = (bool) ($first['approved'] ?? ($status === 'approved' || $status === 'not_enforced'));
+
+        return [
+            'ok' => $response->successful() && ($json['success'] ?? false) !== false,
+            'msisdn' => (string) ($first['msisdn'] ?? $cleanPhone),
+            'approved' => $isApproved,
+            'status' => $status !== '' ? $status : ($isApproved ? 'approved' : 'not_approved'),
+            'enforced' => $enforced,
+            'message' => $first['message'] ?? $json['message'] ?? null,
+        ];
+    }
+
+    /**
      * Validate a base URL + API key against Databundleshub BEFORE we store them (admin settings).
      * First confirms the base URL resolves to the real API (public `get_pricing`), then confirms the
      * key is accepted (keyed `developer/data-packages`). Never throws — returns a plain result the
@@ -201,7 +278,10 @@ class UpstreamClient
      */
     private function request(): PendingRequest
     {
-        return Http::withHeaders(['X-API-Key' => $this->config()->api_key])
+        $key = $this->config()->api_key;
+
+        return Http::withHeaders(['X-API-Key' => $key])
+            ->withToken($key)
             ->acceptJson()
             ->connectTimeout(self::CONNECT_TIMEOUT_SECONDS)
             ->timeout(self::TIMEOUT_SECONDS);
@@ -209,7 +289,14 @@ class UpstreamClient
 
     private function url(string $path): string
     {
-        return self::normalizeBaseUrl($this->config()->base_url).'/'.ltrim($path, '/');
+        $base = self::normalizeBaseUrl($this->config()->base_url);
+        $cleanPath = ltrim($path, '/');
+
+        if (str_ends_with($base, '/api') && str_starts_with($cleanPath, 'api/')) {
+            $cleanPath = substr($cleanPath, 4);
+        }
+
+        return $base.'/'.ltrim($cleanPath, '/');
     }
 
     // Normalize to the /api root. A misconfigured ".../api/developer" would 404 every status poll as

@@ -282,9 +282,25 @@ class OrderDispatchService
             return;
         }
 
-        // Not accepted (no success / no pollable requestId — error envelope, bot-block, malformed body)
-        // is HELD as pending, never faked as processing: money stays reserved, an admin can retry.
+        // Not accepted (no success / no pollable requestId — e.g. unapproved number, bot-block, rate limit, busy)
+        // is HELD as verifying or pending, never faked as processing: money stays reserved, an admin can retry.
         if (! $result->isAccepted()) {
+            if ($result->isAwaitingApproval()) {
+                $reasonText = $result->errorMessage ?? 'Beneficiary number requires approval on Databundleshub.';
+                Log::warning('Order awaiting DBH approval', [
+                    'order' => $order->reference,
+                    'phone' => $order->beneficiary_phone,
+                    'detail' => $reasonText,
+                ]);
+
+                $order->forceFill([
+                    'status' => Order::STATUS_VERIFYING,
+                    'failure_reason' => $reasonText,
+                ])->save();
+
+                return;
+            }
+
             $this->hold($order, 'not accepted by supplier', trim(($result->errorCode ?? '').' '.($result->errorMessage ?? '')));
 
             return;
@@ -298,7 +314,7 @@ class OrderDispatchService
     /**
      * Hold an order as PENDING (not failed): money stays reserved and earnings stay pending, because
      * we did NOT get a confirmed acceptance. The technical cause is logged for ops; failure_reason
-     * carries only the generic seller-safe note (it surfaces on the Developer API).
+     * carries the specific supplier reason if one was returned, or the connection fallback.
      */
     private function hold(Order $order, string $reason, string $detail): void
     {

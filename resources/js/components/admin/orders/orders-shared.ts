@@ -12,7 +12,7 @@ export interface Filters {
     to: string | null;
 }
 
-export const STATUSES = ['all', 'pending', 'processing', 'completed', 'failed', 'refunded'];
+export const STATUSES = ['all', 'pending', 'verifying', 'processing', 'completed', 'failed', 'refunded'];
 export const NETWORKS = ['all', 'mtn', 'telecel', 'at'];
 export const SELLERS = ['all', 'agent', 'subagent'];
 export const SOURCES = ['all', 'portal', 'api'];

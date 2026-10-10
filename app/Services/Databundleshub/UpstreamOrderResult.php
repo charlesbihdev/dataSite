@@ -86,6 +86,15 @@ final class UpstreamOrderResult
     }
 
     /**
+     * Beneficiary number requires upstream approval (HTTP 422 BENEFICIARY_NOT_APPROVED).
+     * Order was not accepted or debited, and is saved on the DBH dashboard for approval.
+     */
+    public function isAwaitingApproval(): bool
+    {
+        return ! $this->isAccepted() && $this->errorCode === 'BENEFICIARY_NOT_APPROVED';
+    }
+
+    /**
      * Neither delivered nor terminally failed — keep polling.
      */
     public function isPending(): bool

@@ -27,6 +27,7 @@ interface Paginator {
 interface Stats {
     total: number;
     pending: number;
+    verifying: number;
     processing: number;
     completed: number;
     failed: number;
@@ -163,7 +164,19 @@ export function OrdersPage({
                             <RefreshCw className="size-4" />
                         </Button>
                     ) : null}
-                    {isRegular && o.paymentStatus === 'paid' && o.status === 'failed' ? (
+                    {isRegular && o.paymentStatus === 'paid' && (o.status === 'failed' || o.status === 'verifying') ? (
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            title="Retry dispatch"
+                            aria-label="Retry dispatch"
+                            className="text-brand hover:text-brand-hover"
+                            onClick={() => runBulk('retry', undefined, [o.id])}
+                        >
+                            <RotateCw className="size-4" />
+                        </Button>
+                    ) : null}
+                    {!isRegular && (o.status === 'failed' || o.status === 'verifying') ? (
                         <Button
                             variant="ghost"
                             size="icon"
@@ -222,6 +235,7 @@ export function OrdersPage({
                     ) : (
                         <StatTile label="Pending" value={String(stats.pending)} hint="Not yet dispatched" />
                     )}
+                    <StatTile label="Verifying" value={String(stats.verifying ?? 0)} hint="Awaiting DBH approval" />
                     <StatTile label="Processing" value={String(stats.processing)} hint="Awaiting upstream" />
                     <StatTile label="Completed" value={String(stats.completed)} hint="Delivered" />
                     <StatTile label="Failed" value={String(stats.failed)} hint="Reversed & refunded" />

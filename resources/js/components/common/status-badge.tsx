@@ -27,6 +27,7 @@ const STATUS_TONE: Record<string, Tone> = {
     completed: 'success',
     processing: 'info',
     pending: 'warning',
+    verifying: 'warning',
     failed: 'danger',
     refunded: 'warning',
     // earnings

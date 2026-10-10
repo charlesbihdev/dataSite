@@ -63,7 +63,7 @@ class OrderBulkService
             ->where(function ($query): void {
                 $query->where('status', Order::STATUS_FAILED)
                     ->orWhere(fn ($held) => $held
-                        ->where('status', Order::STATUS_PENDING)
+                        ->whereIn('status', [Order::STATUS_PENDING, Order::STATUS_VERIFYING])
                         ->where('payment_status', Order::PAYMENT_PAID)
                         ->whereNull('upstream_request_id'));
             })

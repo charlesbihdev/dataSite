@@ -100,6 +100,7 @@ Route::prefix('buy/{agentSlug}')->where(['agentSlug' => '[A-Za-z0-9\-]+', 'order
     Route::get('callback', [StorefrontController::class, 'paymentCallback'])->name('agent.storefront.callback');
     Route::get('receipt/{order}', [StorefrontController::class, 'receipt'])->name('agent.storefront.receipt');
     Route::get('track', [StorefrontController::class, 'track'])->name('agent.storefront.track');
+    Route::post('eligibility', [StorefrontController::class, 'checkEligibility'])->name('agent.storefront.eligibility');
     // Scoped AI shopping assistant (JSON). Store-public context only; never leaks the platform/ladder.
     Route::post('assistant', [StoreAssistantController::class, 'agent'])->name('agent.storefront.assistant');
 });

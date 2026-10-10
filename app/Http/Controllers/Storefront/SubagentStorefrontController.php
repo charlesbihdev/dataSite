@@ -7,12 +7,14 @@ use App\Http\Requests\Storefront\CheckoutRequest;
 use App\Models\Order;
 use App\Models\Subagent;
 use App\Models\SubagentPackagePrice;
+use App\Services\Databundleshub\UpstreamClient;
 use App\Services\Payments\OrderPaymentConfirmer;
 use App\Services\Payments\OrderPaymentInitiator;
 use App\Services\Storefront\CheckoutException;
 use App\Services\Storefront\StoreAssistant\StoreAssistantService;
 use App\Services\Storefront\SubagentCheckoutService;
 use App\Support\GhanaMobileNetwork;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -38,11 +40,23 @@ class SubagentStorefrontController extends Controller
             'store' => $this->storeProps($subagent),
             'packages' => $this->packages($subagent),
             'networks' => GhanaMobileNetwork::meta(),
+            'eligibilityUrl' => route('subagent.storefront.eligibility', ['subagentSlug' => $slug]),
             'assistant' => [
                 'postUrl' => route('subagent.storefront.assistant', ['subagentSlug' => $slug]),
                 'presets' => StoreAssistantService::presetQuestions(),
             ],
         ]);
+    }
+
+    public function checkEligibility(Request $request, \App\Services\Beneficiaries\BeneficiaryEligibilityService $eligibility): JsonResponse
+    {
+        $request->validate([
+            'phone' => ['required', 'string', 'min:9', 'max:15'],
+        ]);
+
+        $result = $eligibility->check((string) $request->input('phone'));
+
+        return response()->json($result);
     }
 
     public function checkout(CheckoutRequest $request, string $slug, SubagentCheckoutService $checkout, OrderPaymentInitiator $payments): HttpResponse
