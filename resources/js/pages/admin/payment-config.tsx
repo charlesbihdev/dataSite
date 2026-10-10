@@ -25,6 +25,7 @@ interface Moolre {
     isActive: boolean;
     publicKey: string;
     currency: string;
+    chargePercent: number;
     moolreUsername: string;
     moolreAccountNumber: string;
     hasWebhookSecret: boolean;
@@ -65,6 +66,7 @@ export default function PaymentConfig({ paystack, moolre, routing, webhooks }: P
         webhook_secret: '',
         is_active: moolre.isActive,
         currency: moolre.currency,
+        charge_percent: moolre.chargePercent,
         moolre_username: moolre.moolreUsername,
         moolre_account_number: moolre.moolreAccountNumber,
     });
@@ -224,6 +226,11 @@ export default function PaymentConfig({ paystack, moolre, routing, webhooks }: P
                             <div className="space-y-1.5">
                                 <Label>Currency</Label>
                                 <Input value={moolreForm.data.currency} onChange={(e) => moolreForm.setData('currency', e.target.value)} className="w-32" />
+                            </div>
+
+                            <div className="space-y-1.5">
+                                <Label>Charge percent (payer covers the fee)</Label>
+                                <Input type="number" step="0.01" value={moolreForm.data.charge_percent} onChange={(e) => moolreForm.setData('charge_percent', Number(e.target.value))} />
                             </div>
 
                             <Toggle checked={moolreForm.data.is_active} onChange={(v) => moolreForm.setData('is_active', v)} label="Active" />

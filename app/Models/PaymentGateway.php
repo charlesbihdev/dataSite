@@ -53,13 +53,7 @@ class PaymentGateway extends Model
      */
     public function grossFromBase(float $base): float
     {
-        if ($base <= 0) {
-            return 0.0;
-        }
-
-        $pct = (float) $this->charge_percent;
-
-        return round($pct > 0 ? $base + ($base * $pct / 100) : $base, 2);
+        return app(\App\Services\Payments\PaymentFeeCalculator::class)->gross($base, $this);
     }
 
     /**
@@ -67,12 +61,6 @@ class PaymentGateway extends Model
      */
     public function baseFromGross(float $gross): float
     {
-        if ($gross <= 0) {
-            return 0.0;
-        }
-
-        $pct = (float) $this->charge_percent;
-
-        return round($pct > 0 ? $gross / (1 + $pct / 100) : $gross, 2);
+        return app(\App\Services\Payments\PaymentFeeCalculator::class)->baseFromGross($gross, $this);
     }
 }
