@@ -69,6 +69,7 @@ class PaymentConfigController extends Controller
             'public_key' => $data['public_key'] ?? '',
             'is_active' => (bool) ($data['is_active'] ?? false),
             'currency' => $data['currency'],
+            'charge_percent' => $data['charge_percent'] ?? 0,
             'moolre_username' => $data['moolre_username'] ?? '',
             'moolre_account_number' => $data['moolre_account_number'] ?? '',
         ]);

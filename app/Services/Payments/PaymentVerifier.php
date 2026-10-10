@@ -24,6 +24,7 @@ class PaymentVerifier
     public function __construct(
         private readonly PaystackClient $paystack,
         private readonly MoolreClient $moolre,
+        private readonly PaymentFeeCalculator $feeCalculator,
     ) {}
 
     public function verify(Order $order): string
@@ -60,7 +61,8 @@ class PaymentVerifier
      */
     private function confirmAmount(Order $order, array $tx): string
     {
-        $expectedMinor = (int) round((float) $order->customer_price * 100);
+        $expectedAmount = $this->feeCalculator->gross((float) $order->customer_price, $order->gateway);
+        $expectedMinor = (int) round($expectedAmount * 100);
 
         if (abs((int) ($tx['amount_minor'] ?? 0) - $expectedMinor) > 1) {
             Log::warning('Order payment amount mismatch', ['order' => $order->reference, 'expected' => $expectedMinor, 'got' => $tx['amount_minor'] ?? 0]);

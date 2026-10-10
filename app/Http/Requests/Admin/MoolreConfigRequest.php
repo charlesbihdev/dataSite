@@ -25,6 +25,7 @@ class MoolreConfigRequest extends FormRequest
             'webhook_secret' => ['nullable', 'string', 'max:2048'],
             'is_active' => ['boolean'],
             'currency' => ['required', 'string', 'max:8'],
+            'charge_percent' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'moolre_username' => [$requiredIfActive, 'string', 'max:255'],
             'moolre_account_number' => [$requiredIfActive, 'string', 'max:255'],
         ];

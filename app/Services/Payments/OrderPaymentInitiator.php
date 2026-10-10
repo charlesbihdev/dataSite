@@ -18,6 +18,7 @@ class OrderPaymentInitiator
         private readonly PaymentGatewayResolver $resolver,
         private readonly PaystackClient $paystack,
         private readonly MoolreClient $moolre,
+        private readonly PaymentFeeCalculator $feeCalculator,
     ) {}
 
     /**
@@ -34,7 +35,7 @@ class OrderPaymentInitiator
             throw new CheckoutException('Online payment is unavailable right now. Please try again later.');
         }
 
-        $amount = (float) $order->customer_price;
+        $amount = $this->feeCalculator->gross((float) $order->customer_price, $gateway);
         $email = $this->resolveEmail($order);
         $metadata = ['type' => 'storefront_order', 'order_id' => $order->id];
 
