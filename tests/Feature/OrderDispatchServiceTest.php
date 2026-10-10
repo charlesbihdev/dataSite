@@ -402,7 +402,7 @@ class OrderDispatchServiceTest extends TestCase
 
         $fresh = $order->fresh();
         $this->assertSame(Order::STATUS_VERIFYING, $fresh->status);
-        $this->assertSame('0558119182 is not approved and has been automatically saved for approval.', $fresh->failure_reason);
+        $this->assertSame('It needs approval before ordering.', $fresh->failure_reason);
         // Money stays reserved
         $this->assertSame(80.0, (float) $agent->walletOrCreate()->balance);
         $this->assertSame(1, Earning::where('status', Earning::STATUS_PENDING)->count());

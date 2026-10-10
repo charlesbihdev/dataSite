@@ -286,7 +286,7 @@ class OrderDispatchService
         // is HELD as verifying or pending, never faked as processing: money stays reserved, an admin can retry.
         if (! $result->isAccepted()) {
             if ($result->isAwaitingApproval()) {
-                $reasonText = $result->errorMessage ?? 'Beneficiary number requires approval on Databundleshub.';
+                $reasonText = 'It needs approval before ordering.';
                 Log::warning('Order awaiting DBH approval', [
                     'order' => $order->reference,
                     'phone' => $order->beneficiary_phone,
