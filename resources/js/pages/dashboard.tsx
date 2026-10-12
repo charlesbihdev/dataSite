@@ -213,8 +213,8 @@ export default function Dashboard({
                     <CartPanel items={cart} total={cartTotal} />
                 </div>
 
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7 mt-4">
-                    <Card className="col-span-4 border-border/50 bg-background/50 backdrop-blur-xl">
+                <div className="grid gap-4 lg:grid-cols-7 mt-4">
+                    <Card className="col-span-full lg:col-span-4 min-w-0 border-border/50 bg-background/50 backdrop-blur-xl">
                         <CardHeader className="flex flex-row items-center justify-between">
                             <div>
                                 <CardTitle>Recent Orders</CardTitle>
@@ -223,7 +223,7 @@ export default function Dashboard({
                                 </CardDescription>
                             </div>
                         </CardHeader>
-                        <CardContent>
+                        <CardContent className="min-w-0">
                             <DataTable
                                 columns={orderColumns}
                                 rows={recentOrders}
@@ -233,7 +233,7 @@ export default function Dashboard({
                         </CardContent>
                     </Card>
 
-                    <Card className="col-span-3 border-border/50 bg-background/50 backdrop-blur-xl">
+                    <Card className="col-span-full lg:col-span-3 min-w-0 border-border/50 bg-background/50 backdrop-blur-xl">
                         <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
                             <CardTitle className="text-sm font-medium text-muted-foreground">
                                 Subagents
