@@ -242,6 +242,41 @@ class AdminTopupsTest extends TestCase
         $this->assertEquals(60.00, (float) $this->wallet->fresh()->balance);
     }
 
+    public function test_admin_reverify_keeps_pending_when_gateway_reports_pending(): void
+    {
+        $this->actingAsAdmin();
+
+        $topup = BalanceTopup::query()->create([
+            'wallet_id' => $this->wallet->id,
+            'reference' => 'TOP-STILL-PENDING',
+            'gateway' => 'moolre',
+            'amount' => 50.00,
+            'charged_amount' => 50.00,
+            'currency' => 'GHS',
+            'status' => BalanceTopup::STATUS_PENDING,
+        ]);
+
+        Http::fake([
+            'api.moolre.com/*' => Http::response([
+                'status' => 1,
+                'data' => [
+                    'txstatus' => 0, // 0 = pending
+                    'amount' => 50.0,
+                    'currency' => 'GHS',
+                ],
+            ]),
+        ]);
+
+        $response = $this->post(route('admin.topups.verify-payment', ['topup' => $topup->id]));
+
+        $response->assertRedirect();
+        $response->assertSessionHasNoErrors();
+
+        // Topup remains pending, wallet not credited
+        $this->assertSame(BalanceTopup::STATUS_PENDING, $topup->fresh()->status);
+        $this->assertEquals(0.00, (float) $this->wallet->fresh()->balance);
+    }
+
     public function test_agent_can_verify_their_own_pending_topup(): void
     {
         $this->actingAs($this->agent, 'agent');
