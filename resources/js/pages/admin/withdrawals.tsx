@@ -7,12 +7,17 @@ import { PageHeader } from "@/components/common/page-header";
 import { PageLink, Pagination } from "@/components/common/pagination";
 import { StatTile } from "@/components/common/stat-tile";
 import { StatusBadge } from "@/components/common/status-badge";
+import { Check, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cedis } from "@/lib/format";
 
 interface Withdrawal {
     id: number;
     earner: string;
+    method?: string | null;
+    network?: string | null;
+    destination?: string | null;
+    accountName?: string | null;
     amount: number;
     status: string;
     reference: string | null;
@@ -23,11 +28,25 @@ interface Withdrawal {
 
 interface Props {
     withdrawals: { data: Withdrawal[]; links: PageLink[] };
-    summary: { pending: number; approved: number };
+    summary: {
+        pending: number;
+        approved: number;
+        paidCount: number;
+        paidAmount: number;
+        totalVolume: number;
+    };
 }
 
 export default function AdminWithdrawals({ withdrawals, summary }: Props) {
     const [approving, setApproving] = useState<Withdrawal | null>(null);
+    const [copiedPhone, setCopiedPhone] = useState<string | null>(null);
+
+    const copyPhone = (phone: string) => {
+        navigator.clipboard.writeText(phone).then(() => {
+            setCopiedPhone(phone);
+            setTimeout(() => setCopiedPhone(null), 1500);
+        });
+    };
 
     const act = (w: Withdrawal, status: string) =>
         router.put(
@@ -38,6 +57,37 @@ export default function AdminWithdrawals({ withdrawals, summary }: Props) {
 
     const columns: Column<Withdrawal>[] = [
         { key: "earner", header: "Account" },
+        {
+            key: "payout",
+            header: "Payout Details",
+            render: (w) => (
+                <div className="flex flex-col">
+                    <span className="font-medium text-foreground">{w.accountName || "—"}</span>
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-mono">
+                        {w.network ? (
+                            <span className="uppercase font-semibold px-1.5 py-0.2 rounded bg-muted text-[10px]">
+                                {w.network}
+                            </span>
+                        ) : null}
+                        <span>{w.destination || "—"}</span>
+                        {w.destination && (
+                            <button
+                                type="button"
+                                onClick={() => copyPhone(w.destination!)}
+                                className="rounded p-0.5 text-muted-foreground hover:text-foreground"
+                                title="Copy phone"
+                            >
+                                {copiedPhone === w.destination ? (
+                                    <Check className="size-3 text-success" />
+                                ) : (
+                                    <Copy className="size-3" />
+                                )}
+                            </button>
+                        )}
+                    </div>
+                </div>
+            ),
+        },
         {
             key: "amount",
             header: "Amount",
@@ -111,12 +161,22 @@ export default function AdminWithdrawals({ withdrawals, summary }: Props) {
                     <StatTile
                         label="Pending"
                         value={String(summary.pending)}
-                        hint="Awaiting approval"
+                        hint="Awaiting admin approval"
                     />
                     <StatTile
-                        label="Approved"
+                        label="Awaiting Payout"
                         value={String(summary.approved)}
-                        hint="Awaiting payout"
+                        hint="Approved, ready to send MoMo"
+                    />
+                    <StatTile
+                        label="Total Paid Out"
+                        value={cedis(summary.paidAmount)}
+                        hint={`${summary.paidCount} completed payouts`}
+                    />
+                    <StatTile
+                        label="Total Requested"
+                        value={cedis(summary.totalVolume)}
+                        hint="Lifetime withdrawal requests"
                     />
                 </div>
 
@@ -133,7 +193,7 @@ export default function AdminWithdrawals({ withdrawals, summary }: Props) {
                 open={!!approving}
                 onOpenChange={(isOpen) => !isOpen && setApproving(null)}
                 title="Approve Withdrawal"
-                description={`Are you sure you want to approve the withdrawal of ${approving ? cedis(approving.amount) : ""} for ${approving?.earner}?`}
+                description={`Are you sure you want to approve payout of ${approving ? cedis(approving.amount) : ""} to ${approving?.accountName ? approving.accountName + " (" + (approving.network ? approving.network.toUpperCase() + " " : "") + approving.destination + ")" : approving?.earner}?`}
                 confirmLabel="Approve"
                 variant="success"
                 onConfirm={() => {

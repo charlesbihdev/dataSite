@@ -35,6 +35,7 @@ class OrderDispatchService
         private readonly UpstreamClient $client,
         private readonly OrderSettlementService $settlement,
         private readonly ProfitSplit $profitSplit,
+        private readonly ?\App\Services\Beneficiaries\UnapprovedBeneficiaryService $unapprovedBeneficiaries = null,
     ) {}
 
     /**
@@ -297,6 +298,14 @@ class OrderDispatchService
                     'status' => Order::STATUS_VERIFYING,
                     'failure_reason' => $reasonText,
                 ])->save();
+
+                $this->unapprovedBeneficiaries?->recordOrderFailure(
+                    $order->beneficiary_phone,
+                    $order->network,
+                    $order->agent_id,
+                    $order->seller?->name ?? 'Direct',
+                    $reasonText
+                );
 
                 return;
             }

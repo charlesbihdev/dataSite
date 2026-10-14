@@ -30,6 +30,7 @@
 use App\Http\Controllers\Admin\AccountApiKeysController;
 use App\Http\Controllers\Admin\AccountsController;
 use App\Http\Controllers\Admin\ApiLogController;
+use App\Http\Controllers\Admin\BeneficiariesController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\OrdersController;
 use App\Http\Controllers\Admin\PaymentConfigController;
@@ -132,6 +133,14 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::post('orders/{order}/verify-payment', [OrdersController::class, 'verifyPayment'])->name('orders.verify-payment');
         Route::post('orders/{order}/mark-verified', [OrdersController::class, 'markVerified'])->name('orders.mark-verified');
         Route::delete('orders/{order}', [OrdersController::class, 'destroy'])->name('orders.destroy');
+
+        Route::get('beneficiaries', [BeneficiariesController::class, 'index'])->name('beneficiaries.index');
+        Route::get('beneficiaries/export', [BeneficiariesController::class, 'export'])->name('beneficiaries.export');
+        Route::post('beneficiaries/mark-submitted', [BeneficiariesController::class, 'markSubmitted'])->name('beneficiaries.mark-submitted');
+        Route::post('beneficiaries/mark-approved', [BeneficiariesController::class, 'markApproved'])->name('beneficiaries.mark-approved');
+        Route::post('beneficiaries/recheck', [BeneficiariesController::class, 'recheck'])->name('beneficiaries.recheck');
+        Route::delete('beneficiaries/bulk', [BeneficiariesController::class, 'bulkDestroy'])->name('beneficiaries.bulk-destroy');
+        Route::delete('beneficiaries/{id}', [BeneficiariesController::class, 'destroy'])->name('beneficiaries.destroy');
         Route::get('pricing', [PricingController::class, 'index'])->name('pricing');
         Route::post('pricing/base-costs', [PricingController::class, 'storeBaseCost'])->name('pricing.base-costs.store');
         Route::put('pricing/base-costs/{baseCost}', [PricingController::class, 'updateBaseCost'])->name('pricing.base-costs.update');

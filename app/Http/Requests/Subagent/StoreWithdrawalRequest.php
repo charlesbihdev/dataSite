@@ -27,7 +27,9 @@ class StoreWithdrawalRequest extends FormRequest
         return [
             'method' => ['required', 'string', Rule::in(array_keys(config('withdrawals.methods')))],
             'amount' => $amount,
+            'network' => ['nullable', 'string', Rule::in(['mtn', 'telecel', 'at'])],
             'destination' => ['required', 'string', 'max:255'],
+            'account_name' => ['nullable', 'string', 'max:255'],
         ];
     }
 }

@@ -52,13 +52,28 @@ class StorefrontController extends Controller
         ]);
     }
 
-    public function checkEligibility(Request $request, \App\Services\Beneficiaries\BeneficiaryEligibilityService $eligibility): JsonResponse
-    {
+    public function checkEligibility(
+        Request $request,
+        string $agentSlug,
+        \App\Services\Beneficiaries\BeneficiaryEligibilityService $eligibility,
+        \App\Services\Beneficiaries\UnapprovedBeneficiaryService $unapprovedService
+    ): JsonResponse {
         $request->validate([
             'phone' => ['required', 'string', 'min:9', 'max:15'],
         ]);
 
         $result = $eligibility->check((string) $request->input('phone'));
+
+        $agent = Agent::query()->where('slug', $agentSlug)->first();
+        $sourceLabel = $agent ? ($agent->store_name ?: $agent->name) : null;
+
+        $unapprovedService->recordCheck(
+            (string) $request->input('phone'),
+            $result['network'] ?? null,
+            $result,
+            $agent?->id,
+            $sourceLabel
+        );
 
         return response()->json($result);
     }

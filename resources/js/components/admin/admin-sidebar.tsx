@@ -11,6 +11,7 @@ import {
     Store,
     Tags,
     TrendingUp,
+    UserCheck,
     Users,
 } from "lucide-react";
 import AppLogo from "@/components/app-logo";
@@ -48,6 +49,11 @@ const adminNavGroups = [
                 title: "Regular Orders",
                 href: "/admin/orders/regular",
                 icon: Store,
+            },
+            {
+                title: "Beneficiaries",
+                href: "/admin/beneficiaries",
+                icon: UserCheck,
             },
         ],
     },
