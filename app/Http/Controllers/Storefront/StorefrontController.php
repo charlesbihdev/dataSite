@@ -58,17 +58,25 @@ class StorefrontController extends Controller
         \App\Services\Beneficiaries\BeneficiaryEligibilityService $eligibility,
         \App\Services\Beneficiaries\UnapprovedBeneficiaryService $unapprovedService
     ): JsonResponse {
-        $request->validate([
-            'phone' => ['required', 'string', 'min:9', 'max:15'],
-        ]);
+        $rawPhone = (string) $request->input('phone', '');
+        $phone = \App\Support\GhanaMobileNetwork::normalize($rawPhone);
+        if ($phone === '' || !preg_match('/^0\d{9}$/', $phone)) {
+            return response()->json([
+                'ok' => false,
+                'message' => 'Ghana phone numbers must start with 0 and be exactly 10 digits.',
+                'errors' => [
+                    'phone' => ['Ghana phone numbers must start with 0 and be exactly 10 digits.'],
+                ],
+            ], 422);
+        }
 
-        $result = $eligibility->check((string) $request->input('phone'));
+        $result = $eligibility->check($phone);
 
         $agent = Agent::query()->where('slug', $agentSlug)->first();
         $sourceLabel = $agent ? ($agent->store_name ?: $agent->name) : null;
 
         $unapprovedService->recordCheck(
-            (string) $request->input('phone'),
+            $phone,
             $result['network'] ?? null,
             $result,
             $agent?->id,

@@ -84,6 +84,15 @@ class BeneficiariesController extends Controller
 
         $query = UnapprovedBeneficiary::query()->with('agent');
 
+        $rawIds = $request->input('ids');
+        if (!empty($rawIds)) {
+            $ids = is_array($rawIds) ? $rawIds : explode(',', (string) $rawIds);
+            $ids = array_filter(array_map('intval', $ids), fn (int $id) => $id > 0);
+            if (!empty($ids)) {
+                $query->whereIn('id', $ids);
+            }
+        }
+
         if ($status !== 'all' && in_array($status, ['pending', 'submitted', 'approved'], true)) {
             $query->where('status', $status);
         }
@@ -112,18 +121,12 @@ class BeneficiariesController extends Controller
         }
 
         $filename = "beneficiaries-{$status}-".now()->format('Y-m-d_His').'.csv';
-        $headers = ['Phone', 'Network', 'Source Store', 'Status', 'Check Count', 'Submitted At', 'Approved At', 'Last Checked', 'Failure Reason'];
+        $headers = ['Phone', 'Network', 'Status'];
 
         $rows = $items->map(fn (UnapprovedBeneficiary $b): array => [
             CsvExport::text($b->phone),
             strtoupper($b->network ?? 'UNKNOWN'),
-            $b->source_label ?? ($b->agent ? ($b->agent->store_name ?: $b->agent->name) : 'Direct'),
             ucfirst($b->status),
-            $b->check_count,
-            $b->submitted_at?->toDateTimeString() ?? '—',
-            $b->approved_at?->toDateTimeString() ?? '—',
-            $b->last_checked_at?->toDateTimeString() ?? '—',
-            $b->failure_message ?? '—',
         ]);
 
         return CsvExport::download($filename, $headers, $rows);

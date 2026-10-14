@@ -90,17 +90,30 @@ function CheckoutForm({ pkg, checkoutUrl, networks }: { pkg: StorefrontPkg; chec
                         id="checkout-phone"
                         inputMode="numeric"
                         autoFocus
+                        maxLength={10}
                         placeholder="0241234567"
                         value={phone}
-                        onChange={(e) => setPhone(e.target.value)}
+                        onChange={(e) => {
+                            let val = e.target.value.replace(/\D+/g, "");
+                            if (val.startsWith("233") && val.length >= 12) {
+                                val = "0" + val.slice(3, 12);
+                            } else if (val.length > 10) {
+                                val = val.slice(0, 10);
+                            }
+                            setPhone(val);
+                        }}
                         className="h-12 text-base"
                     />
                     {mismatch ? (
                         <p className="text-xs text-destructive">
                             This number looks like {detected?.label}, but the bundle is for {pkg.networkLabel}.
                         </p>
+                    ) : phone.length > 0 && !phone.startsWith("0") ? (
+                        <p className="text-xs text-destructive">Ghana numbers must start with 0.</p>
+                    ) : phone.length > 0 && phone.length < 10 ? (
+                        <p className="text-xs text-muted-foreground">Enter 10 digits ({phone.length}/10 entered).</p>
                     ) : (
-                        <p className="text-xs text-muted-foreground">Enter the number that will receive the data bundle.</p>
+                        <p className="text-xs text-muted-foreground">Enter the 10-digit number (e.g. 0241234567) that will receive the data bundle.</p>
                     )}
                 </div>
 

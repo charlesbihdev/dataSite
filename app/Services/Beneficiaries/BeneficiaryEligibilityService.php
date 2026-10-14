@@ -34,7 +34,7 @@ class BeneficiaryEligibilityService
         $normalized = GhanaMobileNetwork::normalize($rawPhone);
         $phoneToCheck = $normalized !== '' ? $normalized : (preg_replace('/\D+/', '', $rawPhone) ?? '');
 
-        if ($phoneToCheck === '') {
+        if ($phoneToCheck === '' || !preg_match('/^0\d{9}$/', $phoneToCheck)) {
             return [
                 'ok' => false,
                 'msisdn' => $rawPhone,
@@ -43,7 +43,7 @@ class BeneficiaryEligibilityService
                 'approved' => false,
                 'status' => 'invalid_number',
                 'enforced' => true,
-                'message' => 'Please enter a valid phone number.',
+                'message' => 'Ghana phone numbers must start with 0 and be exactly 10 digits.',
             ];
         }
 
