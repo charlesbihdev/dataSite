@@ -31,6 +31,8 @@ class WalletTopupConfirmer
 
     public const FAILED = 'failed';
 
+    public const PENDING = 'pending';
+
     public const IGNORED = 'ignored';   // already terminal — nothing to do (idempotent no-op)
 
     public const INVALID = 'invalid';   // transaction doesn't match this top-up — do NOT credit
@@ -47,8 +49,12 @@ class WalletTopupConfirmer
     {
         $status = strtolower((string) ($tx['status'] ?? ''));
 
-        if ($status !== 'success') {
+        if ($status === 'failed') {
             return $this->markFailedIfPending($topup, $status);
+        }
+
+        if ($status !== 'success') {
+            return self::PENDING;
         }
 
         if (! $this->transactionMatches($topup, $tx)) {
@@ -139,6 +145,13 @@ class WalletTopupConfirmer
      */
     public function reverify(BalanceTopup $topup): array
     {
+        if ($topup->status === BalanceTopup::STATUS_SUCCESS) {
+            return [
+                'status' => 'info',
+                'message' => 'This payment was already confirmed and credited.',
+            ];
+        }
+
         $gateway = $this->gatewayFor($topup);
         if ($gateway === null) {
             return [
@@ -163,6 +176,7 @@ class WalletTopupConfirmer
             ];
         }
 
+        $txStatus = strtolower((string) ($verified['tx']['status'] ?? 'pending'));
         $outcome = $this->confirm($topup, $verified['tx']);
 
         return match ($outcome) {
@@ -171,12 +185,19 @@ class WalletTopupConfirmer
                 'message' => 'Payment confirmed! Wallet credited with GHS '.number_format((float) $topup->amount, 2).'.',
             ],
             self::IGNORED => [
-                'status' => 'success',
+                'status' => 'info',
                 'message' => 'This payment was already confirmed and credited.',
             ],
             self::FAILED => [
                 'status' => 'failed',
                 'message' => 'The payment gateway reports this transaction failed.',
+            ],
+            self::PENDING => [
+                'status' => 'pending',
+                'message' => match ($txStatus) {
+                    'abandoned' => ucfirst($topup->gateway).' reports checkout was abandoned (customer closed payment without paying).',
+                    default => 'Payment is still pending on '.ucfirst($topup->gateway).' (waiting for customer authorization).',
+                },
             ],
             default => [
                 'status' => 'pending',
