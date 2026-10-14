@@ -48,13 +48,28 @@ class SubagentStorefrontController extends Controller
         ]);
     }
 
-    public function checkEligibility(Request $request, \App\Services\Beneficiaries\BeneficiaryEligibilityService $eligibility): JsonResponse
-    {
+    public function checkEligibility(
+        Request $request,
+        string $subagentSlug,
+        \App\Services\Beneficiaries\BeneficiaryEligibilityService $eligibility,
+        \App\Services\Beneficiaries\UnapprovedBeneficiaryService $unapprovedService
+    ): JsonResponse {
         $request->validate([
             'phone' => ['required', 'string', 'min:9', 'max:15'],
         ]);
 
         $result = $eligibility->check((string) $request->input('phone'));
+
+        $subagent = Subagent::query()->where('username', $subagentSlug)->first();
+        $sourceLabel = $subagent ? ($subagent->store_name ?: $subagent->name).' (Subagent)' : null;
+
+        $unapprovedService->recordCheck(
+            (string) $request->input('phone'),
+            $result['network'] ?? null,
+            $result,
+            $subagent?->agent_id,
+            $sourceLabel
+        );
 
         return response()->json($result);
     }

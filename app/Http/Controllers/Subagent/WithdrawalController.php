@@ -47,6 +47,9 @@ class WithdrawalController extends Controller
             'withdrawals' => $earner->withdrawals()->latest('id')->simplePaginate(30)->through(fn (Withdrawal $w): array => [
                 'id' => $w->id,
                 'method' => $this->methodLabel($w->method),
+                'network' => $w->network,
+                'destination' => $w->destination,
+                'accountName' => $w->account_name,
                 'amount' => (float) $w->amount,
                 'status' => $w->status,
                 'date' => $w->created_at?->format('j M Y'),
@@ -67,10 +70,16 @@ class WithdrawalController extends Controller
             return $this->toast('error', 'Amount exceeds your available balance.');
         }
 
+        $destination = $request->string('destination')->value();
+        $network = $request->input('network') ?: \App\Support\GhanaMobileNetwork::detect($destination);
+        $accountName = $request->input('account_name');
+
         $earner->withdrawals()->create([
             'amount' => $amount,
             'method' => $method,
-            'destination' => $request->string('destination')->value(),
+            'network' => $network,
+            'destination' => $destination,
+            'account_name' => $accountName,
             'status' => Withdrawal::STATUS_PENDING,
             'reference' => 'WD-'.strtoupper(Str::random(8)),
         ]);

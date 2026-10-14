@@ -14,7 +14,17 @@ import { cedis } from "@/lib/format";
 import { cancel, store } from "@/routes/agent/withdrawals";
 
 interface Method { key: string; label: string; min: number; enabled: boolean }
-interface Wd { id: number; method: string; amount: number; status: string; date: string | null; canCancel: boolean }
+interface Wd {
+    id: number;
+    method: string;
+    network?: string | null;
+    destination?: string | null;
+    accountName?: string | null;
+    amount: number;
+    status: string;
+    date: string | null;
+    canCancel: boolean;
+}
 interface Props {
     stats: { totalEarnings: number; available: number; pending: number; withdrawn: number };
     methods: Method[];
@@ -23,7 +33,13 @@ interface Props {
 }
 
 export default function AgentWithdrawals({ stats, methods, limits, withdrawals }: Props) {
-    const form = useForm({ method: "", amount: "", destination: "" });
+    const form = useForm({
+        method: "",
+        network: "mtn",
+        destination: "",
+        account_name: "",
+        amount: "",
+    });
     const eligible = methods.some((m) => m.enabled);
     const selected = methods.find((m) => m.key === form.data.method);
 
@@ -34,8 +50,19 @@ export default function AgentWithdrawals({ stats, methods, limits, withdrawals }
 
     const columns: Column<Wd>[] = [
         { key: "row", header: "#", render: (w) => <span className="text-muted-foreground">{(withdrawals.from ?? 1) + withdrawals.data.indexOf(w)}</span> },
-        { key: "method", header: "Type", render: (w) => w.method },
-        { key: "amount", header: "Amount", align: "right", render: (w) => <span className="tabular-nums">{cedis(w.amount)}</span> },
+        {
+            key: "destination",
+            header: "Recipient",
+            render: (w) => (
+                <div className="flex flex-col">
+                    <span className="font-medium text-foreground">{w.accountName || w.destination || w.method}</span>
+                    <span className="text-xs text-muted-foreground font-mono">
+                        {w.network ? w.network.toUpperCase() + " · " : ""}{w.destination || ""}
+                    </span>
+                </div>
+            ),
+        },
+        { key: "amount", header: "Amount", align: "right", render: (w) => <span className="tabular-nums font-medium">{cedis(w.amount)}</span> },
         { key: "status", header: "Status", render: (w) => <StatusBadge status={w.status} /> },
         { key: "date", header: "Date", render: (w) => <span className="text-muted-foreground">{w.date ?? "—"}</span> },
         {
@@ -129,19 +156,63 @@ export default function AgentWithdrawals({ stats, methods, limits, withdrawals }
                                 {form.errors.amount && <p className="text-xs text-destructive">{form.errors.amount}</p>}
                             </div>
 
-                            {selected ? (
+                            {selected && selected.key === "momo" && (
+                                <>
+                                    <div className="space-y-1.5">
+                                        <Label>Mobile Money Network *</Label>
+                                        <Select value={form.data.network} onValueChange={(v) => form.setData("network", v)}>
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Select network" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="mtn">MTN Mobile Money</SelectItem>
+                                                <SelectItem value="telecel">Telecel Cash</SelectItem>
+                                                <SelectItem value="at">AT Money</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                        {form.errors.network && <p className="text-xs text-destructive">{form.errors.network}</p>}
+                                    </div>
+
+                                    <div className="space-y-1.5">
+                                        <Label htmlFor="destination">Mobile Money Number *</Label>
+                                        <Input
+                                            id="destination"
+                                            placeholder="0241234567"
+                                            value={form.data.destination}
+                                            onChange={(e) => form.setData("destination", e.target.value)}
+                                        />
+                                        {form.errors.destination && <p className="text-xs text-destructive">{form.errors.destination}</p>}
+                                    </div>
+
+                                    <div className="space-y-1.5">
+                                        <Label htmlFor="account_name">Account Name (Registered MoMo Name) *</Label>
+                                        <Input
+                                            id="account_name"
+                                            placeholder="e.g. Kofi Mensah"
+                                            value={form.data.account_name}
+                                            onChange={(e) => form.setData("account_name", e.target.value)}
+                                        />
+                                        <p className="text-xs text-muted-foreground">The exact name on this Mobile Money SIM card for payout verification.</p>
+                                        {form.errors.account_name && <p className="text-xs text-destructive">{form.errors.account_name}</p>}
+                                    </div>
+                                </>
+                            )}
+
+                            {selected && selected.key !== "momo" && (
                                 <div className="space-y-1.5">
-                                    <Label htmlFor="destination">{selected.key === "momo" ? "Mobile Money number" : "Account details"} *</Label>
+                                    <Label htmlFor="destination">Account details *</Label>
                                     <Input
                                         id="destination"
-                                        placeholder={selected.key === "momo" ? "0551234567" : "Bank / account details"}
+                                        placeholder="Bank / account details"
                                         value={form.data.destination}
                                         onChange={(e) => form.setData("destination", e.target.value)}
                                     />
                                     <p className="text-xs text-muted-foreground">Minimum {cedis(selected.min)} for {selected.label}.</p>
                                     {form.errors.destination && <p className="text-xs text-destructive">{form.errors.destination}</p>}
                                 </div>
-                            ) : (
+                            )}
+
+                            {!selected && (
                                 <p className="text-xs text-muted-foreground">Select a withdrawal type to see requirements.</p>
                             )}
 

@@ -84,4 +84,21 @@ class AgentWithdrawalTest extends TestCase
         $this->assertSame(Withdrawal::STATUS_REJECTED, $w->fresh()->status);
         $this->assertSame(100.0, $this->agent->earningsBalance()); // reservation freed
     }
+
+    public function test_request_saves_network_and_account_name(): void
+    {
+        $this->post(route('agent.withdrawals.store'), [
+            'method' => 'momo',
+            'amount' => 50,
+            'network' => 'mtn',
+            'destination' => '0244123456',
+            'account_name' => 'Kofi Mensah',
+        ])->assertRedirect(route('agent.withdrawals'));
+
+        $w = Withdrawal::sole();
+        $this->assertSame('momo', $w->method);
+        $this->assertSame('mtn', $w->network);
+        $this->assertSame('0244123456', $w->destination);
+        $this->assertSame('Kofi Mensah', $w->account_name);
+    }
 }

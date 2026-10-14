@@ -26,6 +26,10 @@ class WithdrawalsController extends Controller
             ->through(fn (Withdrawal $w): array => [
                 'id' => $w->id,
                 'earner' => ($w->earner?->name ?? 'Unknown').' ('.class_basename($w->earner_type).')',
+                'method' => $w->method,
+                'network' => $w->network,
+                'destination' => $w->destination,
+                'accountName' => $w->account_name,
                 'amount' => (float) $w->amount,
                 'status' => $w->status,
                 'reference' => $w->reference,
@@ -39,6 +43,9 @@ class WithdrawalsController extends Controller
             'summary' => [
                 'pending' => Withdrawal::query()->where('status', Withdrawal::STATUS_PENDING)->count(),
                 'approved' => Withdrawal::query()->where('status', Withdrawal::STATUS_APPROVED)->count(),
+                'paidCount' => Withdrawal::query()->where('status', Withdrawal::STATUS_PAID)->count(),
+                'paidAmount' => (float) Withdrawal::query()->where('status', Withdrawal::STATUS_PAID)->sum('amount'),
+                'totalVolume' => (float) Withdrawal::query()->whereIn('status', [Withdrawal::STATUS_PENDING, Withdrawal::STATUS_APPROVED, Withdrawal::STATUS_PAID])->sum('amount'),
             ],
         ]);
     }

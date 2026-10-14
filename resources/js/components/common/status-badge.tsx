@@ -43,6 +43,8 @@ const STATUS_TONE: Record<string, Tone> = {
     active: 'success',
     suspended: 'danger',
     inactive: 'neutral',
+    // beneficiaries
+    submitted: 'info',
 };
 
 export function StatusBadge({ status, className }: { status: string; className?: string }) {
