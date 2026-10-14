@@ -1,5 +1,6 @@
 import { Link } from "@inertiajs/react";
 import {
+    ArrowDownToLine,
     Banknote,
     CreditCard,
     LayoutGrid,
@@ -60,6 +61,7 @@ const adminNavGroups = [
     {
         title: "Finance",
         items: [
+            { title: "Top-ups", href: "/admin/topups", icon: ArrowDownToLine },
             { title: "Ledger", href: "/admin/ledger", icon: ScrollText },
             {
                 title: "Withdrawals",

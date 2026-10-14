@@ -94,6 +94,7 @@ Route::middleware(['auth:agent'])->group(function () {
     // Wallet top-up (real money in via payment gateway): open checkout, then verify on return.
     Route::post('topup', [WalletTopupController::class, 'store'])->name('agent.topup');
     Route::get('topup/callback', [WalletTopupController::class, 'callback'])->name('agent.topup.callback');
+    Route::post('topup/{topup}/verify', [WalletTopupController::class, 'verify'])->name('agent.topup.verify');
 
     // Place-Order cart (session-backed): add one, add many (paste/upload), remove, checkout.
     Route::get('cart/template', [CartController::class, 'template'])->name('agent.cart.template');
@@ -172,6 +173,9 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::delete('api-keys/{apiKey}', [AccountApiKeysController::class, 'destroy'])->name('api-keys.destroy');
 
         Route::get('ledger', [TransactionsController::class, 'ledger'])->name('ledger');
+        Route::get('topups', [\App\Http\Controllers\Admin\TopupsController::class, 'index'])->name('topups.index');
+        Route::post('topups/{topup}/verify-payment', [\App\Http\Controllers\Admin\TopupsController::class, 'verifyPayment'])->name('topups.verify-payment');
+        Route::get('topups/export', [\App\Http\Controllers\Admin\TopupsController::class, 'export'])->name('topups.export');
         Route::get('api-logs', [ApiLogController::class, 'index'])->name('api-logs');
         Route::get('withdrawals', [WithdrawalsController::class, 'index'])->name('withdrawals');
         Route::put('withdrawals/{withdrawal}', [WithdrawalsController::class, 'update'])->name('withdrawals.update');

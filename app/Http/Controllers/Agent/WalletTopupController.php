@@ -81,6 +81,27 @@ class WalletTopupController extends Controller
         };
     }
 
+    public function verify(Request $request, BalanceTopup $topup, WalletTopupConfirmer $confirmer): RedirectResponse
+    {
+        $agent = $request->user('agent');
+        $wallet = $agent->walletOrCreate();
+
+        abort_unless((int) $topup->wallet_id === (int) $wallet->id, 403);
+
+        $result = $confirmer->reverify($topup);
+
+        $toastType = match ($result['status']) {
+            'success' => 'success',
+            'failed' => 'error',
+            'error' => 'error',
+            default => 'info',
+        };
+
+        Inertia::flash('toast', ['type' => $toastType, 'message' => $result['message']]);
+
+        return back();
+    }
+
     private function redirectWithToast(string $type, string $message): RedirectResponse
     {
         Inertia::flash('toast', ['type' => $type, 'message' => $message]);

@@ -89,9 +89,25 @@ class WalletController extends Controller
             ->withQueryString()
             ->through(fn (WalletTransaction $t): array => $this->present($t));
 
+        $pendingTopups = \App\Models\BalanceTopup::query()
+            ->where('wallet_id', $wallet->id)
+            ->where('status', \App\Models\BalanceTopup::STATUS_PENDING)
+            ->latest('id')
+            ->get()
+            ->map(fn (\App\Models\BalanceTopup $t): array => [
+                'id' => $t->id,
+                'reference' => $t->reference,
+                'gateway' => ucfirst($t->gateway),
+                'amount' => (float) $t->amount,
+                'chargedAmount' => (float) $t->charged_amount,
+                'status' => $t->status,
+                'date' => $t->created_at?->format('M j, Y H:i'),
+            ]);
+
         return Inertia::render('agent/transactions', [
             'balance' => (float) $wallet->balance,
             'transactions' => $transactions,
+            'pendingTopups' => $pendingTopups,
             'filters' => [
                 'type' => $type,
                 'source' => $source,

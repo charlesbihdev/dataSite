@@ -104,16 +104,10 @@ function CheckoutForm({ pkg, checkoutUrl, networks }: { pkg: StorefrontPkg; chec
                         }}
                         className="h-12 text-base"
                     />
-                    {mismatch ? (
+                    {mismatch && (
                         <p className="text-xs text-destructive">
                             This number looks like {detected?.label}, but the bundle is for {pkg.networkLabel}.
                         </p>
-                    ) : phone.length > 0 && !phone.startsWith("0") ? (
-                        <p className="text-xs text-destructive">Ghana numbers must start with 0.</p>
-                    ) : phone.length > 0 && phone.length < 10 ? (
-                        <p className="text-xs text-muted-foreground">Enter 10 digits ({phone.length}/10 entered).</p>
-                    ) : (
-                        <p className="text-xs text-muted-foreground">Enter the 10-digit number (e.g. 0241234567) that will receive the data bundle.</p>
                     )}
                 </div>
 

@@ -35,6 +35,11 @@ class WalletTopupConfirmer
 
     public const INVALID = 'invalid';   // transaction doesn't match this top-up — do NOT credit
 
+    public function __construct(
+        private readonly ?PaystackClient $paystack = null,
+        private readonly ?MoolreClient $moolre = null,
+    ) {}
+
     /**
      * @param  array{status?: string, amount_minor?: int, currency?: string, reference?: string, topup_id?: int|null}  $tx
      */
@@ -125,5 +130,58 @@ class WalletTopupConfirmer
     public function gatewayFor(BalanceTopup $topup): ?PaymentGateway
     {
         return PaymentGateway::forGateway($topup->gateway);
+    }
+
+    /**
+     * Re-verify a pending (or unconfirmed) top-up against the payment gateway API.
+     *
+     * @return array{status: string, message: string}
+     */
+    public function reverify(BalanceTopup $topup): array
+    {
+        $gateway = $this->gatewayFor($topup);
+        if ($gateway === null) {
+            return [
+                'status' => 'error',
+                'message' => 'Payment gateway configuration is missing or inactive.',
+            ];
+        }
+
+        $paystack = $this->paystack ?? app(PaystackClient::class);
+        $moolre = $this->moolre ?? app(MoolreClient::class);
+
+        $reference = (string) ($topup->gateway_reference ?: $topup->reference);
+
+        $verified = $topup->gateway === PaymentGateway::MOOLRE
+            ? $moolre->verify($gateway, $topup->reference)
+            : $paystack->verify($gateway, $reference);
+
+        if (! $verified['ok']) {
+            return [
+                'status' => 'pending',
+                'message' => $verified['message'] ?? 'Payment could not be verified by the gateway yet.',
+            ];
+        }
+
+        $outcome = $this->confirm($topup, $verified['tx']);
+
+        return match ($outcome) {
+            self::SUCCESS => [
+                'status' => 'success',
+                'message' => 'Payment confirmed! Wallet credited with GHS '.number_format((float) $topup->amount, 2).'.',
+            ],
+            self::IGNORED => [
+                'status' => 'success',
+                'message' => 'This payment was already confirmed and credited.',
+            ],
+            self::FAILED => [
+                'status' => 'failed',
+                'message' => 'The payment gateway reports this transaction failed.',
+            ],
+            default => [
+                'status' => 'pending',
+                'message' => 'Payment is still being processed by the gateway. Try again shortly.',
+            ],
+        };
     }
 }
