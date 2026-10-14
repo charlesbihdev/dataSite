@@ -160,12 +160,16 @@ export default function AdminBeneficiaries({ beneficiaries, counts, filters }: P
         });
     };
 
-    // Trigger Excel / CSV download with active filters
-    const exportExcel = (markSubmitted = false) => {
+    // Trigger Excel / CSV download with active filters or selected rows
+    const exportExcel = (markSubmitted = false, onlySelected = false) => {
         const params = new URLSearchParams();
-        if (filters.status && filters.status !== "all") params.set("status", filters.status);
-        if (filters.network && filters.network !== "all") params.set("network", filters.network);
-        if (search) params.set("q", search);
+        if (onlySelected && selectedIds.length > 0) {
+            params.set("ids", selectedIds.join(","));
+        } else {
+            if (filters.status && filters.status !== "all") params.set("status", filters.status);
+            if (filters.network && filters.network !== "all") params.set("network", filters.network);
+            if (search) params.set("q", search);
+        }
         if (markSubmitted) params.set("mark_submitted", "1");
 
         window.location.href = `/admin/beneficiaries/export?${params.toString()}`;
@@ -336,19 +340,25 @@ export default function AdminBeneficiaries({ beneficiaries, counts, filters }: P
                         <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => exportExcel(false)}
+                            onClick={() => exportExcel(false, selectedIds.length > 0)}
                             className="h-9"
                         >
-                            <Download className="mr-1.5 size-4" /> Export Excel (.csv)
+                            <Download className="mr-1.5 size-4" />
+                            {selectedIds.length > 0
+                                ? `Export Selected (${selectedIds.length})`
+                                : "Export Excel (.csv)"}
                         </Button>
 
                         {counts.pending > 0 && (
                             <Button
                                 size="sm"
-                                onClick={() => exportExcel(true)}
+                                onClick={() => exportExcel(true, selectedIds.length > 0)}
                                 className="h-9 bg-brand text-brand-fg hover:bg-brand/90"
                             >
-                                <Send className="mr-1.5 size-4" /> Export & Mark Submitted
+                                <Send className="mr-1.5 size-4" />
+                                {selectedIds.length > 0
+                                    ? `Export & Mark Submitted (${selectedIds.length})`
+                                    : "Export & Mark Submitted"}
                             </Button>
                         )}
                     </div>
@@ -448,6 +458,22 @@ export default function AdminBeneficiaries({ beneficiaries, counts, filters }: P
                                 {selectedIds.length} selected
                             </span>
                             <div className="ml-auto flex flex-wrap items-center gap-1.5">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-8 text-xs font-medium"
+                                    onClick={() => exportExcel(false, true)}
+                                >
+                                    <Download className="mr-1 size-3.5" /> Export Excel ({selectedIds.length})
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-8 text-xs font-medium text-brand hover:text-brand"
+                                    onClick={() => exportExcel(true, true)}
+                                >
+                                    <Send className="mr-1 size-3.5" /> Export & Mark Submitted ({selectedIds.length})
+                                </Button>
                                 <Button
                                     variant="outline"
                                     size="sm"

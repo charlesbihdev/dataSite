@@ -171,4 +171,64 @@ class BeneficiaryEligibilityTest extends TestCase
             ->assertJsonPath('approved', true)
             ->assertJsonPath('status', 'approved');
     }
+
+    public function test_storefront_eligibility_rejects_number_not_starting_with_zero(): void
+    {
+        $agent = Agent::factory()->create(['slug' => 'kofi-store']);
+
+        $response = $this->postJson(route('agent.storefront.eligibility', ['agentSlug' => 'kofi-store']), [
+            'phone' => '1241234567',
+        ]);
+
+        $response->assertStatus(422)
+            ->assertJsonPath('ok', false)
+            ->assertJsonPath('message', 'Ghana phone numbers must start with 0 and be exactly 10 digits.');
+    }
+
+    public function test_storefront_eligibility_rejects_number_with_wrong_length(): void
+    {
+        $agent = Agent::factory()->create(['slug' => 'kofi-store']);
+
+        // Less than 10 digits
+        $resShort = $this->postJson(route('agent.storefront.eligibility', ['agentSlug' => 'kofi-store']), [
+            'phone' => '024123456',
+        ]);
+        $resShort->assertStatus(422)
+            ->assertJsonPath('ok', false);
+
+        // More than 10 digits
+        $resLong = $this->postJson(route('agent.storefront.eligibility', ['agentSlug' => 'kofi-store']), [
+            'phone' => '024123456789',
+        ]);
+        $resLong->assertStatus(422)
+            ->assertJsonPath('ok', false);
+    }
+
+    public function test_storefront_eligibility_accepts_and_normalizes_233_format(): void
+    {
+        $agent = Agent::factory()->create(['slug' => 'kofi-store']);
+
+        Http::fake([
+            'dbh.test/api/beneficiaries/check*' => Http::response([
+                'success' => true,
+                'enforced' => true,
+                'data' => [
+                    [
+                        'msisdn' => '0241234567',
+                        'approved' => true,
+                        'status' => 'approved',
+                        'message' => null,
+                    ],
+                ],
+            ]),
+        ]);
+
+        $response = $this->postJson(route('agent.storefront.eligibility', ['agentSlug' => 'kofi-store']), [
+            'phone' => '233241234567',
+        ]);
+
+        $response->assertOk()
+            ->assertJsonPath('approved', true)
+            ->assertJsonPath('msisdn', '0241234567');
+    }
 }

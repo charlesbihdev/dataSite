@@ -146,10 +146,47 @@ class AdminBeneficiariesTest extends TestCase
         $response->sendContent();
         $content = ob_get_clean();
 
+        // Check that only Phone, Network, Status columns exist
+        $this->assertStringContainsString('Phone,Network,Status', $content);
+        $this->assertStringNotContainsString('Source Store', $content);
+        $this->assertStringNotContainsString('Check Count', $content);
+
         // Check that phone number is wrapped in ="0558119182" for Excel preservation of leading zero
         $this->assertStringContainsString('0558119182', $content);
         $this->assertStringContainsString('MTN', $content);
         $this->assertStringContainsString('Pending', $content);
+    }
+
+    public function test_admin_can_export_only_selected_beneficiaries(): void
+    {
+        $this->actingAsAdmin();
+
+        $b1 = UnapprovedBeneficiary::create([
+            'phone' => '0558119182',
+            'network' => 'mtn',
+            'status' => 'pending',
+            'check_count' => 1,
+            'last_checked_at' => now(),
+        ]);
+
+        $b2 = UnapprovedBeneficiary::create([
+            'phone' => '0241234567',
+            'network' => 'mtn',
+            'status' => 'pending',
+            'check_count' => 1,
+            'last_checked_at' => now(),
+        ]);
+
+        $response = $this->get("/admin/beneficiaries/export?ids[]={$b1->id}");
+
+        $response->assertOk();
+
+        ob_start();
+        $response->sendContent();
+        $content = ob_get_clean();
+
+        $this->assertStringContainsString('0558119182', $content);
+        $this->assertStringNotContainsString('0241234567', $content);
     }
 
     public function test_admin_can_mark_beneficiaries_as_submitted(): void
