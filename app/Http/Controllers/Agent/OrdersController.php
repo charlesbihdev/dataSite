@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers\Agent;
 
-use App\Exceptions\InsufficientBalanceException;
+use App\Http\Controllers\Concerns\HandlesOrderActions;
 use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Services\Orders\OrderDispatchService;
@@ -15,6 +15,8 @@ use Inertia\Inertia;
 
 class OrdersController extends Controller
 {
+    use HandlesOrderActions;
+
     public function index(Request $request)
     {
         $user = $request->user();
@@ -93,23 +95,7 @@ class OrdersController extends Controller
         /** @var Order $found */
         $found = $request->user()->orders()->whereKey($order)->firstOrFail();
 
-        if ($found->status !== Order::STATUS_FAILED) {
-            Inertia::flash('toast', ['type' => 'error', 'message' => 'Only failed orders can be retried.']);
-
-            return back();
-        }
-
-        try {
-            $dispatch->redispatch($found);
-        } catch (InsufficientBalanceException) {
-            Inertia::flash('toast', ['type' => 'error', 'message' => 'Insufficient wallet balance to retry this order. Top up and try again.']);
-
-            return back();
-        }
-
-        Inertia::flash('toast', ['type' => 'success', 'message' => "Order {$found->reference} is being re-sent."]);
-
-        return back();
+        return $this->performOrderRetry($found, $dispatch);
     }
 
     /**
@@ -122,20 +108,6 @@ class OrdersController extends Controller
         /** @var Order $found */
         $found = $request->user()->orders()->whereKey($order)->firstOrFail();
 
-        if ($found->payment_status !== Order::PAYMENT_AWAITING) {
-            Inertia::flash('toast', ['type' => 'error', 'message' => 'Only orders awaiting payment can be verified.']);
-
-            return back();
-        }
-
-        $toast = match ($confirmer->confirm($found)) {
-            PaymentVerifier::PAID => ['type' => 'success', 'message' => "Payment confirmed for {$found->reference}. Bundle dispatched."],
-            PaymentVerifier::FAILED => ['type' => 'error', 'message' => "{$found->reference}: the payment failed. Order marked failed."],
-            default => ['type' => 'info', 'message' => "{$found->reference}: payment not confirmed yet. Try again shortly."],
-        };
-
-        Inertia::flash('toast', $toast);
-
-        return back();
+        return $this->performOrderPaymentVerification($found, $confirmer);
     }
 }

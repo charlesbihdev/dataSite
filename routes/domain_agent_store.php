@@ -67,8 +67,10 @@ Route::middleware(['auth:subagent'])->group(function () {
     Route::post('withdrawals', [WithdrawalController::class, 'store'])->name('subagent.withdrawals.store');
     Route::post('withdrawals/{withdrawal}/cancel', [WithdrawalController::class, 'cancel'])->name('subagent.withdrawals.cancel');
 
-    // Orders — the subagent's own storefront sales (read-only list).
+    // Orders — the subagent's own storefront sales.
     Route::get('orders', [OrdersController::class, 'index'])->name('subagent.orders');
+    Route::post('orders/{order}/retry', [OrdersController::class, 'retry'])->name('subagent.orders.retry');
+    Route::post('orders/{order}/verify-payment', [OrdersController::class, 'verifyPayment'])->name('subagent.orders.verify-payment');
 
     // Transactions — the subagent's earnings/commission ledger (read-only; no deposit wallet).
     Route::get('transactions', [TransactionsController::class, 'index'])->name('subagent.transactions');

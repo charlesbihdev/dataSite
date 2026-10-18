@@ -1,5 +1,6 @@
 import { Head, router } from "@inertiajs/react";
 import { useEffect, useRef, useState } from "react";
+import { RefreshCw, RotateCw } from "lucide-react";
 import { Order, OrderDetailDialog } from "@/components/agent/order-detail-dialog";
 import { Column, DataTable } from "@/components/common/data-table";
 import { DateRangePicker, DateRangeValue } from "@/components/common/date-range-picker";
@@ -81,6 +82,30 @@ export default function SubagentOrders({ orders, filters, stats }: Props) {
             align: "right",
             render: (o) => (
                 <div className="flex items-center justify-end gap-1">
+                    {o.payment_status === "awaiting" ? (
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            title="Verify payment & dispatch"
+                            aria-label="Verify payment & dispatch"
+                            className="text-amber-600 hover:text-amber-700 dark:text-amber-400"
+                            onClick={() => router.post(`/orders/${o.id}/verify-payment`, {}, { preserveScroll: true })}
+                        >
+                            <RefreshCw className="size-4" />
+                        </Button>
+                    ) : null}
+                    {o.status === "failed" ? (
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            title="Retry dispatch"
+                            aria-label="Retry dispatch"
+                            className="text-brand hover:text-brand-hover"
+                            onClick={() => router.post(`/orders/${o.id}/retry`, {}, { preserveScroll: true })}
+                        >
+                            <RotateCw className="size-4" />
+                        </Button>
+                    ) : null}
                     <Button variant="ghost" size="sm" onClick={() => setSelected(o)}>
                         View
                     </Button>
