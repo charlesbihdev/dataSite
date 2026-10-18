@@ -2,18 +2,25 @@
 
 namespace App\Http\Controllers\Subagent;
 
+use App\Http\Controllers\Concerns\HandlesOrderActions;
 use App\Http\Controllers\Controller;
+use App\Models\Order;
+use App\Services\Orders\OrderDispatchService;
+use App\Services\Payments\OrderPaymentConfirmer;
 use App\Support\DateRange;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
 /**
- * The subagent's Orders page — their own storefront sales, mirroring the agent Orders page but
- * read-only (subagents don't retry dispatch or verify payments; those stay agent/admin actions).
+ * The subagent's Orders page — their own storefront sales. Reuses the shared HandlesOrderActions
+ * trait for payment verification and dispatch retries, strictly scoped to their own orders.
  */
 class OrdersController extends Controller
 {
+    use HandlesOrderActions;
+
     public function index(Request $request): Response
     {
         $subagent = $request->user('subagent');
@@ -65,5 +72,27 @@ class OrdersController extends Controller
                 'network' => $network,
             ],
         ]);
+    }
+
+    /**
+     * Let a subagent re-send one of their OWN failed storefront orders.
+     */
+    public function retry(Request $request, int $order, OrderDispatchService $dispatch): RedirectResponse
+    {
+        /** @var Order $found */
+        $found = $request->user('subagent')->orders()->whereKey($order)->firstOrFail();
+
+        return $this->performOrderRetry($found, $dispatch);
+    }
+
+    /**
+     * Let a subagent verify a customer's gateway payment on one of their OWN storefront orders and dispatch it.
+     */
+    public function verifyPayment(Request $request, int $order, OrderPaymentConfirmer $confirmer): RedirectResponse
+    {
+        /** @var Order $found */
+        $found = $request->user('subagent')->orders()->whereKey($order)->firstOrFail();
+
+        return $this->performOrderPaymentVerification($found, $confirmer);
     }
 }
