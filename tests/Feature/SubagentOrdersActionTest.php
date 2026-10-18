@@ -254,3 +254,4 @@ class SubagentOrdersActionTest extends TestCase
         $this->assertSame(Order::STATUS_COMPLETED, $completedOrder->fresh()->status);
     }
 }
+
