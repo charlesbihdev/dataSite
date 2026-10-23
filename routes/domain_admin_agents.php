@@ -36,6 +36,7 @@ use App\Http\Controllers\Admin\OrdersController;
 use App\Http\Controllers\Admin\PaymentConfigController;
 use App\Http\Controllers\Admin\PricingController;
 use App\Http\Controllers\Admin\ProfileController;
+use App\Http\Controllers\Admin\ResellersController;
 use App\Http\Controllers\Admin\SettingsController;
 use App\Http\Controllers\Admin\TransactionsController;
 use App\Http\Controllers\Admin\WithdrawalsController;
@@ -107,6 +108,7 @@ Route::middleware(['auth:agent'])->group(function () {
 
 use App\Http\Controllers\Admin\AnalyticsController;
 use App\Http\Controllers\Admin\AuthController;
+use App\Http\Controllers\Admin\TopupsController;
 
 // Superadmin backoffice. Protected by auth:admin and admin.ip allowlist
 Route::prefix('admin')->name('admin.')->group(function () {
@@ -172,10 +174,14 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::post('api-keys/{apiKey}/toggle', [AccountApiKeysController::class, 'toggle'])->name('api-keys.toggle');
         Route::delete('api-keys/{apiKey}', [AccountApiKeysController::class, 'destroy'])->name('api-keys.destroy');
 
+        Route::get('resellers', [ResellersController::class, 'index'])->name('resellers');
+        Route::get('resellers/profit-splits', [ResellersController::class, 'splits'])->name('resellers.profit-splits');
+        Route::get('resellers/profit-splits/export', [ResellersController::class, 'exportSplits'])->name('resellers.profit-splits.export');
+
         Route::get('ledger', [TransactionsController::class, 'ledger'])->name('ledger');
-        Route::get('topups', [\App\Http\Controllers\Admin\TopupsController::class, 'index'])->name('topups.index');
-        Route::post('topups/{topup}/verify-payment', [\App\Http\Controllers\Admin\TopupsController::class, 'verifyPayment'])->name('topups.verify-payment');
-        Route::get('topups/export', [\App\Http\Controllers\Admin\TopupsController::class, 'export'])->name('topups.export');
+        Route::get('topups', [TopupsController::class, 'index'])->name('topups.index');
+        Route::post('topups/{topup}/verify-payment', [TopupsController::class, 'verifyPayment'])->name('topups.verify-payment');
+        Route::get('topups/export', [TopupsController::class, 'export'])->name('topups.export');
         Route::get('api-logs', [ApiLogController::class, 'index'])->name('api-logs');
         Route::get('withdrawals', [WithdrawalsController::class, 'index'])->name('withdrawals');
         Route::put('withdrawals/{withdrawal}', [WithdrawalsController::class, 'update'])->name('withdrawals.update');

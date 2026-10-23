@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Support\Carbon;
 
@@ -91,5 +92,11 @@ class Order extends Model
     public function seller(): MorphTo
     {
         return $this->morphTo();
+    }
+
+    /** @return HasMany<Earning, $this> */
+    public function earnings(): HasMany
+    {
+        return $this->hasMany(Earning::class);
     }
 }

@@ -3,6 +3,7 @@ import {
     ArrowDownToLine,
     Banknote,
     CreditCard,
+    GitFork,
     LayoutGrid,
     LogOut,
     Radio,
@@ -63,6 +64,7 @@ const adminNavGroups = [
         items: [
             { title: "Top-ups", href: "/admin/topups", icon: ArrowDownToLine },
             { title: "Ledger", href: "/admin/ledger", icon: ScrollText },
+            { title: "Resellers", href: "/admin/resellers", icon: GitFork },
             {
                 title: "Withdrawals",
                 href: "/admin/withdrawals",
