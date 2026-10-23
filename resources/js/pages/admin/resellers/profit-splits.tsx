@@ -73,7 +73,7 @@ export default function ProfitSplits({
                     }
                 />
 
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                     <StatTile label="Customer Paid" value={cedis(stats.customerPaid)} hint={`${stats.sales} sales (excl. failed/refunded)`} />
                     <StatTile label="Subagent Share" value={cedis(stats.subagentShare)} hint={share(stats.subagentShare)} />
                     <StatTile label="Agent Share" value={cedis(stats.agentShare)} hint={share(stats.agentShare)} />
