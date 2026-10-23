@@ -54,6 +54,21 @@ class OrderReceiptNotificationTest extends TestCase
         );
     }
 
+    public function test_receipt_is_branded_with_the_store_and_never_the_platform(): void
+    {
+        config(['app.name' => 'HiddenPlatformBrand']);
+        $order = $this->awaitingOrder('buyer@example.com');
+        $order->seller->update(['slug' => 'kofi-data', 'store_name' => 'Kofi Data Hub']);
+
+        $html = (string) (new OrderReceiptNotification($order->fresh()))->toMail(new AnonymousNotifiable)->render();
+
+        $this->assertStringContainsString('Kofi Data Hub', $html);
+        $this->assertStringContainsString(e(route('agent.storefront', ['agentSlug' => 'kofi-data'])), $html);
+        $this->assertStringContainsString(e(route('agent.storefront.track', ['agentSlug' => 'kofi-data', 'by' => 'reference', 'reference' => $order->reference])), $html);
+        $this->assertStringNotContainsString('HiddenPlatformBrand', $html);
+        $this->assertStringNotContainsString('href="'.config('app.url').'"', $html);
+    }
+
     public function test_no_email_is_sent_when_no_address_was_provided(): void
     {
         Notification::fake();
