@@ -407,4 +407,20 @@ class OrderDispatchServiceTest extends TestCase
         $this->assertSame(80.0, (float) $agent->walletOrCreate()->balance);
         $this->assertSame(1, Earning::where('status', Earning::STATUS_PENDING)->count());
     }
+
+    public function test_invalid_capacity_rejection_fails_and_refunds_instead_of_holding(): void
+    {
+        $agent = $this->agent();
+        $this->fund($agent, 100);
+        $this->fakeUpstream(['success' => false, 'code' => 'INVALID_CAPACITY', 'message' => 'Telecel only accepts bundles of 10–200 GB'], 400);
+
+        $order = app(OrderDispatchService::class)->dispatch(new NewOrderData(
+            seller: $agent, network: 'telecel', capacityGb: 5, beneficiaryPhone: '0201234567',
+            customerPrice: 30, sellerCost: 20, agentCost: 20, baseCost: 15,
+        ));
+
+        $this->assertSame(Order::STATUS_FAILED, $order->fresh()->status);
+        $this->assertSame(100.0, (float) $agent->walletOrCreate()->balance);
+        $this->assertSame(0, Earning::where('status', Earning::STATUS_PENDING)->count());
+    }
 }

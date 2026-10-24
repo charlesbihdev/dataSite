@@ -94,6 +94,12 @@ final class UpstreamOrderResult
         return ! $this->isAccepted() && $this->errorCode === 'BENEFICIARY_NOT_APPROVED';
     }
 
+    /** DBH will never accept this order as placed (e.g. a size the network doesn't sell), so retrying is pointless. */
+    public function isPermanentRejection(): bool
+    {
+        return ! $this->isAccepted() && $this->errorCode === 'INVALID_CAPACITY';
+    }
+
     /**
      * Neither delivered nor terminally failed — keep polling.
      */

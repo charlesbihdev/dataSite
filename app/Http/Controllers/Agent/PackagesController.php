@@ -73,7 +73,7 @@ class PackagesController extends Controller
         $cost = $price['amount'];
 
         if ($selling < $cost) {
-            return $this->toast('error', 'Selling price must be at least your cost price (' . number_format($cost, 2) . ').');
+            return $this->toast('error', 'Selling price must be at least your cost price ('.number_format($cost, 2).').');
         }
         if ($subagent !== null && $subagent < $cost) {
             return $this->toast('error', 'Sub-agent price must be at least your cost price.');
@@ -113,6 +113,9 @@ class PackagesController extends Controller
         $options = [];
         foreach ([GhanaMobileNetwork::MTN, GhanaMobileNetwork::TELECEL, GhanaMobileNetwork::AT] as $network) {
             foreach (self::CANDIDATE_SIZES as $size) {
+                if ($size < GhanaMobileNetwork::minGb($network)) {
+                    continue;
+                }
                 $price = $quote->for($agent, $network, $size);
                 if ($price === null) {
                     continue;
@@ -121,7 +124,7 @@ class PackagesController extends Controller
                     'value' => "{$network}:{$size}",
                     'network' => $network,
                     'capacityGb' => $size,
-                    'label' => strtoupper($network) . " {$size}GB",
+                    'label' => strtoupper($network)." {$size}GB",
                     'cost' => $price['amount'],
                 ];
             }

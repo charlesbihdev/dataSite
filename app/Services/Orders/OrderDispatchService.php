@@ -7,6 +7,7 @@ use App\Jobs\PollUpstreamOrderStatus;
 use App\Models\Earning;
 use App\Models\Order;
 use App\Notifications\OrderReceiptNotification;
+use App\Services\Beneficiaries\UnapprovedBeneficiaryService;
 use App\Services\Databundleshub\UpstreamClient;
 use App\Services\Databundleshub\UpstreamException;
 use Illuminate\Support\Facades\DB;
@@ -35,7 +36,7 @@ class OrderDispatchService
         private readonly UpstreamClient $client,
         private readonly OrderSettlementService $settlement,
         private readonly ProfitSplit $profitSplit,
-        private readonly ?\App\Services\Beneficiaries\UnapprovedBeneficiaryService $unapprovedBeneficiaries = null,
+        private readonly ?UnapprovedBeneficiaryService $unapprovedBeneficiaries = null,
     ) {}
 
     /**
@@ -306,6 +307,12 @@ class OrderDispatchService
                     $order->seller?->name ?? 'Direct',
                     $reasonText
                 );
+
+                return;
+            }
+
+            if ($result->isPermanentRejection()) {
+                $this->settlement->reverse($order, $result->errorMessage ?? 'This package is not available on this network.');
 
                 return;
             }

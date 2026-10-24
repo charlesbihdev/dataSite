@@ -4,7 +4,6 @@ namespace App\Services\Orders;
 
 use App\Models\Order;
 use App\Services\Databundleshub\UpstreamClient;
-use Illuminate\Support\Facades\Log;
 
 /**
  * Checks one order's upstream (Databundleshub) status and acts on a terminal result. Shared by the
@@ -30,12 +29,13 @@ class OrderPoller
 
         $result = $this->client->orderStatus($order->upstream_request_id, $order->network, $order->id);
 
-        Log::info('Upstream poll succeeded', [
-            'order' => $order->reference,
-            'success' => $result->success,
-            'orderStatus' => $result->orderStatus,
-            'outcome' => $result->isCompleted() ? 'delivered' : ($result->isFailed() ? 'failed' : 'still processing'),
-        ]);
+        // Disabled: logged every poll (~60k lines in two weeks). Uncomment to debug polling.
+        // Log::info('Upstream poll succeeded', [
+        //     'order' => $order->reference,
+        //     'success' => $result->success,
+        //     'orderStatus' => $result->orderStatus,
+        //     'outcome' => $result->isCompleted() ? 'delivered' : ($result->isFailed() ? 'failed' : 'still processing'),
+        // ]);
 
         if ($result->isCompleted()) {
             $this->settlement->settle($order, $result);
