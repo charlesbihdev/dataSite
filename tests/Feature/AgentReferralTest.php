@@ -53,4 +53,15 @@ class AgentReferralTest extends TestCase
         $this->assertSame('Kofi Data Store', $agent->store_name);
         $this->assertSame('0548715098', $agent->whatsapp_number);
     }
+
+    public function test_a_long_prefilled_whatsapp_link_is_accepted(): void
+    {
+        $agent = Agent::factory()->create();
+        $link = 'https://wa.me/233594547368?text='.str_repeat('Hi%20there%20', 20);
+
+        $this->actingAs($agent, 'agent')->put(route('agent.referral.contact'), ['whatsapp_group_link' => $link])
+            ->assertSessionHasNoErrors();
+
+        $this->assertSame($link, $agent->fresh()->whatsapp_group_link);
+    }
 }

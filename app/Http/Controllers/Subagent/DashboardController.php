@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Subagent;
 use App\Http\Controllers\Controller;
 use App\Models\Earning;
 use App\Models\Order;
+use App\Support\GhanaMobileNetwork;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -36,6 +37,7 @@ class DashboardController extends Controller
                 'pending' => (float) $subagent->earnings()->where('status', Earning::STATUS_PENDING)->sum('amount'),
                 'trend' => $this->earningsTrend($subagent),
             ],
+            'unsellablePackages' => GhanaMobileNetwork::belowMinimum($subagent->packagePrices()->where('is_active', true)->get()),
             'store' => [
                 'url' => route('subagent.storefront', ['subagentSlug' => $subagent->slug ?? $subagent->username ?? (string) $subagent->id]),
                 'active' => (bool) $subagent->store_active,

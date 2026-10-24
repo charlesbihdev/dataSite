@@ -69,6 +69,7 @@ class DashboardController extends Controller
             'cart' => $this->cart->items(),
             'cartTotal' => $this->cart->total(),
             'networks' => GhanaMobileNetwork::meta(),
+            'unsellablePackages' => GhanaMobileNetwork::belowMinimum($agent->packagePrices()->where('is_active', true)->get()),
         ]);
     }
 }

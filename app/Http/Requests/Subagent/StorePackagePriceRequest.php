@@ -21,8 +21,16 @@ class StorePackagePriceRequest extends FormRequest
     {
         return [
             'network' => ['required', 'string', Rule::in([GhanaMobileNetwork::MTN, GhanaMobileNetwork::TELECEL, GhanaMobileNetwork::AT])],
-            'capacity_gb' => ['required', 'integer', 'min:1', 'max:200'],
+            'capacity_gb' => ['required', 'integer', 'min:'.GhanaMobileNetwork::minGb($this->string('network')->value()), 'max:200'],
             'selling_price' => ['required', 'numeric', 'min:0.01'],
         ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return ['capacity_gb.min' => 'This network only sells bundles of :min GB and above.'];
     }
 }

@@ -68,4 +68,29 @@ class AgentPackagesTest extends TestCase
         $this->delete(route('agent.packages.destroy', $p));
         $this->assertSame(0, AgentPackagePrice::count());
     }
+
+    public function test_telecel_package_below_10gb_is_rejected_but_mtn_small_sizes_are_fine(): void
+    {
+        TierPrice::create(['pricing_tier_id' => $this->agent->pricing_tier_id, 'network' => 'telecel', 'min_gb' => 1, 'max_gb' => 100, 'price_per_gb' => 5.0, 'is_active' => true]);
+
+        $this->post(route('agent.packages.store'), ['network' => 'telecel', 'capacity_gb' => 5, 'selling_price' => 40])
+            ->assertSessionHasErrors('capacity_gb');
+        $this->post(route('agent.packages.store'), ['network' => 'mtn', 'capacity_gb' => 1, 'selling_price' => 8])
+            ->assertSessionHasNoErrors();
+
+        $this->assertSame(['mtn'], AgentPackagePrice::pluck('network')->all());
+    }
+
+    public function test_dashboard_warns_about_existing_telecel_packages_below_10gb(): void
+    {
+        $this->agent->packagePrices()->create(['network' => 'telecel', 'capacity_gb' => 1, 'cost_price' => 5, 'selling_price' => 7, 'is_active' => true]);
+        $this->agent->packagePrices()->create(['network' => 'mtn', 'capacity_gb' => 1, 'cost_price' => 5, 'selling_price' => 7, 'is_active' => true]);
+
+        $this->get(route('agent.dashboard'))->assertInertia(
+            fn (Assert $page) => $page
+                ->has('unsellablePackages', 1)
+                ->where('unsellablePackages.0.network', 'telecel')
+                ->where('unsellablePackages.0.minGb', 10)
+        );
+    }
 }

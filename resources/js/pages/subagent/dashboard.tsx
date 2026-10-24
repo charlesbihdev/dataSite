@@ -3,10 +3,11 @@ import { useState } from "react";
 import { ArrowUpRight, Check, Copy, ShoppingBag, Store, TrendingUp, Users, Wallet } from "lucide-react";
 import { Column, DataTable } from "@/components/common/data-table";
 import { StatusBadge } from "@/components/common/status-badge";
+import { UnsellablePackage, UnsellablePackagesAlert } from "@/components/common/unsellable-packages-alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cedis } from "@/lib/format";
-import { storeLink, withdrawals } from "@/routes/subagent";
+import { packages, storeLink, withdrawals } from "@/routes/subagent";
 
 interface RecentSale {
     id: number;
@@ -31,6 +32,7 @@ interface Props {
     thisWeek: { salesVolume: number; revenue: number; margin: number; uniqueBuyers: number };
     recentSales: RecentSale[];
     topSellers: TopSeller[];
+    unsellablePackages: UnsellablePackage[];
 }
 
 function greetingWord(): string {
@@ -63,7 +65,7 @@ const saleColumns: Column<RecentSale>[] = [
     { key: "when", header: "When", render: (s) => <span className="text-muted-foreground">{s.createdAt ?? "—"}</span> },
 ];
 
-export default function SubagentDashboard({ greeting, earnings, store, thisWeek, recentSales, topSellers }: Props) {
+export default function SubagentDashboard({ greeting, earnings, store, thisWeek, recentSales, topSellers, unsellablePackages }: Props) {
     const [copied, setCopied] = useState(false);
     const today = new Date().toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 
@@ -94,6 +96,8 @@ export default function SubagentDashboard({ greeting, earnings, store, thisWeek,
                         </Button>
                     </div>
                 </div>
+
+                <UnsellablePackagesAlert packages={unsellablePackages} href={packages.url()} />
 
                 {/* Available to withdraw + storefront */}
                 <div className="grid items-stretch gap-6 lg:grid-cols-2">

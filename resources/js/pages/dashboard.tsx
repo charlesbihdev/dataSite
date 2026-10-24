@@ -7,6 +7,7 @@ import { TopupDialog } from "@/components/agent/topup-dialog";
 import { Column, DataTable } from "@/components/common/data-table";
 import { DateRangePicker, DateRangeValue } from "@/components/common/date-range-picker";
 import { StatusBadge } from "@/components/common/status-badge";
+import { UnsellablePackage, UnsellablePackagesAlert } from "@/components/common/unsellable-packages-alert";
 import { NetworkMeta } from "@/lib/networks";
 import { Button } from "@/components/ui/button";
 import {
@@ -17,7 +18,7 @@ import {
     CardTitle,
 } from "@/components/ui/card";
 import { cedis } from "@/lib/format";
-import { dashboard } from "@/routes/agent";
+import { dashboard, packages } from "@/routes/agent";
 
 interface Filters {
     range: string;
@@ -58,6 +59,7 @@ export default function Dashboard({
     cart,
     cartTotal,
     networks,
+    unsellablePackages,
 }: {
     filters: Filters;
     stats: Stats;
@@ -66,6 +68,7 @@ export default function Dashboard({
     cart: CartItem[];
     cartTotal: number;
     networks: NetworkMeta[];
+    unsellablePackages: UnsellablePackage[];
 }) {
     const { auth } = usePage().props as any;
     const user = auth.user;
@@ -108,6 +111,8 @@ export default function Dashboard({
                         onChange={applyRange}
                     />
                 </div>
+
+                <UnsellablePackagesAlert packages={unsellablePackages} href={packages.url()} />
 
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                     <Card className="border-border/50 bg-background/50 backdrop-blur-xl">

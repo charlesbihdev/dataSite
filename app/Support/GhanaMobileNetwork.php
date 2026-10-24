@@ -48,9 +48,9 @@ final class GhanaMobileNetwork
             return '';
         }
         if (str_starts_with($digits, '233') && strlen($digits) === 12) {
-            $digits = '0' . substr($digits, 3);
+            $digits = '0'.substr($digits, 3);
         } elseif (strlen($digits) === 9 && in_array($digits[0], ['2', '5'], true)) {
-            $digits = '0' . $digits;
+            $digits = '0'.$digits;
         }
 
         return strlen($digits) === 10 && $digits[0] === '0' ? $digits : '';
@@ -155,6 +155,30 @@ final class GhanaMobileNetwork
         };
     }
 
+    /** Smallest bundle the supplier accepts on a network (Telecel: 10GB; others: 1GB). */
+    public static function minGb(string $code): int
+    {
+        return self::NETWORKS[$code]['min_gb'] ?? 1;
+    }
+
+    /**
+     * Store packages below their network's minimum — the supplier rejects these, so sellers are warned.
+     *
+     * @param  iterable<object{id: int, network: string, capacity_gb: int}>  $packages
+     * @return list<array{id: int, network: string, networkLabel: string|null, capacityGb: int, minGb: int}>
+     */
+    public static function belowMinimum(iterable $packages): array
+    {
+        $out = [];
+        foreach ($packages as $p) {
+            if ((int) $p->capacity_gb < self::minGb($p->network)) {
+                $out[] = ['id' => $p->id, 'network' => $p->network, 'networkLabel' => self::label($p->network), 'capacityGb' => (int) $p->capacity_gb, 'minGb' => self::minGb($p->network)];
+            }
+        }
+
+        return $out;
+    }
+
     /**
      * Validate an agent order (phone + size) before pricing/checkout. Returns a human error
      * message, or null when the order is valid.
@@ -171,7 +195,7 @@ final class GhanaMobileNetwork
         if (! in_array($sizeGb, $allowed, true)) {
             $label = self::label($code);
 
-            return "Invalid {$label} package. Allowed sizes: " . implode(', ', $allowed) . ' GB.';
+            return "Invalid {$label} package. Allowed sizes: ".implode(', ', $allowed).' GB.';
         }
 
         return null;
