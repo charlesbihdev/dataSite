@@ -16,9 +16,11 @@ class AuthController extends Controller
     /**
      * Show the subagent login form (agent-store domain).
      */
-    public function showLoginForm(): Response
+    public function showLoginForm(Request $request): Response
     {
-        return Inertia::render('subagent/auth/login');
+        return Inertia::render('subagent/auth/login', [
+            'status' => $request->session()->get('status'),
+        ]);
     }
 
     /**

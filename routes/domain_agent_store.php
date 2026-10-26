@@ -30,8 +30,10 @@ use App\Http\Controllers\Storefront\StoreAssistantController;
 use App\Http\Controllers\Storefront\StorefrontController;
 use App\Http\Controllers\Subagent\AuthController;
 use App\Http\Controllers\Subagent\DashboardController;
+use App\Http\Controllers\Subagent\NewPasswordController;
 use App\Http\Controllers\Subagent\OrdersController;
 use App\Http\Controllers\Subagent\PackagesController;
+use App\Http\Controllers\Subagent\PasswordResetLinkController;
 use App\Http\Controllers\Subagent\RegisterController;
 use App\Http\Controllers\Subagent\SettingsController;
 use App\Http\Controllers\Subagent\StoreLinkController;
@@ -49,6 +51,11 @@ Route::inertia('/', 'public/agent-store-landing')->name('agent_store.home');
 Route::middleware(['guest:subagent'])->group(function () {
     Route::get('login', [AuthController::class, 'showLoginForm'])->name('subagent.login');
     Route::post('login', [AuthController::class, 'login'])->name('subagent.login.store');
+
+    Route::get('forgot-password', [PasswordResetLinkController::class, 'create'])->name('subagent.password.request');
+    Route::post('forgot-password', [PasswordResetLinkController::class, 'store'])->middleware('throttle:6,1')->name('subagent.password.email');
+    Route::get('reset-password/{token}', [NewPasswordController::class, 'create'])->name('subagent.password.reset');
+    Route::post('reset-password', [NewPasswordController::class, 'store'])->name('subagent.password.update');
 
     // Become a subagent under an agent (ladder middle rung — D2 only, keyed to ?ref={agentSlug}).
     Route::get('register', [RegisterController::class, 'create'])->name('subagent.register');
