@@ -7,6 +7,7 @@ use App\Models\Concerns\HasEarnings;
 use App\Models\Concerns\HasOrders;
 use App\Models\Concerns\HasStoreHandle;
 use App\Models\Concerns\HasWallet;
+use App\Notifications\SubagentResetPassword;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -52,6 +53,11 @@ class Subagent extends Authenticatable
             'last_login_at' => 'datetime',
             'two_factor_confirmed_at' => 'datetime',
         ];
+    }
+
+    public function sendPasswordResetNotification(#[\SensitiveParameter] $token): void
+    {
+        $this->notify(new SubagentResetPassword($token));
     }
 
     /** @return BelongsTo<Agent, $this> */

@@ -120,7 +120,7 @@ return [
         ],
         'subagents' => [
             'provider' => 'subagents',
-            'table' => env('AUTH_PASSWORD_RESET_TOKEN_TABLE', 'password_reset_tokens'),
+            'table' => 'subagent_password_reset_tokens',
             'expire' => 60,
             'throttle' => 60,
         ],

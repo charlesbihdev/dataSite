@@ -1,7 +1,9 @@
 import { Head, useForm } from '@inertiajs/react';
 import SubagentAuthController from '@/actions/App/Http/Controllers/Subagent/AuthController';
+import PasswordResetLinkController from '@/actions/App/Http/Controllers/Subagent/PasswordResetLinkController';
 import InputError from '@/components/input-error';
 import PasswordInput from '@/components/password-input';
+import TextLink from '@/components/text-link';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
@@ -50,7 +52,16 @@ export default function SubagentLogin({ status }: Props) {
                     </div>
 
                     <div className="grid gap-2">
-                        <Label htmlFor="password">Password</Label>
+                        <div className="flex items-center">
+                            <Label htmlFor="password">Password</Label>
+                            <TextLink
+                                href={PasswordResetLinkController.create.url()}
+                                className="ml-auto text-sm"
+                                tabIndex={5}
+                            >
+                                Forgot your password?
+                            </TextLink>
+                        </div>
                         <PasswordInput
                             id="password"
                             name="password"
