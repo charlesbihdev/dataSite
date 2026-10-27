@@ -3,19 +3,38 @@ import type { CartRoutes } from "./cart-routes";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
+import { cedis } from "@/lib/format";
 import { detectNetwork, NetworkMeta } from "@/lib/networks";
 
 /**
  * Add one bundle to the cart. The network is detected live from the phone prefix (server-provided
- * table) and drives the size suggestions; the server re-validates and prices on submit.
+ * table) and drives the size options: a free size box with suggestions for agents, or — when the
+ * network carries `prices` (subagents) — a pick-list of only the opened bundles. The server
+ * re-validates and prices on submit either way.
  */
-export function SingleOrderForm({ networks, routes }: { networks: NetworkMeta[]; routes: CartRoutes }) {
+export function SingleOrderForm({
+    networks,
+    routes,
+}: {
+    networks: NetworkMeta[];
+    routes: CartRoutes;
+}) {
     const form = useForm({ beneficiary_phone: "", bundle_size: "" });
     const detected = detectNetwork(form.data.beneficiary_phone, networks);
 
     const submit = (e: React.FormEvent) => {
         e.preventDefault();
-        form.post(routes.store.url(), { preserveScroll: true, onSuccess: () => form.reset() });
+        form.post(routes.store.url(), {
+            preserveScroll: true,
+            onSuccess: () => form.reset(),
+        });
     };
 
     return (
@@ -28,50 +47,129 @@ export function SingleOrderForm({ networks, routes }: { networks: NetworkMeta[];
                     maxLength={10}
                     placeholder="0551234567"
                     value={form.data.beneficiary_phone}
-                    onChange={(e) => form.setData("beneficiary_phone", e.target.value.replace(/\D/g, ""))}
+                    onChange={(e) =>
+                        form.setData(
+                            "beneficiary_phone",
+                            e.target.value.replace(/\D/g, ""),
+                        )
+                    }
                     aria-invalid={!!form.errors.beneficiary_phone}
                 />
                 <p className="text-xs text-muted-foreground">
                     {detected ? (
-                        <span className="font-medium text-brand">{detected.label} detected</span>
+                        <span className="font-medium text-brand">
+                            {detected.label} detected
+                        </span>
                     ) : form.data.beneficiary_phone.length >= 3 ? (
-                        <span className="text-destructive">Unrecognized network prefix</span>
+                        <span className="text-destructive">
+                            Unrecognized network prefix
+                        </span>
                     ) : (
                         "MTN, Telecel, or AirtelTigo — 10 digits starting with 0."
                     )}
                 </p>
                 {form.errors.beneficiary_phone && (
-                    <p className="text-xs text-destructive">{form.errors.beneficiary_phone}</p>
+                    <p className="text-xs text-destructive">
+                        {form.errors.beneficiary_phone}
+                    </p>
                 )}
             </div>
 
-            <div className="space-y-1.5">
-                <Label htmlFor="bundle_size">Bundle size (GB)</Label>
-                <Input
-                    id="bundle_size"
-                    type="number"
-                    min={1}
-                    step={1}
-                    list="agent_bundle_sizes"
-                    placeholder="5"
+            {detected?.prices ? (
+                <PricedSizeSelect
+                    network={detected}
                     value={form.data.bundle_size}
-                    onChange={(e) => form.setData("bundle_size", e.target.value)}
-                    aria-invalid={!!form.errors.bundle_size}
+                    onChange={(size) => form.setData("bundle_size", size)}
+                    error={form.errors.bundle_size}
                 />
-                <datalist id="agent_bundle_sizes">
-                    {(detected?.sizes ?? []).map((size) => (
-                        <option key={size} value={size}>{size} GB</option>
-                    ))}
-                </datalist>
-                {detected?.code === "telecel" && (
-                    <p className="text-xs text-muted-foreground">Telecel requires 10 GB minimum.</p>
-                )}
-                {form.errors.bundle_size && <p className="text-xs text-destructive">{form.errors.bundle_size}</p>}
-            </div>
+            ) : (
+                <div className="space-y-1.5">
+                    <Label htmlFor="bundle_size">Bundle size (GB)</Label>
+                    <Input
+                        id="bundle_size"
+                        type="number"
+                        min={1}
+                        step={1}
+                        list="agent_bundle_sizes"
+                        placeholder="5"
+                        value={form.data.bundle_size}
+                        onChange={(e) =>
+                            form.setData("bundle_size", e.target.value)
+                        }
+                        aria-invalid={!!form.errors.bundle_size}
+                    />
+                    <datalist id="agent_bundle_sizes">
+                        {(detected?.sizes ?? []).map((size) => (
+                            <option key={size} value={size}>
+                                {size} GB
+                            </option>
+                        ))}
+                    </datalist>
+                    {detected?.code === "telecel" && (
+                        <p className="text-xs text-muted-foreground">
+                            Telecel requires 10 GB minimum.
+                        </p>
+                    )}
+                    {form.errors.bundle_size && (
+                        <p className="text-xs text-destructive">
+                            {form.errors.bundle_size}
+                        </p>
+                    )}
+                </div>
+            )}
 
-            <Button type="submit" className="w-full" disabled={form.processing}>
+            <Button
+                type="submit"
+                className="w-full"
+                disabled={
+                    form.processing ||
+                    (detected?.prices !== undefined &&
+                        form.data.bundle_size === "")
+                }
+            >
                 Add to cart
             </Button>
         </form>
+    );
+}
+
+/** Subagent pick-list: only the bundles their agent opened on this network, each with its price. */
+function PricedSizeSelect({
+    network,
+    value,
+    onChange,
+    error,
+}: {
+    network: NetworkMeta;
+    value: string;
+    onChange: (size: string) => void;
+    error?: string;
+}) {
+    if (network.sizes.length === 0) {
+        return (
+            <p className="rounded-lg border border-border bg-muted/40 p-3 text-xs text-muted-foreground">
+                Your agent hasn't opened any {network.label} bundles to
+                sub-agents yet.
+            </p>
+        );
+    }
+
+    return (
+        <div className="space-y-1.5">
+            <Label htmlFor="bundle_size">Bundle</Label>
+            <Select value={value} onValueChange={onChange}>
+                <SelectTrigger id="bundle_size" aria-invalid={!!error}>
+                    <SelectValue placeholder="Choose a bundle" />
+                </SelectTrigger>
+                <SelectContent>
+                    {network.sizes.map((size) => (
+                        <SelectItem key={size} value={String(size)}>
+                            {size}GB · {cedis(network.prices?.[size] ?? 0)}
+                        </SelectItem>
+                    ))}
+                </SelectContent>
+            </Select>
+            {error && <p className="text-xs text-destructive">{error}</p>}
+        </div>
     );
 }

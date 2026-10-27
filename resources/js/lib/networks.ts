@@ -10,6 +10,8 @@ export interface NetworkMeta {
     sizes: number[];
     min_gb: number;
     max_gb: number;
+    // Subagent portal only: price per opened size (GB → GHS); `sizes` is then a fixed pick-list.
+    prices?: Record<string, number>;
 }
 
 /** Reduce any Ghanaian input to a 10-digit 0XXXXXXXXX form, or '' if not a valid mobile number. */
