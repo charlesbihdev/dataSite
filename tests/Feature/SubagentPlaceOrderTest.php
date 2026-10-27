@@ -85,10 +85,13 @@ class SubagentPlaceOrderTest extends TestCase
 
     public function test_bulk_lines_for_unopened_bundles_are_reported_as_not_offered_by_the_agent(): void
     {
-        $this->post(route('subagent.cart.bulk'), ['bulk_orders_text' => "0559999999 5\n0559999998 10"])
-            ->assertSessionHas('inertia.flash_data.cartSkipped', fn (array $skipped): bool => count($skipped) === 1
-                && $skipped[0]['row'] === 2
-                && str_contains($skipped[0]['reason'], 'not opened this bundle to sub-agents'));
+        // 10GB is a valid MTN size and 7GB isn't — either way the subagent hears about THEIR bundles,
+        // not the supplier's list; Telecel has nothing opened at all.
+        $this->post(route('subagent.cart.bulk'), ['bulk_orders_text' => "0559999999 5\n0559999998 10\n0548715098 7\n0201234567 10"])
+            ->assertSessionHas('inertia.flash_data.cartSkipped', fn (array $skipped): bool => count($skipped) === 3
+                && $skipped[0]['reason'] === 'Not offered by your agent. Your MTN bundles: 5 GB.'
+                && $skipped[1]['reason'] === 'Not offered by your agent. Your MTN bundles: 5 GB.'
+                && $skipped[2]['reason'] === "Your agent hasn't opened any Telecel bundles yet.");
 
         $this->assertCount(1, session('agent_cart'));
     }

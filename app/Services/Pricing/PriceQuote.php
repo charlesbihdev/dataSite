@@ -67,6 +67,24 @@ class PriceQuote
             ->value('price_per_gb');
     }
 
+    /**
+     * The sizes on a network a subagent can buy — the active packages their agent opened to sub-agents.
+     *
+     * @return list<int>
+     */
+    public function subagentSizes(Subagent $subagent, string $network): array
+    {
+        return AgentPackagePrice::query()
+            ->where('agent_id', $subagent->agent_id)
+            ->where('network', $network)
+            ->where('is_active', true)
+            ->whereNotNull('subagent_price')
+            ->orderBy('capacity_gb')
+            ->pluck('capacity_gb')
+            ->map(fn ($gb): int => (int) $gb)
+            ->all();
+    }
+
     private function subagentPricePerGb(Subagent $subagent, string $network, int $capacityGb): ?float
     {
         $price = AgentPackagePrice::query()

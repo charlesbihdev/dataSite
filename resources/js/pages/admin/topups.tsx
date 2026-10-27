@@ -12,6 +12,7 @@ import {
     Search,
     XCircle,
 } from "lucide-react";
+import { SellerTypeBadge } from "@/components/admin/orders/seller-type-badge";
 import { Column, DataTable } from "@/components/common/data-table";
 import { PageHeader } from "@/components/common/page-header";
 import { PageLink, Pagination } from "@/components/common/pagination";
@@ -46,6 +47,7 @@ interface Topup {
     chargedAmount: number;
     currency: string;
     status: string;
+    sellerType: string;
     agentName: string;
     agentEmail: string;
     agentPhone: string;
@@ -65,6 +67,7 @@ interface Props {
     filters: {
         status: string;
         gateway: string;
+        seller: string;
         q: string;
         date_from: string;
         date_to: string;
@@ -84,6 +87,12 @@ const GATEWAY_OPTIONS = [
     { value: "moolre", label: "Moolre" },
 ];
 
+const SELLER_OPTIONS = [
+    { value: "all", label: "Agents & Subagents" },
+    { value: "agent", label: "Agents" },
+    { value: "subagent", label: "Subagents" },
+];
+
 export default function AdminTopups({ topups, stats, filters }: Props) {
     const [search, setSearch] = useState(filters.q ?? "");
     const [selectedIds, setSelectedIds] = useState<(string | number)[]>([]);
@@ -98,6 +107,7 @@ export default function AdminTopups({ topups, stats, filters }: Props) {
             {
                 status: filters.status,
                 gateway: filters.gateway,
+                seller: filters.seller,
                 q: search,
                 date_from: filters.date_from,
                 date_to: filters.date_to,
@@ -141,6 +151,7 @@ export default function AdminTopups({ topups, stats, filters }: Props) {
         } else {
             if (filters.status && filters.status !== "all") params.set("status", filters.status);
             if (filters.gateway && filters.gateway !== "all") params.set("gateway", filters.gateway);
+            if (filters.seller && filters.seller !== "all") params.set("seller", filters.seller);
             if (search) params.set("q", search);
             if (filters.date_from) params.set("date_from", filters.date_from);
             if (filters.date_to) params.set("date_to", filters.date_to);
@@ -180,10 +191,13 @@ export default function AdminTopups({ topups, stats, filters }: Props) {
         },
         {
             key: "agent",
-            header: "Agent",
+            header: "Agent/Subagent",
             render: (t) => (
-                <div className="flex flex-col">
-                    <span className="font-medium text-foreground">{t.agentName}</span>
+                <div className="flex flex-col items-start gap-0.5">
+                    <span className="flex items-center gap-2">
+                        <span className="font-medium text-foreground">{t.agentName}</span>
+                        <SellerTypeBadge type={t.sellerType} />
+                    </span>
                     <span className="text-xs text-muted-foreground">{t.agentPhone}</span>
                 </div>
             ),
@@ -369,12 +383,28 @@ export default function AdminTopups({ topups, stats, filters }: Props) {
                             </SelectContent>
                         </Select>
 
+                        <Select
+                            value={filters.seller ?? "all"}
+                            onValueChange={(v) => apply({ seller: v })}
+                        >
+                            <SelectTrigger className="w-48">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {SELLER_OPTIONS.map((s) => (
+                                    <SelectItem key={s.value} value={s.value}>
+                                        {s.label}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+
                         <div className="relative ml-auto w-full sm:w-80">
                             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                             <Input
                                 value={search}
                                 onChange={(e) => onSearchChange(e.target.value)}
-                                placeholder="Search reference, agent, phone…"
+                                placeholder="Search reference, name, phone…"
                                 className="pl-9 bg-background"
                             />
                         </div>
@@ -459,8 +489,11 @@ export default function AdminTopups({ topups, stats, filters }: Props) {
                                     <StatusBadge status={viewingTopup.status} />
                                 </div>
                                 <div className="flex justify-between border-b border-border/50 py-1.5">
-                                    <span className="text-muted-foreground">Agent</span>
-                                    <span className="font-medium text-foreground">{viewingTopup.agentName}</span>
+                                    <span className="text-muted-foreground">Agent/Subagent</span>
+                                    <span className="flex items-center gap-2 font-medium text-foreground">
+                                        {viewingTopup.agentName}
+                                        <SellerTypeBadge type={viewingTopup.sellerType} />
+                                    </span>
                                 </div>
                                 <div className="flex justify-between border-b border-border/50 py-1.5">
                                     <span className="text-muted-foreground">Phone</span>
