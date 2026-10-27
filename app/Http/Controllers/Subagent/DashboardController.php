@@ -3,21 +3,24 @@
 namespace App\Http\Controllers\Subagent;
 
 use App\Http\Controllers\Controller;
+use App\Models\AgentPackagePrice;
 use App\Models\Earning;
 use App\Models\Order;
+use App\Models\Subagent;
+use App\Services\Cart\CartService;
 use App\Support\GhanaMobileNetwork;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
 /**
- * The subagent portal home — a sales/earnings dashboard (they sell only through their storefront):
- * available-to-withdraw with a 7-day trend, their storefront link, recent sales, top sellers, and a
- * 7-day summary (volume, revenue, margin, unique buyers).
+ * The subagent portal home: available-to-withdraw with a 7-day trend, wallet balance + Place-Order
+ * cart (bought at the agent's sub-agent price), their storefront link, recent sales, top sellers,
+ * and a 7-day storefront summary (volume, revenue, margin, unique buyers).
  */
 class DashboardController extends Controller
 {
-    public function index(Request $request): Response
+    public function index(Request $request, CartService $cart): Response
     {
         $subagent = $request->user('subagent');
         $weekStart = now()->subDays(7);
@@ -37,6 +40,10 @@ class DashboardController extends Controller
                 'pending' => (float) $subagent->earnings()->where('status', Earning::STATUS_PENDING)->sum('amount'),
                 'trend' => $this->earningsTrend($subagent),
             ],
+            'walletBalance' => (float) ($subagent->wallet?->balance ?? 0),
+            'cart' => $cart->items(),
+            'cartTotal' => $cart->total(),
+            'networks' => $this->orderableNetworks($subagent),
             'unsellablePackages' => GhanaMobileNetwork::belowMinimum($subagent->packagePrices()->where('is_active', true)->get()),
             'store' => [
                 'url' => route('subagent.storefront', ['subagentSlug' => $subagent->slug ?? $subagent->username ?? (string) $subagent->id]),
@@ -72,6 +79,29 @@ class DashboardController extends Controller
                     'revenue' => (float) $row->revenue,
                 ]),
         ]);
+    }
+
+    /**
+     * Network meta for the Place-Order form, with size suggestions narrowed to the packages the agent
+     * has opened to sub-agents — the only ones PriceQuote can price for a subagent.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function orderableNetworks(Subagent $subagent): array
+    {
+        $sizes = AgentPackagePrice::query()
+            ->where('agent_id', $subagent->agent_id)
+            ->where('is_active', true)
+            ->whereNotNull('subagent_price')
+            ->orderBy('capacity_gb')
+            ->get(['network', 'capacity_gb'])
+            ->groupBy('network')
+            ->map(fn ($rows) => $rows->pluck('capacity_gb')->map(fn ($gb) => (int) $gb)->values()->all());
+
+        return array_map(
+            fn (array $network): array => ['sizes' => $sizes->get($network['code'], [])] + $network,
+            GhanaMobileNetwork::meta(),
+        );
     }
 
     /**

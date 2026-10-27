@@ -8,6 +8,7 @@ use App\Models\Earning;
 use App\Models\Withdrawal;
 use App\Models\WithdrawalConfig;
 use App\Services\Withdrawals\WithdrawalService;
+use App\Support\GhanaMobileNetwork;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -71,7 +72,7 @@ class WithdrawalController extends Controller
         }
 
         $destination = $request->string('destination')->value();
-        $network = $request->input('network') ?: \App\Support\GhanaMobileNetwork::detect($destination);
+        $network = $request->input('network') ?: GhanaMobileNetwork::detect($destination);
         $accountName = $request->input('account_name');
 
         $earner->withdrawals()->create([

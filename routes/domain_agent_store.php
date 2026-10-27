@@ -29,6 +29,7 @@
 use App\Http\Controllers\Storefront\StoreAssistantController;
 use App\Http\Controllers\Storefront\StorefrontController;
 use App\Http\Controllers\Subagent\AuthController;
+use App\Http\Controllers\Subagent\CartController;
 use App\Http\Controllers\Subagent\DashboardController;
 use App\Http\Controllers\Subagent\NewPasswordController;
 use App\Http\Controllers\Subagent\OrdersController;
@@ -38,6 +39,7 @@ use App\Http\Controllers\Subagent\RegisterController;
 use App\Http\Controllers\Subagent\SettingsController;
 use App\Http\Controllers\Subagent\StoreLinkController;
 use App\Http\Controllers\Subagent\TransactionsController;
+use App\Http\Controllers\Subagent\WalletTopupController;
 use App\Http\Controllers\Subagent\WithdrawalController;
 use Illuminate\Support\Facades\Route;
 
@@ -79,8 +81,21 @@ Route::middleware(['auth:subagent'])->group(function () {
     Route::post('orders/{order}/retry', [OrdersController::class, 'retry'])->name('subagent.orders.retry');
     Route::post('orders/{order}/verify-payment', [OrdersController::class, 'verifyPayment'])->name('subagent.orders.verify-payment');
 
-    // Transactions — the subagent's earnings/commission ledger (read-only; no deposit wallet).
+    // Transactions — Earnings tab (commission ledger) + Wallet tab (deposit ledger), read-only.
     Route::get('transactions', [TransactionsController::class, 'index'])->name('subagent.transactions');
+
+    // Wallet top-up — funds the deposit balance that Place-Order checkout spends.
+    Route::post('topup', [WalletTopupController::class, 'store'])->name('subagent.topup');
+    Route::get('topup/callback', [WalletTopupController::class, 'callback'])->name('subagent.topup.callback');
+    Route::post('topup/{topup}/verify', [WalletTopupController::class, 'verify'])->name('subagent.topup.verify');
+
+    // Place-Order cart — priced at the agent's sub-agent price, paid from the wallet.
+    Route::get('cart/template', [CartController::class, 'template'])->name('subagent.cart.template');
+    Route::post('cart', [CartController::class, 'store'])->name('subagent.cart.store');
+    Route::post('cart/bulk', [CartController::class, 'storeBulk'])->name('subagent.cart.bulk');
+    Route::post('cart/upload', [CartController::class, 'upload'])->name('subagent.cart.upload');
+    Route::delete('cart/{id}', [CartController::class, 'destroy'])->name('subagent.cart.destroy');
+    Route::post('cart/checkout', [CartController::class, 'checkout'])->name('subagent.cart.checkout');
 
     // Packages — the subagent's own selling prices, cost frozen from the agent's sub-agent price.
     Route::get('packages', [PackagesController::class, 'index'])->name('subagent.packages');

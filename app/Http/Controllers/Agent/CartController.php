@@ -2,137 +2,18 @@
 
 namespace App\Http\Controllers\Agent;
 
+use App\Http\Controllers\Concerns\HandlesCartActions;
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Agent\AddCartItemRequest;
-use App\Http\Requests\Agent\BulkCartRequest;
-use App\Http\Requests\Agent\UploadCartRequest;
-use App\Services\Cart\CartCheckoutService;
-use App\Services\Cart\CartService;
-use App\Services\Cart\OrderFileParser;
-use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
-use Inertia\Inertia;
-use PhpOffice\PhpSpreadsheet\Cell\DataType;
-use PhpOffice\PhpSpreadsheet\Spreadsheet;
-use PhpOffice\PhpSpreadsheet\Style\NumberFormat;
-use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
-use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
- * The agent's Place-Order basket: three ways in (single, bulk paste, file upload), remove a line,
- * and checkout. Every action mutates the session cart via CartService and redirects back to the
- * dashboard, where the refreshed cart re-renders (the server-driven Inertia way).
+ * The agent's Place-Order basket (actions shared with the subagent portal via HandlesCartActions).
  */
 class CartController extends Controller
 {
-    public function __construct(private readonly CartService $cart) {}
+    use HandlesCartActions;
 
-    public function store(AddCartItemRequest $request): RedirectResponse
+    protected function dashboardRoute(): string
     {
-        $error = $this->cart->add($request->user(), (string) $request->input('beneficiary_phone'), (int) $request->input('bundle_size'));
-
-        return $error !== null
-            ? $this->toast('error', $error)
-            : $this->toast('success', 'Bundle added to cart.');
-    }
-
-    public function storeBulk(BulkCartRequest $request): RedirectResponse
-    {
-        $rows = $this->parseLines((string) $request->input('bulk_orders_text'));
-
-        return $this->summarize($this->cart->addMany($request->user(), $rows));
-    }
-
-    public function upload(UploadCartRequest $request, OrderFileParser $parser): RedirectResponse
-    {
-        return $this->summarize($this->cart->addMany($request->user(), $parser->parse($request->file('orders_file'))));
-    }
-
-    /**
-     * A blank sample sheet in the shape the uploader expects. Delivered as XLSX with the phone column
-     * typed as text so Excel keeps the leading 0 and never mangles it to scientific notation. Headers
-     * mirror the admin export so both files speak the same language; Network is optional.
-     */
-    public function template(): StreamedResponse
-    {
-        $spreadsheet = new Spreadsheet();
-        $sheet = $spreadsheet->getActiveSheet();
-        $sheet->fromArray(['Receiver', 'Capacity (GB)', 'Network'], null, 'A1');
-
-        $samples = [['0551234567', 5, 'MTN'], ['0201234567', 10, 'Telecel'], ['0261234567', 3, 'AT']];
-        foreach ($samples as $i => [$phone, $capacity, $network]) {
-            $row = $i + 2;
-            $sheet->setCellValueExplicit("A{$row}", $phone, DataType::TYPE_STRING);
-            $sheet->setCellValue("B{$row}", $capacity);
-            $sheet->setCellValue("C{$row}", $network);
-        }
-        $sheet->getStyle('A1:A1000')->getNumberFormat()->setFormatCode(NumberFormat::FORMAT_TEXT);
-
-        return response()->streamDownload(
-            fn () => (new Xlsx($spreadsheet))->save('php://output'),
-            'bulk-orders-template.xlsx',
-            ['Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'],
-        );
-    }
-
-    public function destroy(string $id): RedirectResponse
-    {
-        $this->cart->remove($id);
-
-        return $this->toast('success', 'Cart item removed.');
-    }
-
-    public function checkout(Request $request, CartCheckoutService $checkout): RedirectResponse
-    {
-        $result = $checkout->checkout($request->user());
-
-        if ($result['error'] !== null) {
-            return $this->toast('error', $result['error']);
-        }
-
-        $message = "{$result['placed']} order(s) placed."
-            .($result['failed'] > 0 ? " {$result['failed']} could not be placed and remain in your cart." : '');
-
-        return $this->toast($result['failed'] > 0 ? 'warning' : 'success', $message);
-    }
-
-    /**
-     * Split pasted text into [phone, sizeGb] rows: one order per line, "phone<space>size".
-     *
-     * @return list<array{0: string, 1: string}>
-     */
-    private function parseLines(string $text): array
-    {
-        $rows = [];
-        foreach (preg_split('/\r\n|\r|\n/', $text) ?: [] as $line) {
-            $parts = preg_split('/\s+/', trim($line));
-            if (is_array($parts) && count($parts) >= 2 && $parts[0] !== '') {
-                $rows[] = [$parts[0], $parts[1], $parts[2] ?? ''];
-            }
-        }
-
-        return $rows;
-    }
-
-    /**
-     * @param  array{added: int, skipped: int}  $result
-     */
-    private function summarize(array $result): RedirectResponse
-    {
-        if ($result['added'] === 0) {
-            return $this->toast('error', 'No valid orders were found to add.');
-        }
-
-        $message = "Added {$result['added']} order(s) to cart."
-            .($result['skipped'] > 0 ? " Skipped {$result['skipped']} invalid line(s)." : '');
-
-        return $this->toast($result['skipped'] > 0 ? 'warning' : 'success', $message);
-    }
-
-    private function toast(string $level, string $message): RedirectResponse
-    {
-        Inertia::flash('toast', ['type' => $level, 'message' => $message]);
-
-        return to_route('agent.dashboard');
+        return 'agent.dashboard';
     }
 }
