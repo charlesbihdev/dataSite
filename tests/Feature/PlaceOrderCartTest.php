@@ -12,6 +12,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Http;
 use Inertia\Testing\AssertableInertia as Assert;
+use PhpOffice\PhpSpreadsheet\IOFactory;
 use Tests\TestCase;
 
 class PlaceOrderCartTest extends TestCase
@@ -88,6 +89,35 @@ class PlaceOrderCartTest extends TestCase
         ])->assertRedirect(route('agent.dashboard'));
 
         $this->assertCount(2, session('agent_cart'));
+    }
+
+    public function test_bulk_paste_reports_each_skipped_line_with_its_number_and_reason(): void
+    {
+        $this->post(route('agent.cart.bulk'), [
+            'bulk_orders_text' => "0559999999 5\n\n0244000000 7\n12345 5\n0559999998",
+        ])->assertSessionHas('inertia.flash_data.cartSkipped', function (array $skipped): bool {
+            $byLine = collect($skipped)->keyBy('row');
+
+            return count($skipped) === 3
+                && str_contains($byLine[3]['reason'], 'Invalid MTN package')   // 7GB isn't an MTN size
+                && str_contains($byLine[4]['reason'], 'valid 10-digit phone')
+                && $byLine[5]['size'] === ''                                  // phone with no size
+                && ! $byLine->has(2);                                         // blank line ignored
+        });
+
+        $this->assertCount(1, session('agent_cart'));
+    }
+
+    public function test_upload_reports_skipped_rows_by_their_spreadsheet_row_number(): void
+    {
+        $csv = "Receiver,Capacity (GB),Network\n0559999999,5,MTN\n,,\n,5,MTN\n0244000000,7,MTN\n";
+        $file = UploadedFile::fake()->createWithContent('orders.csv', $csv);
+
+        $this->post(route('agent.cart.upload'), ['orders_file' => $file])
+            ->assertSessionHas('inertia.flash_data.cartSkipped', fn (array $skipped): bool => collect($skipped)->pluck('row')->all() === [4, 5]
+                && $skipped[0]['reason'] === 'Missing phone number.');
+
+        $this->assertCount(1, session('agent_cart'));
     }
 
     public function test_upload_honors_an_explicit_network_column_over_prefix_detection(): void
@@ -173,7 +203,7 @@ class PlaceOrderCartTest extends TestCase
 
         $tmp = tempnam(sys_get_temp_dir(), 'tpl').'.xlsx';
         file_put_contents($tmp, $response->streamedContent());
-        $sheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($tmp)->getActiveSheet();
+        $sheet = IOFactory::load($tmp)->getActiveSheet();
 
         $this->assertSame('Receiver', $sheet->getCell('A1')->getValue());
         $this->assertSame('Capacity (GB)', $sheet->getCell('B1')->getValue());

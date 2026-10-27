@@ -93,23 +93,29 @@ class CartService
     }
 
     /**
-     * Add many lines (bulk paste / file upload). Silently skips invalid lines (repeats are kept).
+     * Add many lines (bulk paste / file upload). Invalid lines are skipped — never added — and each is
+     * reported back with its row number and the reason, so the seller can fix and re-add it.
+     * Repeats are kept.
      *
-     * @param  iterable<array{0: string, 1: int|string|float, 2?: string}>  $rows  [phone, sizeGb, network?]
-     * @return array{added: int, skipped: int}
+     * @param  iterable<array{0: string, 1: int|string|float, 2?: string, 3?: int}>  $rows  [phone, sizeGb, network?, rowNumber?]
+     * @return array{added: int, skipped: list<array{row: int, phone: string, size: string, reason: string}>}
      */
     public function addMany(Agent|Subagent $seller, iterable $rows): array
     {
         $added = 0;
-        $skipped = 0;
+        $skipped = [];
 
-        foreach ($rows as $row) {
+        foreach ($rows as $index => $row) {
             $phone = trim((string) ($row[0] ?? ''));
-            $sizeGb = (int) ($row[1] ?? 0);
+            $size = trim((string) ($row[1] ?? ''));
             $network = trim((string) ($row[2] ?? ''));
 
-            if ($phone === '' || $this->add($seller, $phone, $sizeGb, $network) !== null) {
-                $skipped++;
+            $error = $phone === ''
+                ? 'Missing phone number.'
+                : $this->add($seller, $phone, (int) $size, $network);
+
+            if ($error !== null) {
+                $skipped[] = ['row' => (int) ($row[3] ?? $index + 1), 'phone' => $phone, 'size' => $size, 'reason' => $error];
 
                 continue;
             }

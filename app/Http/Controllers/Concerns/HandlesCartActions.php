@@ -98,17 +98,18 @@ trait HandlesCartActions
     }
 
     /**
-     * Split pasted text into [phone, sizeGb] rows: one order per line, "phone<space>size".
+     * Split pasted text into [phone, size, network, lineNumber] rows: one order per line,
+     * "phone<space>size". Blank lines are ignored; a line missing its size is kept so it gets reported.
      *
-     * @return list<array{0: string, 1: string}>
+     * @return list<array{0: string, 1: string, 2: string, 3: int}>
      */
     private function parseLines(string $text): array
     {
         $rows = [];
-        foreach (preg_split('/\r\n|\r|\n/', $text) ?: [] as $line) {
+        foreach (preg_split('/\r\n|\r|\n/', $text) ?: [] as $index => $line) {
             $parts = preg_split('/\s+/', trim($line));
-            if (is_array($parts) && count($parts) >= 2 && $parts[0] !== '') {
-                $rows[] = [$parts[0], $parts[1], $parts[2] ?? ''];
+            if (is_array($parts) && $parts[0] !== '') {
+                $rows[] = [$parts[0], $parts[1] ?? '', $parts[2] ?? '', $index + 1];
             }
         }
 
@@ -116,18 +117,28 @@ trait HandlesCartActions
     }
 
     /**
-     * @param  array{added: int, skipped: int}  $result
+     * Toast the outcome and flash the skipped rows (row, phone, size, reason) so the Place-Order card
+     * can list exactly what wasn't added and why. Nothing skipped ever reaches the cart.
+     *
+     * @param  array{added: int, skipped: list<array{row: int, phone: string, size: string, reason: string}>}  $result
      */
     private function summarize(array $result): RedirectResponse
     {
+        $skipped = count($result['skipped']);
+        if ($skipped > 0) {
+            Inertia::flash('cartSkipped', $result['skipped']);
+        }
+
         if ($result['added'] === 0) {
-            return $this->toast('error', 'No valid orders were found to add.');
+            return $this->toast('error', $skipped > 0
+                ? "No orders were added — {$skipped} line(s) had problems. See the list below the form."
+                : 'No orders were found to add.');
         }
 
         $message = "Added {$result['added']} order(s) to cart."
-            .($result['skipped'] > 0 ? " Skipped {$result['skipped']} invalid line(s)." : '');
+            .($skipped > 0 ? " {$skipped} line(s) were skipped — see the list below the form." : '');
 
-        return $this->toast($result['skipped'] > 0 ? 'warning' : 'success', $message);
+        return $this->toast($skipped > 0 ? 'warning' : 'success', $message);
     }
 
     private function toast(string $level, string $message): RedirectResponse

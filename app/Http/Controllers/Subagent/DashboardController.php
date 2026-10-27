@@ -82,26 +82,30 @@ class DashboardController extends Controller
     }
 
     /**
-     * Network meta for the Place-Order form, with size suggestions narrowed to the packages the agent
-     * has opened to sub-agents — the only ones PriceQuote can price for a subagent.
+     * Network meta for the Place-Order form, narrowed to the packages the agent has opened to
+     * sub-agents — the only ones PriceQuote can price for a subagent — with each one's price, so the
+     * form offers a pick-list instead of a free size box.
      *
      * @return list<array<string, mixed>>
      */
     private function orderableNetworks(Subagent $subagent): array
     {
-        $sizes = AgentPackagePrice::query()
+        $opened = AgentPackagePrice::query()
             ->where('agent_id', $subagent->agent_id)
             ->where('is_active', true)
             ->whereNotNull('subagent_price')
             ->orderBy('capacity_gb')
-            ->get(['network', 'capacity_gb'])
-            ->groupBy('network')
-            ->map(fn ($rows) => $rows->pluck('capacity_gb')->map(fn ($gb) => (int) $gb)->values()->all());
+            ->get(['network', 'capacity_gb', 'subagent_price'])
+            ->groupBy('network');
 
-        return array_map(
-            fn (array $network): array => ['sizes' => $sizes->get($network['code'], [])] + $network,
-            GhanaMobileNetwork::meta(),
-        );
+        return array_map(function (array $network) use ($opened): array {
+            $packages = $opened->get($network['code'], collect());
+
+            return [
+                'sizes' => $packages->map(fn ($p) => (int) $p->capacity_gb)->values()->all(),
+                'prices' => $packages->mapWithKeys(fn ($p) => [(int) $p->capacity_gb => (float) $p->subagent_price])->all(),
+            ] + $network;
+        }, GhanaMobileNetwork::meta());
     }
 
     /**

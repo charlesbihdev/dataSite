@@ -17,7 +17,7 @@ class OrderFileParser
     private const PHONE_HEADERS = ['receiver', 'phone', 'phone number', 'phonenumber', 'beneficiary', 'number', 'msisdn'];
 
     /**
-     * @return list<array{0: string, 1: string, 2: string}>
+     * @return list<array{0: string, 1: string, 2: string, 3: int}> [phone, size, network, sheetRow]
      */
     public function parse(UploadedFile $file): array
     {
@@ -35,7 +35,7 @@ class OrderFileParser
 
     /**
      * @param  list<list<string>>  $raw
-     * @return list<array{0: string, 1: string, 2: string}>
+     * @return list<array{0: string, 1: string, 2: string, 3: int}>
      */
     private function mapRows(array $raw): array
     {
@@ -45,20 +45,26 @@ class OrderFileParser
 
         $map = $this->headerMap($raw[0]);
         if ($map !== null) {
-            $dataRows = array_slice($raw, 1);
+            $firstDataRow = 1;
         } else {
             // No header row: read positionally, but drop a leading non-phone label row if present.
             $map = ['phone' => 0, 'size' => 1, 'network' => 2];
-            $dataRows = $this->looksLikePhone($raw[0][0] ?? '') ? $raw : array_slice($raw, 1);
+            $firstDataRow = $this->looksLikePhone($raw[0][0] ?? '') ? 0 : 1;
         }
 
         $rows = [];
-        foreach ($dataRows as $r) {
-            $network = $map['network'] !== null ? trim((string) ($r[$map['network']] ?? '')) : '';
+        foreach (array_slice($raw, $firstDataRow) as $offset => $r) {
+            $phone = trim((string) ($r[$map['phone']] ?? ''));
+            $size = trim((string) ($r[$map['size']] ?? ''));
+            if ($phone === '' && $size === '') {
+                continue; // blank spreadsheet row — not an order, not an error
+            }
+
             $rows[] = [
-                trim((string) ($r[$map['phone']] ?? '')),
-                trim((string) ($r[$map['size']] ?? '')),
-                $network,
+                $phone,
+                $size,
+                $map['network'] !== null ? trim((string) ($r[$map['network']] ?? '')) : '',
+                $firstDataRow + $offset + 1, // the row number the user sees in Excel
             ];
         }
 

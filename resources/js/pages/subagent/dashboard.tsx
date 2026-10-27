@@ -180,7 +180,21 @@ export default function SubagentDashboard({
 
                 {/* Wallet + Place Order — bought at the agent's sub-agent price, paid from the wallet */}
                 <div className="grid items-start gap-6 lg:grid-cols-2">
-                    <PlaceOrderCard networks={networks} routes={cartRoutes} />
+                    {networks.some((n) => n.sizes.length > 0) ? (
+                        <PlaceOrderCard networks={networks} routes={cartRoutes} />
+                    ) : (
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="text-base">Place Order</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <p className="rounded-lg border border-border bg-muted/40 p-4 text-sm text-muted-foreground">
+                                    Your agent hasn't set sub-agent prices yet. Ask them to add sub-agent prices on their Packages page — then
+                                    you can place orders here.
+                                </p>
+                            </CardContent>
+                        </Card>
+                    )}
                     <div className="flex flex-col gap-6">
                         <Card>
                             <CardHeader className="flex-row items-center justify-between space-y-0">

@@ -6,6 +6,7 @@ import { NetworkMeta } from "@/lib/networks";
 import { SingleOrderForm } from "./single-order-form";
 import { BulkOrderForm } from "./bulk-order-form";
 import { UploadOrderForm } from "./upload-order-form";
+import { SkippedRows } from "./skipped-rows";
 import type { CartRoutes } from "./cart-routes";
 
 type Tab = "single" | "excel" | "bulk";
@@ -46,8 +47,18 @@ export function PlaceOrderCard({ networks, routes }: { networks: NetworkMeta[]; 
                 </div>
 
                 {tab === "single" && <SingleOrderForm networks={networks} routes={routes} />}
-                {tab === "excel" && <UploadOrderForm routes={routes} />}
-                {tab === "bulk" && <BulkOrderForm routes={routes} />}
+                {tab === "excel" && (
+                    <>
+                        <UploadOrderForm routes={routes} />
+                        <SkippedRows rowLabel="Row" />
+                    </>
+                )}
+                {tab === "bulk" && (
+                    <>
+                        <BulkOrderForm routes={routes} />
+                        <SkippedRows rowLabel="Line" />
+                    </>
+                )}
             </CardContent>
         </Card>
     );

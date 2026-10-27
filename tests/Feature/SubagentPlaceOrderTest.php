@@ -83,6 +83,26 @@ class SubagentPlaceOrderTest extends TestCase
         $this->assertEmpty(session('agent_cart', []));
     }
 
+    public function test_bulk_lines_for_unopened_bundles_are_reported_as_not_offered_by_the_agent(): void
+    {
+        $this->post(route('subagent.cart.bulk'), ['bulk_orders_text' => "0559999999 5\n0559999998 10"])
+            ->assertSessionHas('inertia.flash_data.cartSkipped', fn (array $skipped): bool => count($skipped) === 1
+                && $skipped[0]['row'] === 2
+                && str_contains($skipped[0]['reason'], 'not opened this bundle to sub-agents'));
+
+        $this->assertCount(1, session('agent_cart'));
+    }
+
+    public function test_dashboard_offers_only_opened_bundles_with_their_prices(): void
+    {
+        $this->get(route('subagent.dashboard'))->assertInertia(fn (Assert $page) => $page
+            ->where('networks.0.code', 'mtn')
+            ->where('networks.0.sizes', [5])
+            ->where('networks.0.prices', [5 => 30])
+            ->where('networks.1.sizes', [])
+        );
+    }
+
     public function test_checkout_debits_the_subagent_wallet_and_pays_the_agent_commission(): void
     {
         Http::fake(['dbh.test/api/create_order' => Http::response([
