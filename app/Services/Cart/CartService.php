@@ -63,6 +63,17 @@ class CartService
         $network = ($network !== null && $network !== '' ? GhanaMobileNetwork::normalizeCode($network) : null)
             ?? GhanaMobileNetwork::detect($phone);
 
+        // A subagent can only buy what their agent opened, so check that before the supplier's size
+        // list — otherwise the error would advertise sizes they still can't buy.
+        if ($seller instanceof Subagent && $network !== null && ($label = GhanaMobileNetwork::label($network)) !== null) {
+            $opened = $this->quote->subagentSizes($seller, $network);
+            if (! in_array($sizeGb, $opened, true)) {
+                return $opened === []
+                    ? "Your agent hasn't opened any {$label} bundles yet."
+                    : "Not offered by your agent. Your {$label} bundles: ".implode(', ', $opened).' GB.';
+            }
+        }
+
         if (($validationError = GhanaMobileNetwork::validateOrder($phone, $sizeGb, $network)) !== null) {
             return $validationError;
         }
