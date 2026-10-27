@@ -14,7 +14,8 @@ use Inertia\Inertia;
 use Inertia\Response;
 
 /**
- * The subagent's Orders page — their own storefront sales. Reuses the shared HandlesOrderActions
+ * The subagent's Orders page — their storefront sales and their own Place-Order purchases, told
+ * apart by source. Reuses the shared HandlesOrderActions
  * trait for payment verification and dispatch retries, strictly scoped to their own orders.
  */
 class OrdersController extends Controller
@@ -30,31 +31,46 @@ class OrdersController extends Controller
         $search = trim((string) $request->query('q', ''));
         $status = (string) $request->query('status', 'all');
         $network = (string) $request->query('network', 'all');
+        $source = (string) $request->query('source', 'all');
 
         $query = $subagent->orders()
             ->when($search !== '', fn ($q) => $q->where(function ($inner) use ($search) {
                 $like = "%{$search}%";
                 $inner->where('reference', 'like', $like)
                     ->orWhere('beneficiary_phone', 'like', $like)
-                    ->orWhere('upstream_reference', 'like', $like)
                     ->orWhere('network', 'like', $like)
                     ->orWhere('status', 'like', $like);
             }))
             ->when($status !== 'all', fn ($q) => $q->where('status', $status))
             ->when($network !== 'all', fn ($q) => $q->where('network', $network))
+            ->when(in_array($source, [Order::SOURCE_STOREFRONT, Order::SOURCE_PORTAL], true), fn ($q) => $q->where('source', $source))
             ->when($from, fn ($q) => $q->where('created_at', '>=', $from))
             ->when($to, fn ($q) => $q->where('created_at', '<=', $to))
             ->latest();
 
         $ordersCount = (clone $query)->count();
 
-        // Aggregate off a paid-only clone (money is secured once paid). Profit = margin the subagent
-        // keeps = sale price − their cost (seller_cost snapshot).
-        $paid = (clone $query)->where('payment_status', 'paid');
+        // Revenue/profit count paid STOREFRONT sales only — a Place-Order purchase is the subagent
+        // spending their own wallet, not a sale. Profit = sale price − their cost (seller_cost).
+        $paid = (clone $query)->where('source', Order::SOURCE_STOREFRONT)->where('payment_status', 'paid');
         $totalSales = $paid->sum('customer_price');
         $totalProfit = $totalSales - $paid->sum('seller_cost');
 
-        $orders = $query->paginate(30)->withQueryString();
+        // Whitelist what the subagent sees. The raw row carries platform-internal fields
+        // (base/agent/upstream cost, upstream refs/status) that must never reach their browser.
+        $orders = $query->paginate(30)->withQueryString()->through(fn (Order $o): array => [
+            'id' => $o->id,
+            'reference' => $o->reference,
+            'created_at' => $o->created_at,
+            'source' => $o->source,
+            'network' => $o->network,
+            'capacity_gb' => $o->capacity_gb,
+            'beneficiary_phone' => $o->beneficiary_phone,
+            'customer_price' => $o->customer_price,
+            'seller_cost' => $o->seller_cost,
+            'payment_status' => $o->payment_status,
+            'status' => $o->status,
+        ]);
 
         return Inertia::render('subagent/orders', [
             'orders' => $orders,
@@ -70,6 +86,7 @@ class OrdersController extends Controller
                 'q' => $search,
                 'status' => $status,
                 'network' => $network,
+                'source' => $source,
             ],
         ]);
     }

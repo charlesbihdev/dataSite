@@ -160,6 +160,34 @@ class SubagentPlaceOrderTest extends TestCase
         );
     }
 
+    public function test_wallet_history_paginates_ledger_and_topup_attempts_as_one_list(): void
+    {
+        $wallet = $this->subagent->walletOrCreate();
+        foreach (range(1, 25) as $i) {
+            $wallet->credit(1, 'topup', "MTP_paid_{$i}", 'Wallet top-up');
+        }
+        foreach (range(1, 10) as $i) {
+            BalanceTopup::query()->create([
+                'wallet_id' => $wallet->id, 'gateway' => PaymentGateway::PAYSTACK, 'reference' => "MTP_wait_{$i}",
+                'amount' => 5, 'charged_amount' => 5, 'currency' => 'GHS', 'status' => BalanceTopup::STATUS_PENDING,
+            ]);
+        }
+
+        $this->get(route('subagent.transactions', ['tab' => 'wallet']))->assertInertia(
+            fn (Assert $page) => $page->has('transactions.data', 30)->where('transactions.total', 35)
+        );
+
+        $this->get(route('subagent.transactions', ['tab' => 'wallet', 'status' => 'pending', 'page' => 1]))->assertInertia(
+            fn (Assert $page) => $page->has('transactions.data', 10)->where('transactions.total', 10)
+        );
+
+        $this->get(route('subagent.transactions', ['tab' => 'wallet', 'page' => 2]))->assertInertia(
+            fn (Assert $page) => $page->has('transactions.data', 5)
+                // Filters survive into the page links.
+                ->where('transactions.links.1.url', fn ($url) => str_contains((string) $url, 'tab=wallet'))
+        );
+    }
+
     public function test_wallet_tab_shows_an_uncredited_topup_as_a_pending_row_with_verify(): void
     {
         $wallet = $this->subagent->walletOrCreate();
@@ -182,6 +210,36 @@ class SubagentPlaceOrderTest extends TestCase
 
         $this->get(route('subagent.transactions', ['tab' => 'wallet', 'status' => 'pending']))->assertInertia(
             fn (Assert $page) => $page->has('transactions.data', 1)->where('transactions.data.0.reference', 'MTP_waiting')
+        );
+    }
+
+    public function test_orders_page_hides_platform_costs_tags_source_and_counts_only_storefront_sales(): void
+    {
+        $order = fn (string $ref, string $source, float $price) => $this->subagent->orders()->create([
+            'reference' => $ref, 'idempotency_key' => $ref, 'source' => $source,
+            'payment_status' => Order::PAYMENT_PAID, 'network' => 'mtn', 'capacity_gb' => 5,
+            'beneficiary_phone' => '0241234567', 'channel' => Order::CHANNEL_ONLINE,
+            'customer_price' => $price, 'seller_cost' => 30, 'agent_cost' => 25, 'base_cost' => 15,
+            'status' => Order::STATUS_COMPLETED,
+        ]);
+        $order('DS-SHOP', Order::SOURCE_STOREFRONT, 40);
+        $order('DS-CART', Order::SOURCE_PORTAL, 30);
+
+        $this->get(route('subagent.orders'))->assertInertia(fn (Assert $page) => $page
+            ->has('orders.data', 2)
+            ->missing('orders.data.0.base_cost')
+            ->missing('orders.data.0.agent_cost')
+            ->missing('orders.data.0.upstream_reference')
+            ->where('stats.count', 2)
+            ->where('stats.sales', 40) // the 30 Place-Order purchase is wallet spend, not a sale
+            ->where('stats.profit', 10)
+        );
+
+        $this->get(route('subagent.orders', ['source' => 'portal']))->assertInertia(fn (Assert $page) => $page
+            ->has('orders.data', 1)
+            ->where('orders.data.0.reference', 'DS-CART')
+            ->where('orders.data.0.source', Order::SOURCE_PORTAL)
+            ->where('stats.sales', 0)
         );
     }
 

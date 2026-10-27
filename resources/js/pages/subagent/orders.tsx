@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cedis } from "@/lib/format";
 import { orders as ordersRoute } from "@/routes/subagent";
+import { retry, verifyPayment } from "@/routes/subagent/orders";
 
 interface Stats {
     count: number;
@@ -27,6 +28,7 @@ interface Filters {
     to?: string | null;
     status?: string;
     network?: string;
+    source?: string;
 }
 
 interface Props {
@@ -37,6 +39,12 @@ interface Props {
 
 const STATUSES = ["all", "pending", "verifying", "processing", "completed", "failed", "refunded"];
 const NETWORKS = ["all", "mtn", "telecel", "at"];
+const SOURCES: { value: string; label: string }[] = [
+    { value: "all", label: "All sources" },
+    { value: "storefront", label: "Storefront" },
+    { value: "portal", label: "Place Order" },
+];
+const sourceLabel = (source?: string) => (source === "portal" ? "Place Order" : "Storefront");
 
 export default function SubagentOrders({ orders, filters, stats }: Props) {
     const [search, setSearch] = useState(filters.q ?? "");
@@ -46,11 +54,12 @@ export default function SubagentOrders({ orders, filters, stats }: Props) {
     const inRange = range !== "all";
     const status = filters.status ?? "all";
     const network = filters.network ?? "all";
+    const source = filters.source ?? "all";
 
     const apply = (patch: Record<string, string | null>) =>
         router.get(
             ordersRoute.url(),
-            { q: search, range, from: filters.from ?? null, to: filters.to ?? null, status, network, ...patch },
+            { q: search, range, from: filters.from ?? null, to: filters.to ?? null, status, network, source, ...patch },
             { preserveState: true, preserveScroll: true, replace: true },
         );
 
@@ -70,6 +79,13 @@ export default function SubagentOrders({ orders, filters, stats }: Props) {
     const columns: Column<Order>[] = [
         { key: "reference", header: "Reference", render: (o) => <span className="font-mono text-xs">{o.reference}</span> },
         { key: "created_at", header: "Date", render: (o) => <span className="text-muted-foreground">{new Date(o.created_at).toLocaleString()}</span> },
+        {
+            key: "source",
+            header: "Source",
+            render: (o) => (
+                <span className="inline-flex rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">{sourceLabel(o.source)}</span>
+            ),
+        },
         { key: "network", header: "Network", render: (o) => <span className="uppercase">{o.network}</span> },
         { key: "package", header: "Package", render: (o) => `${o.capacity_gb}GB` },
         { key: "beneficiary_phone", header: "Beneficiary", render: (o) => <span className="font-mono text-xs">{o.beneficiary_phone}</span> },
@@ -89,7 +105,7 @@ export default function SubagentOrders({ orders, filters, stats }: Props) {
                             title="Verify payment & dispatch"
                             aria-label="Verify payment & dispatch"
                             className="text-amber-600 hover:text-amber-700 dark:text-amber-400"
-                            onClick={() => router.post(`/orders/${o.id}/verify-payment`, {}, { preserveScroll: true })}
+                            onClick={() => router.post(verifyPayment.url(o.id), {}, { preserveScroll: true })}
                         >
                             <RefreshCw className="size-4" />
                         </Button>
@@ -101,7 +117,7 @@ export default function SubagentOrders({ orders, filters, stats }: Props) {
                             title="Retry dispatch"
                             aria-label="Retry dispatch"
                             className="text-brand hover:text-brand-hover"
-                            onClick={() => router.post(`/orders/${o.id}/retry`, {}, { preserveScroll: true })}
+                            onClick={() => router.post(retry.url(o.id), {}, { preserveScroll: true })}
                         >
                             <RotateCw className="size-4" />
                         </Button>
@@ -120,13 +136,13 @@ export default function SubagentOrders({ orders, filters, stats }: Props) {
             <div className="flex h-full flex-1 flex-col gap-6 p-4 lg:p-8">
                 <PageHeader
                     title="Orders"
-                    description="Your storefront sales and their delivery status."
+                    description="Your storefront sales and Place-Order purchases, with their delivery status."
                     actions={<DateRangePicker value={{ range, from: filters.from, to: filters.to }} onChange={applyRange} />}
                 />
 
                 <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                    <StatTile label="Paid revenue" value={cedis(stats.sales)} hint={inRange ? "For selected period" : "All time"} />
-                    <StatTile label="Net Profit" value={cedis(stats.profit)} hint={inRange ? "For selected period" : "All time"} />
+                    <StatTile label="Paid revenue" value={cedis(stats.sales)} hint={`Storefront sales · ${inRange ? "selected period" : "all time"}`} />
+                    <StatTile label="Net Profit" value={cedis(stats.profit)} hint={`Storefront sales · ${inRange ? "selected period" : "all time"}`} />
                     <StatTile label="Orders Count" value={String(stats.count)} hint={inRange ? "For selected period" : "All time"} />
                 </div>
 
@@ -156,10 +172,22 @@ export default function SubagentOrders({ orders, filters, stats }: Props) {
                                 ))}
                             </SelectContent>
                         </Select>
+                        <Select value={source} onValueChange={(v) => apply({ source: v })}>
+                            <SelectTrigger className="w-40">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {SOURCES.map((s) => (
+                                    <SelectItem key={s.value} value={s.value}>
+                                        {s.label}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
                         <Input
                             value={search}
                             onChange={(e) => onSearchChange(e.target.value)}
-                            placeholder="Search reference, phone, or upstream ref…"
+                            placeholder="Search reference or phone…"
                             className="ml-auto w-full bg-background sm:w-80"
                         />
                     </div>

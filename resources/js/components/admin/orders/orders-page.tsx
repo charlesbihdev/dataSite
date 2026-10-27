@@ -204,10 +204,10 @@ export function OrdersPage({
 
     return (
         <>
-            <Head title={isRegular ? 'Admin — Regular Orders' : 'Admin — Agent Orders'} />
+            <Head title={isRegular ? 'Admin — Regular Orders' : 'Admin — Agent/Subagent Orders'} />
             <div className="flex flex-1 flex-col gap-6 p-4">
                 <PageHeader
-                    title={isRegular ? 'Regular Orders' : 'Agent Orders'}
+                    title={isRegular ? 'Regular Orders' : 'Agent/Subagent Orders'}
                     description={
                         isRegular
                             ? 'Public storefront orders — verify payment before the bundle is dispatched.'
