@@ -9,7 +9,7 @@ use App\Support\GhanaMobileNetwork;
 use Illuminate\Support\Str;
 
 /**
- * The agent's Place-Order basket, held in the session (survives refresh for the session
+ * The agent's / subagent's Place-Order basket, held in the session (survives refresh for the session
  * lifetime). Each of the dashboard's three inputs — single, bulk paste, file upload — funnels
  * through add()/addMany(); checkout later re-prices and dispatches every line. Prices are only
  * indicative here; OrderDispatchService re-resolves the authoritative cascade at checkout.
@@ -73,7 +73,9 @@ class CartService
 
         $price = $network !== null ? $this->quote->for($seller, $network, $sizeGb) : null;
         if ($network === null || $price === null) {
-            return 'No active pricing is configured for this network and size.';
+            return $seller instanceof Subagent
+                ? 'Your agent has not opened this bundle to sub-agents yet.'
+                : 'No active pricing is configured for this network and size.';
         }
 
         $items[] = [

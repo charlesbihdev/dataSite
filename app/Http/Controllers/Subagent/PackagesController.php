@@ -66,7 +66,7 @@ class PackagesController extends Controller
         }
 
         if ($selling < $cost) {
-            return $this->toast('error', 'Selling price must be at least your cost price (' . number_format($cost, 2) . ').');
+            return $this->toast('error', 'Selling price must be at least your cost price ('.number_format($cost, 2).').');
         }
 
         $subagent->packagePrices()->updateOrCreate(
@@ -124,11 +124,11 @@ class PackagesController extends Controller
             ->whereNotNull('subagent_price')
             ->orderByNetwork()
             ->get()
-            ->map(fn(AgentPackagePrice $p): array => [
+            ->map(fn (AgentPackagePrice $p): array => [
                 'value' => "{$p->network}:{$p->capacity_gb}",
                 'network' => $p->network,
                 'capacityGb' => (int) $p->capacity_gb,
-                'label' => strtoupper($p->network) . " {$p->capacity_gb}GB",
+                'label' => strtoupper($p->network)." {$p->capacity_gb}GB",
                 'cost' => (float) $p->subagent_price,
             ])
             ->all();

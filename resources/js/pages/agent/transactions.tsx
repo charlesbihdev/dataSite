@@ -1,31 +1,23 @@
 import { Head, router } from "@inertiajs/react";
 import { useEffect, useRef, useState } from "react";
-import { Clock, RefreshCw, Wallet as WalletIcon } from "lucide-react";
+import { Wallet as WalletIcon } from "lucide-react";
 import { TransactionDetailDialog, Txn } from "@/components/agent/transaction-detail-dialog";
-import { TopupDialog } from "@/components/agent/topup-dialog";
 import { Amount } from "@/components/common/amount";
 import { Column, DataTable } from "@/components/common/data-table";
 import { DateRangePicker, DateRangeValue } from "@/components/common/date-range-picker";
 import { PageHeader } from "@/components/common/page-header";
 import { PageLink, Pagination } from "@/components/common/pagination";
+import { PendingTopup, PendingTopups } from "@/components/common/pending-topups";
 import { StatTile } from "@/components/common/stat-tile";
 import { StatusBadge } from "@/components/common/status-badge";
+import { TopupDialog } from "@/components/common/topup-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cedis } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { transactions as transactionsRoute } from "@/routes/agent";
-
-interface PendingTopup {
-    id: number;
-    reference: string;
-    gateway: string;
-    amount: number;
-    chargedAmount: number;
-    status: string;
-    date: string | null;
-}
+import { topup, transactions as transactionsRoute } from "@/routes/agent";
+import { verify as verifyTopup } from "@/routes/agent/topup";
 
 interface Props {
     balance: number;
@@ -92,21 +84,8 @@ const makeColumns = (onView: (t: Txn) => void): Column<Txn>[] => [
 export default function AgentTransactions({ balance, transactions, pendingTopups = [], filters }: Props) {
     const [selected, setSelected] = useState<Txn | null>(null);
     const [search, setSearch] = useState(filters.q ?? "");
-    const [verifyingTopupId, setVerifyingTopupId] = useState<number | null>(null);
     const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
     const columns = makeColumns(setSelected);
-
-    const handleVerifyTopup = (id: number) => {
-        setVerifyingTopupId(id);
-        router.post(
-            `/topup/${id}/verify`,
-            {},
-            {
-                preserveScroll: true,
-                onFinish: () => setVerifyingTopupId(null),
-            },
-        );
-    };
 
     // Every control reloads this route carrying the others' current values, so applying one never resets another.
     const apply = (patch: Record<string, string | null>) =>
@@ -148,7 +127,7 @@ export default function AgentTransactions({ balance, transactions, pendingTopups
                     actions={
                         <div className="flex items-center gap-2">
                             <DateRangePicker value={{ range: filters.range, from: filters.from, to: filters.to }} onChange={applyRange} />
-                            <TopupDialog />
+                            <TopupDialog action={topup} />
                         </div>
                     }
                 />
@@ -161,65 +140,7 @@ export default function AgentTransactions({ balance, transactions, pendingTopups
                     />
                 </div>
 
-                {pendingTopups.length > 0 && (
-                    <div className="space-y-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4">
-                        <div className="flex items-center gap-2">
-                            <Clock className="size-4.5 text-amber-600 dark:text-amber-400" />
-                            <h3 className="text-sm font-semibold text-foreground">
-                                Pending Wallet Top-ups ({pendingTopups.length})
-                            </h3>
-                        </div>
-                        <p className="text-xs text-muted-foreground">
-                            These top-ups were started at the payment gateway. If you completed payment but your balance hasn't updated, click <strong>Verify Payment</strong> below to check and credit your wallet.
-                        </p>
-                        <div className="divide-y divide-border/60 rounded-lg border border-border/60 bg-card">
-                            {pendingTopups.map((topup) => {
-                                const isVerifying = verifyingTopupId === topup.id;
-                                return (
-                                    <div
-                                        key={topup.id}
-                                        className="flex flex-col gap-2 p-3 sm:flex-row sm:items-center sm:justify-between"
-                                    >
-                                        <div className="flex flex-col">
-                                            <div className="flex items-center gap-2">
-                                                <span className="font-mono text-xs font-semibold text-foreground">
-                                                    {topup.reference}
-                                                </span>
-                                                <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-semibold uppercase text-muted-foreground">
-                                                    {topup.gateway}
-                                                </span>
-                                            </div>
-                                            <span className="text-xs text-muted-foreground">
-                                                Initiated: {topup.date ?? "—"}
-                                            </span>
-                                        </div>
-
-                                        <div className="flex items-center justify-between gap-4 sm:justify-end">
-                                            <div className="text-right">
-                                                <span className="text-sm font-bold text-foreground">
-                                                    {cedis(topup.amount)}
-                                                </span>
-                                                <span className="block text-[11px] text-muted-foreground">
-                                                    Charged: {cedis(topup.chargedAmount)}
-                                                </span>
-                                            </div>
-                                            <Button
-                                                size="sm"
-                                                variant="outline"
-                                                className="h-8 border-amber-500/30 text-xs font-medium text-amber-700 hover:bg-amber-500/15 dark:text-amber-300"
-                                                disabled={isVerifying}
-                                                onClick={() => handleVerifyTopup(topup.id)}
-                                            >
-                                                <RefreshCw className={`mr-1.5 size-3.5 ${isVerifying ? "animate-spin" : ""}`} />
-                                                {isVerifying ? "Verifying..." : "Verify Payment"}
-                                            </Button>
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </div>
-                )}
+                <PendingTopups topups={pendingTopups} verify={verifyTopup} />
 
                 <div className="flex-1 rounded-xl border border-border bg-card shadow-sm">
                     {/* Filter bar — scopes the table below only. */}

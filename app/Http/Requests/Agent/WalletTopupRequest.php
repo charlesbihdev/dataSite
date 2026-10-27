@@ -8,7 +8,7 @@ class WalletTopupRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user('agent') !== null;
+        return $this->user() !== null;
     }
 
     /**

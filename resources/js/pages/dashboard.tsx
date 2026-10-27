@@ -1,9 +1,9 @@
 import { Head, router, usePage } from "@inertiajs/react";
 import { useState } from "react";
 import { Check, Copy, Link as LinkIcon, ShoppingBag, TrendingUp, Users, Wallet } from "lucide-react";
-import { PlaceOrderCard } from "@/components/agent/place-order/place-order-card";
-import { CartItem, CartPanel } from "@/components/agent/place-order/cart-panel";
-import { TopupDialog } from "@/components/agent/topup-dialog";
+import { PlaceOrderCard } from "@/components/common/place-order/place-order-card";
+import { CartItem, CartPanel } from "@/components/common/place-order/cart-panel";
+import { TopupDialog } from "@/components/common/topup-dialog";
 import { Column, DataTable } from "@/components/common/data-table";
 import { DateRangePicker, DateRangeValue } from "@/components/common/date-range-picker";
 import { StatusBadge } from "@/components/common/status-badge";
@@ -18,7 +18,8 @@ import {
     CardTitle,
 } from "@/components/ui/card";
 import { cedis } from "@/lib/format";
-import { dashboard, packages } from "@/routes/agent";
+import { dashboard, packages, topup } from "@/routes/agent";
+import * as cartRoutes from "@/routes/agent/cart";
 
 interface Filters {
     range: string;
@@ -130,6 +131,7 @@ export default function Dashboard({
                                 Available for purchases
                             </p>
                             <TopupDialog
+                                action={topup}
                                 trigger={
                                     <Button
                                         variant="outline"
@@ -214,8 +216,8 @@ export default function Dashboard({
                 </div>
 
                 <div className="grid gap-4 lg:grid-cols-2">
-                    <PlaceOrderCard networks={networks} />
-                    <CartPanel items={cart} total={cartTotal} />
+                    <PlaceOrderCard networks={networks} routes={cartRoutes} />
+                    <CartPanel items={cart} total={cartTotal} routes={cartRoutes} />
                 </div>
 
                 <div className="grid gap-4 lg:grid-cols-7 mt-4">

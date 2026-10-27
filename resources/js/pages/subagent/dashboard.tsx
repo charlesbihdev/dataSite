@@ -2,12 +2,17 @@ import { Head, Link, router } from "@inertiajs/react";
 import { useState } from "react";
 import { ArrowUpRight, Check, Copy, ShoppingBag, Store, TrendingUp, Users, Wallet } from "lucide-react";
 import { Column, DataTable } from "@/components/common/data-table";
+import { CartItem, CartPanel } from "@/components/common/place-order/cart-panel";
+import { PlaceOrderCard } from "@/components/common/place-order/place-order-card";
 import { StatusBadge } from "@/components/common/status-badge";
+import { TopupDialog } from "@/components/common/topup-dialog";
 import { UnsellablePackage, UnsellablePackagesAlert } from "@/components/common/unsellable-packages-alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cedis } from "@/lib/format";
-import { packages, storeLink, withdrawals } from "@/routes/subagent";
+import { NetworkMeta } from "@/lib/networks";
+import { packages, storeLink, topup, transactions, withdrawals } from "@/routes/subagent";
+import * as cartRoutes from "@/routes/subagent/cart";
 
 interface RecentSale {
     id: number;
@@ -33,6 +38,10 @@ interface Props {
     recentSales: RecentSale[];
     topSellers: TopSeller[];
     unsellablePackages: UnsellablePackage[];
+    walletBalance: number;
+    cart: CartItem[];
+    cartTotal: number;
+    networks: NetworkMeta[];
 }
 
 function greetingWord(): string {
@@ -65,7 +74,19 @@ const saleColumns: Column<RecentSale>[] = [
     { key: "when", header: "When", render: (s) => <span className="text-muted-foreground">{s.createdAt ?? "—"}</span> },
 ];
 
-export default function SubagentDashboard({ greeting, earnings, store, thisWeek, recentSales, topSellers, unsellablePackages }: Props) {
+export default function SubagentDashboard({
+    greeting,
+    earnings,
+    store,
+    thisWeek,
+    recentSales,
+    topSellers,
+    unsellablePackages,
+    walletBalance,
+    cart,
+    cartTotal,
+    networks,
+}: Props) {
     const [copied, setCopied] = useState(false);
     const today = new Date().toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 
@@ -155,6 +176,29 @@ export default function SubagentDashboard({ greeting, earnings, store, thisWeek,
                             <p className="mt-auto pt-3 text-xs text-muted-foreground">Share your link — customers buy directly, you earn your margin on every sale.</p>
                         </CardContent>
                     </Card>
+                </div>
+
+                {/* Wallet + Place Order — bought at the agent's sub-agent price, paid from the wallet */}
+                <div className="grid items-start gap-6 lg:grid-cols-2">
+                    <PlaceOrderCard networks={networks} routes={cartRoutes} />
+                    <div className="flex flex-col gap-6">
+                        <Card>
+                            <CardHeader className="flex-row items-center justify-between space-y-0">
+                                <CardTitle className="text-base">Wallet balance</CardTitle>
+                                <Link href={transactions.url({ query: { tab: "wallet" } })} className="text-xs text-muted-foreground hover:underline">
+                                    History
+                                </Link>
+                            </CardHeader>
+                            <CardContent className="flex flex-wrap items-end justify-between gap-3">
+                                <div>
+                                    <p className="text-3xl font-bold tabular-nums">{cedis(walletBalance)}</p>
+                                    <p className="mt-1 text-xs text-muted-foreground">For placing orders · separate from your earnings</p>
+                                </div>
+                                <TopupDialog action={topup} />
+                            </CardContent>
+                        </Card>
+                        <CartPanel items={cart} total={cartTotal} routes={cartRoutes} />
+                    </div>
                 </div>
 
                 {/* Recent sales */}
