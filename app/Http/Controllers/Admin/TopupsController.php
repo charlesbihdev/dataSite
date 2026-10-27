@@ -3,9 +3,12 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Agent;
 use App\Models\BalanceTopup;
+use App\Models\Subagent;
 use App\Services\Payments\WalletTopupConfirmer;
 use App\Support\CsvExport;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -18,6 +21,7 @@ class TopupsController extends Controller
     {
         $status = (string) $request->query('status', 'all');
         $gateway = (string) $request->query('gateway', 'all');
+        $seller = (string) $request->query('seller', 'all');
         $search = trim((string) $request->query('q', ''));
         $dateFrom = trim((string) $request->query('date_from', ''));
         $dateTo = trim((string) $request->query('date_to', ''));
@@ -31,6 +35,8 @@ class TopupsController extends Controller
         if ($gateway !== 'all' && in_array($gateway, ['paystack', 'moolre'], true)) {
             $query->where('gateway', $gateway);
         }
+
+        $this->applySellerFilter($query, $seller);
 
         if ($search !== '') {
             $query->where(function ($q) use ($search) {
@@ -73,6 +79,7 @@ class TopupsController extends Controller
             'filters' => [
                 'status' => $status,
                 'gateway' => $gateway,
+                'seller' => $seller,
                 'q' => $search,
                 'date_from' => $dateFrom,
                 'date_to' => $dateTo,
@@ -103,6 +110,7 @@ class TopupsController extends Controller
     {
         $status = (string) $request->query('status', 'all');
         $gateway = (string) $request->query('gateway', 'all');
+        $seller = (string) $request->query('seller', 'all');
         $search = trim((string) $request->query('q', ''));
         $dateFrom = trim((string) $request->query('date_from', ''));
         $dateTo = trim((string) $request->query('date_to', ''));
@@ -125,6 +133,8 @@ class TopupsController extends Controller
         if ($gateway !== 'all' && in_array($gateway, ['paystack', 'moolre'], true)) {
             $query->where('gateway', $gateway);
         }
+
+        $this->applySellerFilter($query, $seller);
 
         if ($search !== '') {
             $query->where(function ($q) use ($search) {
@@ -151,7 +161,7 @@ class TopupsController extends Controller
         $items = $query->latest('id')->get();
 
         $filename = "wallet-topups-{$status}-".now()->format('Y-m-d_His').'.csv';
-        $headers = ['Reference', 'Gateway Ref', 'Agent Name', 'Agent Phone', 'Amount (GHS)', 'Charged (GHS)', 'Gateway', 'Status', 'Date'];
+        $headers = ['Reference', 'Gateway Ref', 'Type', 'Name', 'Phone', 'Amount (GHS)', 'Charged (GHS)', 'Gateway', 'Status', 'Date'];
 
         $rows = $items->map(function (BalanceTopup $t): array {
             $owner = $t->wallet?->walletable;
@@ -159,6 +169,7 @@ class TopupsController extends Controller
             return [
                 $t->reference,
                 $t->gateway_reference ?? '—',
+                $this->sellerType($t),
                 $owner?->name ?? 'Unknown',
                 $owner?->phone ? CsvExport::text($owner->phone) : '—',
                 number_format((float) $t->amount, 2),
@@ -189,6 +200,7 @@ class TopupsController extends Controller
             'chargedAmount' => (float) $t->charged_amount,
             'currency' => $t->currency,
             'status' => $t->status,
+            'sellerType' => $this->sellerType($t),
             'agentName' => $owner?->name ?? 'Unknown',
             'agentEmail' => $owner?->email ?? '—',
             'agentPhone' => $owner?->phone ?? '—',
@@ -196,5 +208,26 @@ class TopupsController extends Controller
             'createdAt' => $t->created_at?->format('M j, Y g:i A'),
         ];
     }
-}
 
+    /**
+     * Narrow to top-ups funding an agent's or a subagent's wallet (the wallet's polymorphic owner).
+     */
+    private function applySellerFilter(Builder $query, string $seller): void
+    {
+        $type = match ($seller) {
+            'agent' => Agent::class,
+            'subagent' => Subagent::class,
+            default => null,
+        };
+
+        if ($type !== null) {
+            $query->whereHas('wallet', fn ($w) => $w->where('walletable_type', $type));
+        }
+    }
+
+    /** "Agent" / "Subagent" — same labels as the orders pages' seller badge. */
+    private function sellerType(BalanceTopup $t): string
+    {
+        return $t->wallet?->walletable_type !== null ? class_basename($t->wallet->walletable_type) : 'Unknown';
+    }
+}

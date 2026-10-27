@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Agent;
 use App\Models\BalanceTopup;
 use App\Models\PaymentGateway;
+use App\Models\Subagent;
 use App\Models\Wallet;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
@@ -202,6 +203,40 @@ class AdminTopupsTest extends TestCase
 
         $this->assertSame(BalanceTopup::STATUS_FAILED, $topup->fresh()->status);
         $this->assertEquals(0.00, (float) $this->wallet->fresh()->balance);
+    }
+
+    public function test_admin_topups_tag_and_filter_agent_vs_subagent_wallets(): void
+    {
+        $this->actingAsAdmin();
+
+        $subagent = Subagent::create([
+            'agent_id' => $this->agent->id, 'name' => 'Kofi Sub', 'phone' => '0551111111',
+            'username' => 'kofisub', 'password' => 'secret123', 'is_active' => true,
+        ]);
+        $this->attempt('TOP-AGENT-ONE', BalanceTopup::STATUS_SUCCESS);
+        BalanceTopup::query()->create([
+            'wallet_id' => $subagent->walletOrCreate()->id, 'reference' => 'TOP-SUB-ONE', 'gateway' => 'paystack',
+            'amount' => 40, 'charged_amount' => 40, 'currency' => 'GHS', 'status' => BalanceTopup::STATUS_PENDING,
+        ]);
+
+        $this->get(route('admin.topups.index', ['seller' => 'subagent']))->assertInertia(fn ($page) => $page
+            ->has('topups.data', 1)
+            ->where('topups.data.0.reference', 'TOP-SUB-ONE')
+            ->where('topups.data.0.sellerType', 'Subagent')
+            ->where('filters.seller', 'subagent')
+        );
+
+        $this->get(route('admin.topups.index', ['seller' => 'agent']))->assertInertia(fn ($page) => $page
+            ->has('topups.data', 1)
+            ->where('topups.data.0.sellerType', 'Agent')
+        );
+
+        $this->get(route('admin.topups.index'))->assertInertia(fn ($page) => $page->has('topups.data', 2));
+
+        $csv = $this->get(route('admin.topups.export', ['seller' => 'subagent']))->streamedContent();
+        $this->assertStringContainsString('TOP-SUB-ONE', $csv);
+        $this->assertStringContainsString('Subagent', $csv);
+        $this->assertStringNotContainsString('TOP-AGENT-ONE', $csv);
     }
 
     public function test_reverify_credits_a_failed_topup_the_gateway_later_reports_paid(): void
