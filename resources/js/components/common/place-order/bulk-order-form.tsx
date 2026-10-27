@@ -6,14 +6,15 @@ import { Textarea } from "@/components/ui/textarea";
 
 /**
  * Paste many orders at once — one "phone size" per line. The server splits, validates, and prices
- * each line, skipping any it can't place.
+ * each line, skipping any it can't place. The pasted text is kept after "Add to cart" so skipped
+ * lines can be fixed in place.
  */
 export function BulkOrderForm({ routes }: { routes: CartRoutes }) {
     const form = useForm({ bulk_orders_text: "" });
 
     const submit = (e: React.FormEvent) => {
         e.preventDefault();
-        form.post(routes.bulk.url(), { preserveScroll: true, onSuccess: () => form.reset() });
+        form.post(routes.bulk.url(), { preserveScroll: true, preserveState: true });
     };
 
     return (

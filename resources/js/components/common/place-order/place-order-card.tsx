@@ -46,19 +46,18 @@ export function PlaceOrderCard({ networks, routes }: { networks: NetworkMeta[]; 
                     ))}
                 </div>
 
-                {tab === "single" && <SingleOrderForm networks={networks} routes={routes} />}
-                {tab === "excel" && (
-                    <>
-                        <UploadOrderForm routes={routes} />
-                        <SkippedRows rowLabel="Row" />
-                    </>
-                )}
-                {tab === "bulk" && (
-                    <>
-                        <BulkOrderForm routes={routes} />
-                        <SkippedRows rowLabel="Line" />
-                    </>
-                )}
+                {/* All tabs stay mounted (just hidden) so typed/pasted input survives switching tabs. */}
+                <div className={cn(tab !== "single" && "hidden")}>
+                    <SingleOrderForm networks={networks} routes={routes} />
+                </div>
+                <div className={cn("space-y-5", tab !== "excel" && "hidden")}>
+                    <UploadOrderForm routes={routes} />
+                    {tab === "excel" && <SkippedRows rowLabel="Row" />}
+                </div>
+                <div className={cn("space-y-5", tab !== "bulk" && "hidden")}>
+                    <BulkOrderForm routes={routes} />
+                    {tab === "bulk" && <SkippedRows rowLabel="Line" />}
+                </div>
             </CardContent>
         </Card>
     );
