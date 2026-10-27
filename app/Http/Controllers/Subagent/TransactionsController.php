@@ -3,19 +3,21 @@
 namespace App\Http\Controllers\Subagent;
 
 use App\Http\Controllers\Controller;
-use App\Models\BalanceTopup;
 use App\Models\Earning;
 use App\Models\Subagent;
-use App\Models\WalletTransaction;
+use App\Services\Wallet\WalletHistory;
 use App\Support\DateRange;
+use Illuminate\Database\Query\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Inertia\Inertia;
 use Inertia\Response;
 
 /**
  * The subagent's Transactions page, two read-only tabs over two separate pools of money:
  *  - Earnings: margin earned per storefront sale (pending → credited on delivery), withdrawable.
- *  - Wallet: the deposit ledger — gateway top-ups in, Place-Order purchases out, refunds back.
+ *  - Wallet: the deposit history — top-ups in (incl. pending/failed attempts with Verify),
+ *    Place-Order purchases out, refunds back.
  */
 class TransactionsController extends Controller
 {
@@ -30,7 +32,7 @@ class TransactionsController extends Controller
         'refund' => ['order_refund', 'reversal'],
     ];
 
-    public function index(Request $request): Response
+    public function index(Request $request, WalletHistory $history): Response
     {
         $subagent = $request->user('subagent');
 
@@ -50,9 +52,8 @@ class TransactionsController extends Controller
                 'walletBalance' => (float) ($subagent->wallet?->balance ?? 0),
             ],
             'transactions' => $tab === 'wallet'
-                ? $this->walletLedger($subagent, $type, $search, $from, $to)
+                ? $this->walletHistory($history, $subagent, $type, $status, $search, $from, $to)
                 : $this->earningsLedger($subagent, $status, $search, $from, $to),
-            'pendingTopups' => $tab === 'wallet' ? $this->pendingTopups($subagent) : [],
             'filters' => [
                 'status' => $status,
                 'type' => $type,
@@ -86,45 +87,25 @@ class TransactionsController extends Controller
             ]);
     }
 
-    private function walletLedger(Subagent $subagent, string $type, string $search, $from, $to)
-    {
-        return $subagent->walletOrCreate()->transactions()->latest('id')
-            ->when(isset(self::WALLET_TYPE_FILTERS[$type]), fn ($q) => $q->whereIn('type', self::WALLET_TYPE_FILTERS[$type]))
-            ->when($from, fn ($q) => $q->where('created_at', '>=', $from))
-            ->when($to, fn ($q) => $q->where('created_at', '<=', $to))
-            ->when($search !== '', fn ($q) => $q->where(function ($q) use ($search) {
-                $like = "%{$search}%";
-                $q->where('reference', 'like', $like)->orWhere('description', 'like', $like);
-            }))
-            ->paginate(30)->withQueryString()->through(fn (WalletTransaction $t): array => [
-                'id' => $t->id,
-                'type' => $this->walletLabel($t->type),
-                'reference' => $t->reference,
-                'amount' => (float) $t->amount,
-                'balanceAfter' => (float) $t->balance_after,
-                'date' => $t->created_at?->format('M j, Y H:i'),
-            ]);
-    }
-
     /**
-     * @return list<array<string, mixed>>
+     * Newest-first wallet history: ledger movements mixed with gateway top-ups still pending or
+     * failed (those carry a topupId so the page can offer Verify).
      */
-    private function pendingTopups(Subagent $subagent): array
+    private function walletHistory(WalletHistory $history, Subagent $subagent, string $type, string $status, string $search, $from, $to)
     {
-        return BalanceTopup::query()
-            ->where('wallet_id', $subagent->walletOrCreate()->id)
-            ->where('status', BalanceTopup::STATUS_PENDING)
-            ->latest('id')
-            ->get()
-            ->map(fn (BalanceTopup $t): array => [
-                'id' => $t->id,
-                'reference' => $t->reference,
-                'gateway' => ucfirst($t->gateway),
-                'amount' => (float) $t->amount,
-                'chargedAmount' => (float) $t->charged_amount,
-                'date' => $t->created_at?->format('M j, Y H:i'),
-            ])
-            ->all();
+        return $history->paginate(
+            $subagent->walletOrCreate(), $status, in_array($type, ['all', 'topup'], true), $search, $from, $to,
+            fn (Builder $q) => $q->when(isset(self::WALLET_TYPE_FILTERS[$type]), fn ($q) => $q->whereIn('type', self::WALLET_TYPE_FILTERS[$type])),
+        )->through(fn (object $row): array => [
+            'id' => $row->id,
+            'topupId' => $row->kind === 'topup' ? $row->id : null,
+            'type' => $this->walletLabel($row->type),
+            'reference' => $row->reference,
+            'amount' => (float) $row->amount,
+            'status' => $row->status,
+            'balanceAfter' => $row->balance_after !== null ? (float) $row->balance_after : null,
+            'date' => Carbon::parse($row->created_at)->format('M j, Y H:i'),
+        ]);
     }
 
     private function earningLabel(string $type): string

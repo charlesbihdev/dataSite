@@ -50,7 +50,7 @@ class WalletTopupConfirmer
         $status = strtolower((string) ($tx['status'] ?? ''));
 
         if ($status === 'failed') {
-            return $this->markFailedIfPending($topup, $status);
+            return $this->markFailed($topup);
         }
 
         if ($status !== 'success') {
@@ -67,7 +67,9 @@ class WalletTopupConfirmer
             /** @var BalanceTopup $fresh */
             $fresh = BalanceTopup::query()->whereKey($topup->getKey())->lockForUpdate()->firstOrFail();
 
-            if ($fresh->status !== BalanceTopup::STATUS_PENDING) {
+            // Only an already-credited top-up is a no-op. A FAILED one the gateway now reports as paid
+            // (e.g. a late MoMo approval) is credited — the success flip below still makes it once-only.
+            if ($fresh->status === BalanceTopup::STATUS_SUCCESS) {
                 return self::IGNORED;
             }
 
@@ -90,15 +92,15 @@ class WalletTopupConfirmer
         });
     }
 
-    private function markFailedIfPending(BalanceTopup $topup, string $status): string
+    private function markFailed(BalanceTopup $topup): string
     {
-        if ($status === 'failed' && $topup->status === BalanceTopup::STATUS_PENDING) {
+        if ($topup->status === BalanceTopup::STATUS_PENDING) {
             $topup->update(['status' => BalanceTopup::STATUS_FAILED]);
-
-            return self::FAILED;
         }
 
-        return self::IGNORED;
+        // Already-failed stays FAILED (so Reverify reports it honestly); a credited top-up is never
+        // downgraded by a stray failure event.
+        return $topup->status === BalanceTopup::STATUS_FAILED ? self::FAILED : self::IGNORED;
     }
 
     /**

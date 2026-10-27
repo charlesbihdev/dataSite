@@ -6,7 +6,6 @@ use App\Models\Agent;
 use App\Models\BalanceTopup;
 use App\Models\PaymentGateway;
 use App\Models\Wallet;
-use App\Models\WalletTransaction;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
@@ -16,6 +15,7 @@ class AdminTopupsTest extends TestCase
     use RefreshDatabase;
 
     private Agent $agent;
+
     private Wallet $wallet;
 
     protected function setUp(): void
@@ -204,6 +204,62 @@ class AdminTopupsTest extends TestCase
         $this->assertEquals(0.00, (float) $this->wallet->fresh()->balance);
     }
 
+    public function test_reverify_credits_a_failed_topup_the_gateway_later_reports_paid(): void
+    {
+        $this->actingAsAdmin();
+
+        $topup = BalanceTopup::query()->create([
+            'wallet_id' => $this->wallet->id,
+            'reference' => 'TOP-LATE-APPROVAL',
+            'gateway' => 'paystack',
+            'amount' => 50.00,
+            'charged_amount' => 51.50,
+            'currency' => 'GHS',
+            'status' => BalanceTopup::STATUS_FAILED,
+        ]);
+
+        Http::fake([
+            'api.paystack.co/transaction/verify/*' => Http::response([
+                'status' => true,
+                'data' => ['id' => 1, 'status' => 'success', 'reference' => 'TOP-LATE-APPROVAL', 'amount' => 5150, 'currency' => 'GHS'],
+            ]),
+        ]);
+
+        $this->post(route('admin.topups.verify-payment', ['topup' => $topup->id]))->assertRedirect();
+        $this->post(route('admin.topups.verify-payment', ['topup' => $topup->id]))->assertRedirect();
+
+        $this->assertSame(BalanceTopup::STATUS_SUCCESS, $topup->fresh()->status);
+        $this->assertEquals(50.00, (float) $this->wallet->fresh()->balance); // credited once, not twice
+    }
+
+    public function test_reverify_of_a_still_failed_topup_says_failed_not_credited(): void
+    {
+        $this->actingAsAdmin();
+
+        $topup = BalanceTopup::query()->create([
+            'wallet_id' => $this->wallet->id,
+            'reference' => 'TOP-STILL-FAILED',
+            'gateway' => 'paystack',
+            'amount' => 50.00,
+            'charged_amount' => 51.50,
+            'currency' => 'GHS',
+            'status' => BalanceTopup::STATUS_FAILED,
+        ]);
+
+        Http::fake([
+            'api.paystack.co/transaction/verify/*' => Http::response([
+                'status' => true,
+                'data' => ['id' => 2, 'status' => 'failed', 'reference' => 'TOP-STILL-FAILED', 'amount' => 5150, 'currency' => 'GHS'],
+            ]),
+        ]);
+
+        $this->post(route('admin.topups.verify-payment', ['topup' => $topup->id]))
+            ->assertSessionHas('inertia.flash_data.toast.type', 'error');
+
+        $this->assertSame(BalanceTopup::STATUS_FAILED, $topup->fresh()->status);
+        $this->assertEquals(0.00, (float) $this->wallet->fresh()->balance);
+    }
+
     public function test_admin_reverify_does_not_double_credit_already_successful_topup(): void
     {
         $this->actingAsAdmin();
@@ -335,28 +391,67 @@ class AdminTopupsTest extends TestCase
         $response->assertForbidden();
     }
 
-    public function test_agent_transactions_page_returns_pending_topups(): void
+    public function test_agent_history_mixes_uncredited_topups_with_the_ledger_newest_first(): void
     {
         $this->actingAs($this->agent, 'agent');
 
-        BalanceTopup::query()->create([
+        $this->wallet->credit(20, 'topup', 'MTP_old_paid', 'Wallet top-up via Paystack');
+        $this->travel(1)->minutes();
+        $this->attempt('TOP-AGENT-FAILED', BalanceTopup::STATUS_FAILED);
+        $this->travel(1)->minutes();
+        $pending = $this->attempt('TOP-AGENT-PENDING', BalanceTopup::STATUS_PENDING);
+
+        $this->get(route('agent.transactions'))->assertOk()->assertInertia(fn ($page) => $page
+            ->component('agent/transactions')
+            ->missing('pendingTopups')
+            ->has('transactions.data', 3)
+            ->where('transactions.data.0.code', 'TOP-AGENT-PENDING')
+            ->where('transactions.data.0.status', 'pending')
+            ->where('transactions.data.0.topupId', $pending->id)
+            ->where('transactions.data.0.balanceAfter', null)
+            ->where('transactions.data.1.code', 'TOP-AGENT-FAILED')
+            ->where('transactions.data.1.status', 'failed')
+            ->where('transactions.data.2.code', 'MTP_old_paid')
+            ->where('transactions.data.2.status', 'completed')
+            ->missing('transactions.data.2.topupId')
+        );
+    }
+
+    public function test_agent_history_status_and_type_filters_scope_the_topup_attempts(): void
+    {
+        $this->actingAs($this->agent, 'agent');
+
+        $this->wallet->credit(20, 'topup', 'MTP_paid', 'Wallet top-up via Paystack');
+        $this->attempt('TOP-PENDING-ONLY', BalanceTopup::STATUS_PENDING);
+        $this->attempt('TOP-FAILED-ONLY', BalanceTopup::STATUS_FAILED);
+
+        $this->get(route('agent.transactions', ['status' => 'pending']))->assertInertia(fn ($page) => $page
+            ->has('transactions.data', 1)
+            ->where('transactions.data.0.code', 'TOP-PENDING-ONLY')
+        );
+
+        $this->get(route('agent.transactions', ['status' => 'completed']))->assertInertia(fn ($page) => $page
+            ->has('transactions.data', 1)
+            ->where('transactions.data.0.code', 'MTP_paid')
+        );
+
+        // A purchase-only view never shows top-up attempts.
+        $this->get(route('agent.transactions', ['type' => 'purchase']))->assertInertia(fn ($page) => $page
+            ->has('transactions.data', 0)
+        );
+    }
+
+    private function attempt(string $reference, string $status): BalanceTopup
+    {
+        return BalanceTopup::query()->create([
             'wallet_id' => $this->wallet->id,
-            'reference' => 'TOP-AGENT-PENDING-CARD',
+            'reference' => $reference,
             'gateway' => 'paystack',
             'amount' => 95.00,
             'charged_amount' => 97.85,
             'currency' => 'GHS',
-            'status' => BalanceTopup::STATUS_PENDING,
+            'status' => $status,
         ]);
-
-        $response = $this->get(route('agent.transactions'));
-
-        $response->assertOk()
-            ->assertInertia(fn ($page) => $page
-                ->component('agent/transactions')
-                ->has('pendingTopups', 1)
-                ->where('pendingTopups.0.reference', 'TOP-AGENT-PENDING-CARD')
-            );
     }
 
     public function test_admin_can_export_topups(): void
@@ -393,4 +488,3 @@ class AdminTopupsTest extends TestCase
         $responseSelected->assertOk();
     }
 }
-
