@@ -43,7 +43,7 @@ const adminNavGroups = [
         title: "Fulfillment",
         items: [
             {
-                title: "Agent Orders",
+                title: "Agent/Subagent Orders",
                 href: "/admin/orders/agent",
                 icon: ShoppingCart,
             },

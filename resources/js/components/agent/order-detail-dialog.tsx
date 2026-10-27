@@ -8,6 +8,8 @@ export interface Order {
     id: number;
     reference: string;
     created_at: string;
+    // storefront | portal — sent by the subagent Orders page, which mixes both.
+    source?: string;
     network: string;
     capacity_gb: string;
     beneficiary_phone: string;
