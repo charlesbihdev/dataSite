@@ -3,17 +3,19 @@
 namespace App\Http\Controllers\Agent;
 
 use App\Http\Controllers\Controller;
-use App\Models\WalletTransaction;
+use App\Services\Wallet\WalletHistory;
 use App\Support\DateRange;
-use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Query\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Inertia\Inertia;
 use Inertia\Response;
 
 /**
- * The agent's Transactions page: their balance plus the signed wallet_transactions ledger,
- * scoped to their own wallet and filterable by transaction type. Read-only — money only ever moves
- * through Wallet::credit/debit elsewhere (checkout, admin funding), which record these rows.
+ * The agent's Transactions page: their balance plus one newest-first history (WalletHistory) — the
+ * signed wallet_transactions ledger mixed with any gateway top-ups still pending or failed, which
+ * carry a Verify action. Filterable by type, source, payment rail and status. Read-only — money only
+ * ever moves through Wallet::credit/debit elsewhere (checkout, admin funding, top-up confirmation).
  */
 class WalletController extends Controller
 {
@@ -54,7 +56,7 @@ class WalletController extends Controller
         'wallet' => ['order_purchase', 'adjustment', 'reversal', 'order_refund', 'commission'],
     ];
 
-    public function index(Request $request): Response
+    public function index(Request $request, WalletHistory $history): Response
     {
         $agent = $request->user();
         $wallet = $agent->walletOrCreate();
@@ -62,56 +64,38 @@ class WalletController extends Controller
         $type = (string) $request->query('type', 'all');
         $source = (string) $request->query('source', 'all');
         $payment = (string) $request->query('payment', 'all');
+        $status = (string) $request->query('status', 'all');
         $search = trim((string) $request->query('q', ''));
         $range = (string) $request->query('range', 'all');
         [$from, $to] = DateRange::resolve($request, $range);
 
-        $query = $wallet->transactions()->latest('id');
-        if (isset(self::TYPE_FILTERS[$type])) {
-            $query->whereIn('type', self::TYPE_FILTERS[$type]);
-        }
-        $this->applySourceFilter($query, $source);
-        if (isset(self::PAYMENT_FILTERS[$payment])) {
-            $query->whereIn('type', self::PAYMENT_FILTERS[$payment]);
-        }
-        if ($search !== '') {
-            $query->where(function ($q) use ($search) {
-                $like = "%{$search}%";
-                $q->where('reference', 'like', $like)
-                    ->orWhere('description', 'like', $like)
-                    ->orWhere('type', 'like', $like);
-            });
-        }
-        $query->when($from, fn ($q) => $q->where('created_at', '>=', $from))
-            ->when($to, fn ($q) => $q->where('created_at', '<=', $to));
+        // Gateway top-up attempts are user-initiated Paystack/Moolre money-in, so they only belong
+        // in the list when the type/source/payment filters would include such a top-up.
+        $includeAttempts = in_array($type, ['all', 'topup'], true)
+            && in_array($source, ['all', 'user'], true)
+            && in_array($payment, ['all', 'paystack'], true);
 
-        $transactions = $query->paginate(30)
-            ->withQueryString()
-            ->through(fn (WalletTransaction $t): array => $this->present($t));
-
-        $pendingTopups = \App\Models\BalanceTopup::query()
-            ->where('wallet_id', $wallet->id)
-            ->where('status', \App\Models\BalanceTopup::STATUS_PENDING)
-            ->latest('id')
-            ->get()
-            ->map(fn (\App\Models\BalanceTopup $t): array => [
-                'id' => $t->id,
-                'reference' => $t->reference,
-                'gateway' => ucfirst($t->gateway),
-                'amount' => (float) $t->amount,
-                'chargedAmount' => (float) $t->charged_amount,
-                'status' => $t->status,
-                'date' => $t->created_at?->format('M j, Y H:i'),
-            ]);
+        $transactions = $history->paginate(
+            $wallet, $status, $includeAttempts, $search, $from, $to,
+            function (Builder $query) use ($type, $source, $payment): void {
+                if (isset(self::TYPE_FILTERS[$type])) {
+                    $query->whereIn('type', self::TYPE_FILTERS[$type]);
+                }
+                $this->applySourceFilter($query, $source);
+                if (isset(self::PAYMENT_FILTERS[$payment])) {
+                    $query->whereIn('type', self::PAYMENT_FILTERS[$payment]);
+                }
+            },
+        )->through(fn (object $row): array => $row->kind === 'topup' ? $this->presentAttempt($row) : $this->present($row));
 
         return Inertia::render('agent/transactions', [
             'balance' => (float) $wallet->balance,
             'transactions' => $transactions,
-            'pendingTopups' => $pendingTopups,
             'filters' => [
                 'type' => $type,
                 'source' => $source,
                 'payment' => $payment,
+                'status' => $status,
                 'q' => $search,
                 'range' => $range,
                 'from' => $request->query('from'),
@@ -121,9 +105,11 @@ class WalletController extends Controller
     }
 
     /**
+     * A ledger movement (money actually moved).
+     *
      * @return array<string, mixed>
      */
-    private function present(WalletTransaction $t): array
+    private function present(object $t): array
     {
         $orderTypes = ['order_purchase', 'order_refund', 'reversal'];
         // A self-service gateway top-up (agent paid a gateway) is USER; admin funding/deductions are
@@ -146,11 +132,36 @@ class WalletController extends Controller
             'balanceBefore' => (float) $t->balance_before,
             'balanceAfter' => (float) $t->balance_after,
             'code' => $t->reference,
-            'date' => $t->created_at?->format('M j, Y H:i'),
+            'date' => Carbon::parse($t->created_at)->format('M j, Y H:i'),
         ];
     }
 
-    private function isGatewayTopup(WalletTransaction $t): bool
+    /**
+     * A gateway top-up that hasn't credited (pending or failed) — no balance has moved yet, and the
+     * row carries its topupId so the page can offer Verify.
+     *
+     * @return array<string, mixed>
+     */
+    private function presentAttempt(object $t): array
+    {
+        return [
+            'id' => $t->id,
+            'topupId' => $t->id,
+            'type' => 'Wallet Top-up',
+            'direction' => 'credit',
+            'source' => 'user',
+            'amount' => (float) $t->amount,
+            'orderReference' => null,
+            'paymentSource' => ucfirst((string) $t->gateway),
+            'status' => $t->status,
+            'balanceBefore' => null,
+            'balanceAfter' => null,
+            'code' => $t->reference,
+            'date' => Carbon::parse($t->created_at)->format('M j, Y H:i'),
+        ];
+    }
+
+    private function isGatewayTopup(object $t): bool
     {
         return $t->type === 'topup'
             && str_starts_with((string) $t->reference, self::GATEWAY_TOPUP_REFERENCE_PREFIX);
@@ -159,10 +170,8 @@ class WalletController extends Controller
     /**
      * Scope the ledger to ADMIN (superadmin funding/deductions) or USER (the agent's own trading,
      * including self-service gateway top-ups) so the filter matches the Source column exactly.
-     *
-     * @param  HasMany<WalletTransaction, Wallet>  $query
      */
-    private function applySourceFilter($query, string $source): void
+    private function applySourceFilter(Builder $query, string $source): void
     {
         $like = self::GATEWAY_TOPUP_REFERENCE_PREFIX.'%';
 

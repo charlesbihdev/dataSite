@@ -14,8 +14,10 @@ export interface Txn {
     orderReference: string | null;
     paymentSource: string | null;
     status: string;
-    balanceBefore: number;
-    balanceAfter: number;
+    balanceBefore: number | null;
+    balanceAfter: number | null;
+    // Set on gateway top-ups not yet credited (pending/failed) — the row offers Verify instead of View.
+    topupId?: number;
     code: string | null;
     date: string | null;
 }
@@ -35,8 +37,8 @@ export function TransactionDetailDialog({ transaction, onClose }: { transaction:
                         <Row label="Source" value={<span className="uppercase">{transaction.source}</span>} />
                         <Row label="Status" value={<StatusBadge status={transaction.status} />} />
                         <Row label="Payment Src" value={transaction.paymentSource ?? "—"} />
-                        <Row label="Balance before" value={cedis(transaction.balanceBefore)} />
-                        <Row label="Balance after" value={cedis(transaction.balanceAfter)} />
+                        <Row label="Balance before" value={transaction.balanceBefore !== null ? cedis(transaction.balanceBefore) : "—"} />
+                        <Row label="Balance after" value={transaction.balanceAfter !== null ? cedis(transaction.balanceAfter) : "—"} />
                         <Row label="Transaction code" value={<span className="font-mono text-xs">{transaction.code ?? "—"}</span>} />
                         <Row label="Date" value={transaction.date ?? "—"} />
                         <Row

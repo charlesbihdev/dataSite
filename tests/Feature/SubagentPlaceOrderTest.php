@@ -160,6 +160,31 @@ class SubagentPlaceOrderTest extends TestCase
         );
     }
 
+    public function test_wallet_tab_shows_an_uncredited_topup_as_a_pending_row_with_verify(): void
+    {
+        $wallet = $this->subagent->walletOrCreate();
+        $wallet->credit(40, 'topup', 'MTP_abc', 'Wallet top-up');
+        $this->travel(1)->minutes();
+        $pending = BalanceTopup::query()->create([
+            'wallet_id' => $wallet->id, 'gateway' => PaymentGateway::PAYSTACK, 'reference' => 'MTP_waiting',
+            'amount' => 25, 'charged_amount' => 25, 'currency' => 'GHS', 'status' => BalanceTopup::STATUS_PENDING,
+        ]);
+
+        $this->get(route('subagent.transactions', ['tab' => 'wallet']))->assertInertia(
+            fn (Assert $page) => $page
+                ->has('transactions.data', 2)
+                ->where('transactions.data.0.reference', 'MTP_waiting')
+                ->where('transactions.data.0.status', 'pending')
+                ->where('transactions.data.0.topupId', $pending->id)
+                ->where('transactions.data.1.status', 'completed')
+                ->where('transactions.data.1.topupId', null)
+        );
+
+        $this->get(route('subagent.transactions', ['tab' => 'wallet', 'status' => 'pending']))->assertInertia(
+            fn (Assert $page) => $page->has('transactions.data', 1)->where('transactions.data.0.reference', 'MTP_waiting')
+        );
+    }
+
     public function test_guests_are_sent_to_the_subagent_login(): void
     {
         auth('subagent')->logout();
