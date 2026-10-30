@@ -2,6 +2,7 @@ import { Link } from "@inertiajs/react";
 import {
     ArrowDownToLine,
     Banknote,
+    Bell,
     CreditCard,
     GitFork,
     LayoutGrid,
@@ -37,6 +38,7 @@ const adminNavGroups = [
         items: [
             { title: "Overview", href: "/admin", icon: LayoutGrid },
             { title: "Analytics", href: "/admin/analytics", icon: TrendingUp },
+            { title: "Notifications", href: "/admin/notifications", icon: Bell },
         ],
     },
     {

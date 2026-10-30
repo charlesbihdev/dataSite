@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Models\SupportConfig;
+use App\Services\Notifications\AgentNotificationFeed;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -82,6 +83,10 @@ class HandleInertiaRequests extends Middleware
             ],
             // Admin WhatsApp for the agent portal's floating support button (agents only).
             'supportWhatsappUrl' => fn () => $request->user('agent') !== null ? SupportConfig::whatsappUrl() : null,
+            // Admin notifications for the agent portal: bell badge + dropdown, dashboard banner.
+            'notifications' => fn () => $request->user('agent') !== null
+                ? app(AgentNotificationFeed::class)->for($request->user('agent'))
+                : null,
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
         ];
     }
