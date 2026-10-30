@@ -1,1 +1,0 @@
-var e=new Intl.NumberFormat(`en-GH`,{style:`currency`,currency:`GHS`});function t(t){let n=typeof t==`string`?parseFloat(t):t??0;return e.format(Number.isFinite(n)?n:0)}export{t};
