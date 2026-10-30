@@ -92,9 +92,28 @@ class WalletTopupConfirmer
         });
     }
 
+    /**
+     * Mark a still-pending top-up expired. Conditional write, so a credit that landed a moment
+     * earlier always wins.
+     */
+    public function expire(BalanceTopup $topup): bool
+    {
+        $changed = BalanceTopup::query()
+            ->whereKey($topup->getKey())
+            ->where('status', BalanceTopup::STATUS_PENDING)
+            ->update(['status' => BalanceTopup::STATUS_EXPIRED, 'updated_at' => now()]) > 0;
+
+        if ($changed) {
+            $topup->status = BalanceTopup::STATUS_EXPIRED;
+            $topup->syncOriginalAttribute('status');
+        }
+
+        return $changed;
+    }
+
     private function markFailed(BalanceTopup $topup): string
     {
-        if ($topup->status === BalanceTopup::STATUS_PENDING) {
+        if (in_array($topup->status, [BalanceTopup::STATUS_PENDING, BalanceTopup::STATUS_EXPIRED], true)) {
             $topup->update(['status' => BalanceTopup::STATUS_FAILED]);
         }
 

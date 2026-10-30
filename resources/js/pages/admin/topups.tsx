@@ -79,6 +79,7 @@ const STATUS_OPTIONS = [
     { value: "pending", label: "Pending Payment" },
     { value: "success", label: "Success (Credited)" },
     { value: "failed", label: "Failed" },
+    { value: "expired", label: "Expired (not paid in time)" },
 ];
 
 const GATEWAY_OPTIONS = [
@@ -251,7 +252,7 @@ export default function AdminTopups({ topups, stats, filters }: Props) {
                 const isVerifying = verifyingId === t.id;
                 return (
                     <div className="flex items-center justify-end gap-1.5">
-                        {t.status === "pending" || t.status === "failed" ? (
+                        {t.status === "pending" || t.status === "failed" || t.status === "expired" ? (
                             <Button
                                 variant="outline"
                                 size="sm"
@@ -333,7 +334,7 @@ export default function AdminTopups({ topups, stats, filters }: Props) {
                         <StatTile
                             label="Failed Top-ups"
                             value={String(stats.failed_count)}
-                            hint="Declined or abandoned charges"
+                            hint="Declined by the gateway"
                         />
                     </div>
                     <div
@@ -528,7 +529,7 @@ export default function AdminTopups({ topups, stats, filters }: Props) {
                     )}
 
                     <DialogFooter className="gap-2 sm:gap-0">
-                        {viewingTopup && (viewingTopup.status === "pending" || viewingTopup.status === "failed") && (
+                        {viewingTopup && (viewingTopup.status === "pending" || viewingTopup.status === "failed" || viewingTopup.status === "expired") && (
                             <Button
                                 variant="outline"
                                 className="mr-auto text-xs text-amber-600 hover:bg-amber-500/10 hover:text-amber-700"

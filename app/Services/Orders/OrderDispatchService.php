@@ -3,6 +3,7 @@
 namespace App\Services\Orders;
 
 use App\Exceptions\InsufficientBalanceException;
+use App\Exceptions\PaymentNotConfirmedException;
 use App\Jobs\PollUpstreamOrderStatus;
 use App\Models\Earning;
 use App\Models\Order;
@@ -10,6 +11,7 @@ use App\Notifications\OrderReceiptNotification;
 use App\Services\Beneficiaries\UnapprovedBeneficiaryService;
 use App\Services\Databundleshub\UpstreamClient;
 use App\Services\Databundleshub\UpstreamException;
+use App\Services\Payments\PaymentVerifier;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
@@ -36,6 +38,8 @@ class OrderDispatchService
         private readonly UpstreamClient $client,
         private readonly OrderSettlementService $settlement,
         private readonly ProfitSplit $profitSplit,
+        private readonly OrderWalletLedger $ledger,
+        private readonly PaymentVerifier $verifier,
         private readonly ?UnapprovedBeneficiaryService $unapprovedBeneficiaries = null,
     ) {}
 
@@ -192,14 +196,20 @@ class OrderDispatchService
     }
 
     /**
-     * Retry a failed order. Payment invariant: PAID ⇒ money is still held (storefront gateway, or an
-     * order we never refunded) → just re-send. NOT paid ⇒ the reversal refunded it → re-debit the
-     * seller (prepaid) to secure it again, then send. Fresh pending earnings replace the reversed
-     * ones from the failed attempt. Throws InsufficientBalanceException if a re-debit can't cover it.
+     * Retry a failed order, checking the real money source first rather than the payment flag:
+     *   prepaid — the wallet ledger: still held → just re-send; refunded → re-debit, then send.
+     *   online  — paid → re-send; not paid → ask the gateway, re-send only on a real success.
+     * Fresh pending earnings replace the reversed ones from the failed attempt. Throws
+     * InsufficientBalanceException (re-debit can't cover it) or PaymentNotConfirmedException.
      */
     public function redispatch(Order $order): Order
     {
-        DB::transaction(function () use ($order): void {
+        // Gateway call happens outside the row lock; the result is re-applied under it below.
+        $gatewayConfirmed = $order->channel === Order::CHANNEL_ONLINE
+            && $order->payment_status !== Order::PAYMENT_PAID
+            && $this->verifier->verify($order) === PaymentVerifier::PAID;
+
+        DB::transaction(function () use ($order, $gatewayConfirmed): void {
             /** @var Order $locked */
             $locked = Order::query()->whereKey($order->getKey())->lockForUpdate()->firstOrFail();
 
@@ -207,17 +217,19 @@ class OrderDispatchService
                 return; // already done or in flight — nothing to retry
             }
 
-            if ($locked->payment_status !== Order::PAYMENT_PAID) {
-                if ($locked->channel === Order::CHANNEL_PREPAID) {
-                    $locked->seller->walletOrCreate()->debit(
-                        $locked->seller_cost,
-                        self::TXN_PURCHASE,
-                        $locked->reference,
-                        "Re-dispatch {$locked->reference}",
-                    );
+            if ($locked->channel === Order::CHANNEL_ONLINE) {
+                if ($locked->payment_status !== Order::PAYMENT_PAID && ! $gatewayConfirmed) {
+                    throw new PaymentNotConfirmedException("Payment for {$locked->reference} is not confirmed by the gateway.");
                 }
-                $locked->payment_status = Order::PAYMENT_PAID;
+            } elseif ($this->ledger->held($locked) <= 0) {
+                $locked->seller->walletOrCreate()->debit(
+                    $locked->seller_cost,
+                    self::TXN_PURCHASE,
+                    $locked->reference,
+                    "Re-dispatch {$locked->reference}",
+                );
             }
+            $locked->payment_status = Order::PAYMENT_PAID;
 
             Earning::query()->where('order_id', $locked->getKey())->delete();
             foreach ($this->profitSplit->for($locked) as $share) {

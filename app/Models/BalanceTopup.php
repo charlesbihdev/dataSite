@@ -32,6 +32,8 @@ class BalanceTopup extends Model
 
     public const STATUS_FAILED = 'failed';
 
+    public const STATUS_EXPIRED = 'expired';
+
     protected function casts(): array
     {
         return [

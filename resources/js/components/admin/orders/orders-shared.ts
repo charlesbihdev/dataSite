@@ -16,4 +16,7 @@ export const STATUSES = ['all', 'pending', 'verifying', 'processing', 'completed
 export const NETWORKS = ['all', 'mtn', 'telecel', 'at'];
 export const SELLERS = ['all', 'agent', 'subagent'];
 export const SOURCES = ['all', 'portal', 'api'];
-export const PAYMENTS = ['all', 'paid', 'awaiting', 'failed'];
+export const PAYMENTS = ['all', 'paid', 'awaiting', 'failed', 'expired'];
+
+/** Payment states the gateway Verify can still resolve (mirrors Order::VERIFIABLE_PAYMENTS). */
+export const VERIFIABLE_PAYMENTS = ['awaiting', 'failed', 'expired'];

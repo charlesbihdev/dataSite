@@ -6,6 +6,7 @@ import {
     updateEmail,
     updateWithdrawals,
 } from '@/actions/App/Http/Controllers/Admin/SettingsController';
+import { SupportContactCard } from '@/components/admin/settings/support-contact-card';
 import { Column, DataTable } from '@/components/common/data-table';
 import { PageHeader } from '@/components/common/page-header';
 import { SecretUnreadableNotice } from '@/components/common/secret-unreadable-notice';
@@ -41,10 +42,11 @@ interface Props {
     email: EmailCfg;
     registration: { fee: number; isEnabled: boolean };
     withdrawals: { min: number; max: number | null };
+    support: { whatsappNumber: string };
     admins: Admin[];
 }
 
-export default function AdminSettings({ connection, email, withdrawals, admins }: Props) {
+export default function AdminSettings({ connection, email, withdrawals, support, admins }: Props) {
     const form = useForm({
         base_url: connection.baseUrl,
         api_key: '',
@@ -287,6 +289,8 @@ export default function AdminSettings({ connection, email, withdrawals, admins }
                         </form>
                     </CardContent>
                 </Card>
+
+                <SupportContactCard whatsappNumber={support.whatsappNumber} />
             </div>
         </>
     );

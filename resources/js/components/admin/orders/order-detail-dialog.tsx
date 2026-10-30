@@ -101,10 +101,16 @@ export function OrderDetailDialog({
                                 className={
                                     order.paymentStatus === 'awaiting'
                                         ? 'rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-950 dark:text-amber-300'
-                                        : 'rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700 dark:bg-red-950 dark:text-red-300'
+                                        : order.paymentStatus === 'expired'
+                                          ? 'rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground'
+                                          : 'rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700 dark:bg-red-950 dark:text-red-300'
                                 }
                             >
-                                {order.paymentStatus === 'awaiting' ? 'Awaiting payment' : 'Payment failed'}
+                                {order.paymentStatus === 'awaiting'
+                                    ? 'Awaiting payment'
+                                    : order.paymentStatus === 'expired'
+                                      ? 'Payment expired'
+                                      : 'Payment failed'}
                             </span>
                         ) : null}
                     </DialogTitle>
@@ -208,6 +214,28 @@ export function OrderDetailDialog({
                                 }
                             >
                                 Delete order
+                            </Button>
+                        </div>
+                    ) : null}
+
+                    {segment === 'regular' && (order.paymentStatus === 'failed' || order.paymentStatus === 'expired') ? (
+                        <div className="space-y-2 rounded-lg border border-border p-4">
+                            <p className="text-sm text-muted-foreground">
+                                {order.paymentStatus === 'expired'
+                                    ? 'No payment was confirmed in time, so this order expired.'
+                                    : 'The gateway reported this payment as failed.'}{' '}
+                                Verify asks the gateway again and dispatches only if it confirms the payment.
+                            </p>
+                            <Button
+                                className="w-full"
+                                onClick={() =>
+                                    router.post(verifyOrderPayment(order.id).url, {}, {
+                                        preserveScroll: true,
+                                        onSuccess: onClose,
+                                    })
+                                }
+                            >
+                                Verify payment
                             </Button>
                         </div>
                     ) : null}

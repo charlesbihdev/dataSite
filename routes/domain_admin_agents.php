@@ -32,6 +32,7 @@ use App\Http\Controllers\Admin\AccountsController;
 use App\Http\Controllers\Admin\ApiLogController;
 use App\Http\Controllers\Admin\BeneficiariesController;
 use App\Http\Controllers\Admin\DashboardController;
+use App\Http\Controllers\Admin\NotificationsController;
 use App\Http\Controllers\Admin\OrdersController;
 use App\Http\Controllers\Admin\PaymentConfigController;
 use App\Http\Controllers\Admin\PricingController;
@@ -43,6 +44,7 @@ use App\Http\Controllers\Admin\WithdrawalsController;
 use App\Http\Controllers\Agent\ApiDocumentationController;
 use App\Http\Controllers\Agent\ApiKeysController;
 use App\Http\Controllers\Agent\CartController;
+use App\Http\Controllers\Agent\NotificationsController as AgentNotificationsController;
 use App\Http\Controllers\Agent\PackagesController;
 use App\Http\Controllers\Agent\ReferralController;
 use App\Http\Controllers\Agent\SubagentSalesController;
@@ -64,6 +66,8 @@ Route::post('webhooks/moolre', [MoolreWebhookController::class, 'handle'])->name
 
 Route::middleware(['auth:agent'])->group(function () {
     Route::get('dashboard', [App\Http\Controllers\Agent\DashboardController::class, 'index'])->name('agent.dashboard');
+    Route::post('notifications/read-all', [AgentNotificationsController::class, 'readAll'])->name('agent.notifications.read-all');
+    Route::post('notifications/{announcement}/read', [AgentNotificationsController::class, 'read'])->name('agent.notifications.read');
     Route::get('transactions', [WalletController::class, 'index'])->name('agent.transactions');
     Route::get('orders', [App\Http\Controllers\Agent\OrdersController::class, 'index'])->name('agent.orders');
     Route::post('orders/{order}/retry', [App\Http\Controllers\Agent\OrdersController::class, 'retry'])->name('agent.orders.retry');
@@ -124,6 +128,10 @@ Route::prefix('admin')->name('admin.')->group(function () {
 
         Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
         Route::get('analytics', [AnalyticsController::class, 'index'])->name('analytics');
+
+        Route::get('notifications', [NotificationsController::class, 'index'])->name('notifications.index');
+        Route::post('notifications', [NotificationsController::class, 'store'])->name('notifications.store');
+        Route::delete('notifications/{announcement}', [NotificationsController::class, 'destroy'])->name('notifications.destroy');
 
         // Sections scaffolded + routed; each fills in as its own slice.
         Route::redirect('orders', 'admin/orders/agent')->name('orders');
@@ -194,6 +202,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::post('settings/email/test', [SettingsController::class, 'sendTestEmail'])->name('settings.email.test');
         Route::put('settings/registration', [SettingsController::class, 'updateRegistration'])->name('settings.registration');
         Route::put('settings/withdrawals', [SettingsController::class, 'updateWithdrawals'])->name('settings.withdrawals');
+        Route::put('settings/support', [SettingsController::class, 'updateSupport'])->name('settings.support');
         Route::get('profile', [ProfileController::class, 'edit'])->name('profile');
         Route::patch('profile', [ProfileController::class, 'update'])->name('profile.update');
         Route::put('profile/password', [ProfileController::class, 'updatePassword'])->name('profile.password');

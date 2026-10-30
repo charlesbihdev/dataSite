@@ -28,7 +28,7 @@ class TopupsController extends Controller
 
         $query = BalanceTopup::query()->with('wallet.walletable');
 
-        if ($status !== 'all' && in_array($status, [BalanceTopup::STATUS_PENDING, BalanceTopup::STATUS_SUCCESS, BalanceTopup::STATUS_FAILED], true)) {
+        if ($status !== 'all' && in_array($status, [BalanceTopup::STATUS_PENDING, BalanceTopup::STATUS_SUCCESS, BalanceTopup::STATUS_FAILED, BalanceTopup::STATUS_EXPIRED], true)) {
             $query->where('status', $status);
         }
 
@@ -126,7 +126,7 @@ class TopupsController extends Controller
             }
         }
 
-        if ($status !== 'all' && in_array($status, [BalanceTopup::STATUS_PENDING, BalanceTopup::STATUS_SUCCESS, BalanceTopup::STATUS_FAILED], true)) {
+        if ($status !== 'all' && in_array($status, [BalanceTopup::STATUS_PENDING, BalanceTopup::STATUS_SUCCESS, BalanceTopup::STATUS_FAILED, BalanceTopup::STATUS_EXPIRED], true)) {
             $query->where('status', $status);
         }
 

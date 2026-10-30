@@ -1,6 +1,7 @@
 import { Head, router, usePage } from "@inertiajs/react";
 import { useState } from "react";
 import { Check, Copy, Link as LinkIcon, ShoppingBag, TrendingUp, Users, Wallet } from "lucide-react";
+import { NotificationBanner } from "@/components/agent/notifications/notification-banner";
 import { PlaceOrderCard } from "@/components/common/place-order/place-order-card";
 import { CartItem, CartPanel } from "@/components/common/place-order/cart-panel";
 import { TopupDialog } from "@/components/common/topup-dialog";
@@ -98,6 +99,8 @@ export default function Dashboard({
             <Head title="Agent Dashboard" />
 
             <div className="flex h-full flex-1 flex-col gap-6 p-4 lg:p-8">
+                <NotificationBanner />
+
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                     <div>
                         <h1 className="text-3xl font-bold tracking-tight bg-linear-to-br from-foreground to-muted-foreground bg-clip-text text-transparent">

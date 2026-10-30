@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Concerns;
 
 use App\Exceptions\InsufficientBalanceException;
+use App\Exceptions\PaymentNotConfirmedException;
 use App\Models\Order;
 use App\Services\Orders\OrderDispatchService;
 use App\Services\Payments\OrderPaymentConfirmer;
@@ -34,6 +35,10 @@ trait HandlesOrderActions
             Inertia::flash('toast', ['type' => 'error', 'message' => 'Insufficient wallet balance to retry this order. Top up and try again.']);
 
             return back();
+        } catch (PaymentNotConfirmedException) {
+            Inertia::flash('toast', ['type' => 'error', 'message' => "{$order->reference}: payment not confirmed by the gateway, so it was not re-sent."]);
+
+            return back();
         }
 
         Inertia::flash('toast', ['type' => 'success', 'message' => "Order {$order->reference} is being re-sent."]);
@@ -63,4 +68,3 @@ trait HandlesOrderActions
         return back();
     }
 }
-
