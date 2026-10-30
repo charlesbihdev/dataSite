@@ -66,6 +66,10 @@
     --color-brand-fg: var(--brand-fg);
     --color-brand-subtle: var(--brand-subtle);
 
+    /* WhatsApp brand green — scoped exception for WhatsApp contact buttons only. */
+    --color-whatsapp: #25d366;
+    --color-whatsapp-hover: #1ebe5a;
+
     /* ── Semantic status tokens (never raw palette) ────────────────────────── */
     --color-success: var(--success);
     --color-success-foreground: var(--success-foreground);

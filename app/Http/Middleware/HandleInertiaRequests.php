@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\SupportConfig;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -79,6 +80,8 @@ class HandleInertiaRequests extends Middleware
             'flash' => [
                 'rawApiKey' => fn () => $request->session()->get('rawApiKey'),
             ],
+            // Admin WhatsApp for the agent portal's floating support button (agents only).
+            'supportWhatsappUrl' => fn () => $request->user('agent') !== null ? SupportConfig::whatsappUrl() : null,
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
         ];
     }

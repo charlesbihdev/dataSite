@@ -194,6 +194,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::post('settings/email/test', [SettingsController::class, 'sendTestEmail'])->name('settings.email.test');
         Route::put('settings/registration', [SettingsController::class, 'updateRegistration'])->name('settings.registration');
         Route::put('settings/withdrawals', [SettingsController::class, 'updateWithdrawals'])->name('settings.withdrawals');
+        Route::put('settings/support', [SettingsController::class, 'updateSupport'])->name('settings.support');
         Route::get('profile', [ProfileController::class, 'edit'])->name('profile');
         Route::patch('profile', [ProfileController::class, 'update'])->name('profile.update');
         Route::put('profile/password', [ProfileController::class, 'updatePassword'])->name('profile.password');

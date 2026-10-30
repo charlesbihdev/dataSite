@@ -6,11 +6,13 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\DbhConnectionRequest;
 use App\Http\Requests\Admin\EmailConfigRequest;
 use App\Http\Requests\Admin\RegistrationConfigRequest;
+use App\Http\Requests\Admin\SupportConfigRequest;
 use App\Http\Requests\Admin\WithdrawalConfigRequest;
 use App\Models\Admin;
 use App\Models\DbhConfig;
 use App\Models\EmailConfig;
 use App\Models\RegistrationConfig;
+use App\Models\SupportConfig;
 use App\Models\WithdrawalConfig;
 use App\Notifications\TestEmailNotification;
 use App\Services\Databundleshub\UpstreamClient;
@@ -62,6 +64,9 @@ class SettingsController extends Controller
             'withdrawals' => [
                 'min' => WithdrawalConfig::minAmount(),
                 'max' => WithdrawalConfig::maxAmount(),
+            ],
+            'support' => [
+                'whatsappNumber' => SupportConfig::current()?->whatsapp_number ?? '',
             ],
             'admins' => Admin::query()->orderBy('name')->get()->map(fn (Admin $a): array => [
                 'id' => $a->id,
@@ -140,6 +145,18 @@ class SettingsController extends Controller
         $row->save();
 
         Inertia::flash('toast', ['type' => 'success', 'message' => 'Withdrawal limits saved.']);
+
+        return back();
+    }
+
+    public function updateSupport(SupportConfigRequest $request): RedirectResponse
+    {
+        $number = trim((string) $request->validated('whatsapp_number'));
+        $row = SupportConfig::current() ?? new SupportConfig;
+        $row->whatsapp_number = $number !== '' ? $number : null;
+        $row->save();
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => 'Support WhatsApp saved.']);
 
         return back();
     }

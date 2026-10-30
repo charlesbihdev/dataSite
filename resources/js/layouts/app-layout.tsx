@@ -1,3 +1,4 @@
+import { SupportWhatsappButton } from '@/components/agent/support-whatsapp-button';
 import AppLayoutTemplate from '@/layouts/app/app-sidebar-layout';
 import type { BreadcrumbItem } from '@/types';
 
@@ -11,6 +12,7 @@ export default function AppLayout({
     return (
         <AppLayoutTemplate breadcrumbs={breadcrumbs}>
             {children}
+            <SupportWhatsappButton />
         </AppLayoutTemplate>
     );
 }
