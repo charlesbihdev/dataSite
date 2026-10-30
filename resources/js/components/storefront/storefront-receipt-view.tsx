@@ -10,7 +10,7 @@ export interface StorefrontReceiptOrder {
     capacityGb: number;
     phone: string;
     amount: number;
-    paymentStatus: "paid" | "awaiting" | "failed";
+    paymentStatus: "paid" | "awaiting" | "failed" | "expired";
     status: string;
 }
 
@@ -24,6 +24,7 @@ const STATE = {
     paid: { icon: CheckCircle2, tone: "text-success", title: "Payment received", note: "Your payment was successful. Your data bundle is being processed and will be delivered shortly." },
     awaiting: { icon: Clock, tone: "text-brand", title: "Order received", note: "We're confirming your payment. Your bundle will be delivered shortly." },
     failed: { icon: XCircle, tone: "text-destructive", title: "Payment failed", note: "We couldn't confirm your payment. Please try again." },
+    expired: { icon: XCircle, tone: "text-muted-foreground", title: "Payment not received", note: "We didn't receive your payment in time. If you were charged, contact the shop with this reference." },
 } as const;
 
 /**

@@ -3,21 +3,23 @@
 namespace App\Services\Orders;
 
 use App\Exceptions\InsufficientBalanceException;
+use App\Exceptions\PaymentNotConfirmedException;
 use App\Jobs\PollUpstreamOrderStatus;
 use App\Models\Order;
+use App\Services\Payments\OrderPaymentConfirmer;
 use App\Services\Payments\PaymentVerifier;
 
 /**
  * Applies a bulk action to many selected orders and returns a human summary. Each action scopes to
  * the orders it can legally act on, so a mixed selection is always safe:
- *   Regular — verify / mark-verified / delete  (awaiting only)
+ *   Regular — verify (awaiting, failed or expired) / mark-verified / delete  (awaiting only)
  *   Agent   — sync (processing) / retry (failed or held-pending) / apply-status
  * Money always moves through the dispatch/settlement services, never a raw status write.
  */
 class OrderBulkService
 {
     public function __construct(
-        private readonly PaymentVerifier $verifier,
+        private readonly OrderPaymentConfirmer $confirmer,
         private readonly OrderDispatchService $dispatch,
         private readonly OrderSettlementService $settlement,
     ) {}
@@ -31,6 +33,7 @@ class OrderBulkService
             'sync' => $this->sync($ids),
             'retry' => $this->retry($ids),
             'apply-status' => $this->applyStatus($ids, (string) $status),
+            'verify' => $this->verify($ids),
             default => $this->awaiting($action, $ids),
         };
     }
@@ -70,6 +73,7 @@ class OrderBulkService
             ->get();
         $done = 0;
         $short = 0;
+        $unpaid = 0;
 
         foreach ($orders as $order) {
             try {
@@ -77,10 +81,14 @@ class OrderBulkService
                 $done++;
             } catch (InsufficientBalanceException) {
                 $short++;
+            } catch (PaymentNotConfirmedException) {
+                $unpaid++;
             }
         }
 
-        return "Retried {$done} order(s)".($short > 0 ? ", {$short} skipped (insufficient balance)." : '.');
+        return "Retried {$done} order(s)"
+            .($short > 0 ? ", {$short} skipped (insufficient balance)" : '')
+            .($unpaid > 0 ? ", {$unpaid} skipped (payment not confirmed)" : '').'.';
     }
 
     /**
@@ -114,49 +122,49 @@ class OrderBulkService
     }
 
     /**
-     * Regular-side actions on awaiting orders: verify (gateway-branched), mark-verified (manual
-     * confirm + dispatch), delete.
+     * Gateway-verify unpaid storefront orders (awaiting, failed or expired) through the shared
+     * confirmer — only a real gateway success dispatches.
+     *
+     * @param  array<int, int>  $ids
+     */
+    private function verify(array $ids): string
+    {
+        $orders = Order::query()
+            ->whereIn('id', $ids)
+            ->where('channel', Order::CHANNEL_ONLINE)
+            ->whereIn('payment_status', Order::VERIFIABLE_PAYMENTS)
+            ->get();
+        $tally = [PaymentVerifier::PAID => 0, PaymentVerifier::FAILED => 0, PaymentVerifier::PENDING => 0];
+
+        foreach ($orders as $order) {
+            $tally[$this->confirmer->confirm($order)]++;
+        }
+
+        return "Verified & dispatched {$tally[PaymentVerifier::PAID]}, payment failed {$tally[PaymentVerifier::FAILED]}, still unconfirmed {$tally[PaymentVerifier::PENDING]}.";
+    }
+
+    /**
+     * Regular-side manual actions on awaiting orders: mark-verified (confirm + dispatch), delete.
      *
      * @param  array<int, int>  $ids
      */
     private function awaiting(string $action, array $ids): string
     {
         $orders = Order::query()->whereIn('id', $ids)->where('payment_status', Order::PAYMENT_AWAITING)->get();
-        $done = 0;
-        $failed = 0;
-        $skipped = 0;
 
         foreach ($orders as $order) {
             if ($action === 'delete') {
                 $order->delete();
-                $done++;
 
                 continue;
             }
 
-            if ($action === 'mark-verified') {
-                $order->update(['payment_status' => Order::PAYMENT_PAID]);
-                $this->dispatch->fulfillPaid($order);
-                $done++;
-
-                continue;
-            }
-
-            // verify → check the gateway and branch per order
-            match ($this->verifier->verify($order)) {
-                PaymentVerifier::PAID => tap($done++, function () use ($order): void {
-                    $order->update(['payment_status' => Order::PAYMENT_PAID]);
-                    $this->dispatch->fulfillPaid($order);
-                }),
-                PaymentVerifier::FAILED => tap($failed++, fn () => $order->update(['payment_status' => Order::PAYMENT_FAILED])),
-                default => $skipped++,
-            };
+            $order->update(['payment_status' => Order::PAYMENT_PAID]);
+            $this->dispatch->fulfillPaid($order);
         }
 
-        return match ($action) {
-            'delete' => "{$done} order(s) deleted.",
-            'mark-verified' => "{$done} order(s) verified & dispatched.",
-            default => "Verified & dispatched {$done}, payment failed {$failed}, still awaiting {$skipped}.",
-        };
+        return $action === 'delete'
+            ? "{$orders->count()} order(s) deleted."
+            : "{$orders->count()} order(s) verified & dispatched.";
     }
 }

@@ -9,6 +9,7 @@ use App\Services\Orders\OrderBulkService;
 use App\Services\Orders\OrderDispatchService;
 use App\Services\Orders\OrderListPresenter;
 use App\Services\Orders\OrderSettlementService;
+use App\Services\Payments\OrderPaymentConfirmer;
 use App\Services\Payments\PaymentVerifier;
 use App\Support\CsvExport;
 use Illuminate\Http\RedirectResponse;
@@ -51,32 +52,26 @@ class OrdersController extends Controller
 
     /**
      * Verify a storefront order's payment against the gateway and act on the real result — the
-     * admin never decides the outcome. PAID → dispatch the bundle (record earnings → processing →
-     * push to Databundleshub); FAILED → mark the payment failed, nothing dispatched; PENDING →
-     * leave it awaiting so a later check can resolve it. Combining verify + dispatch is our fit:
-     * unlike DBH, our only fulfillment is the automated upstream call.
+     * admin never decides the outcome. PAID → dispatch the bundle; FAILED → mark the payment
+     * failed; PENDING → leave it as it is. Works on awaiting, failed and expired orders (late
+     * payments, customer disputes): only a real gateway `success` ever dispatches.
      */
-    public function verifyPayment(Order $order, PaymentVerifier $verifier, OrderDispatchService $dispatch): RedirectResponse
+    public function verifyPayment(Order $order, OrderPaymentConfirmer $confirmer): RedirectResponse
     {
-        if ($order->payment_status !== Order::PAYMENT_AWAITING) {
-            Inertia::flash('toast', ['type' => 'error', 'message' => 'Only orders awaiting payment can be verified.']);
+        if ($order->channel !== Order::CHANNEL_ONLINE || ! in_array($order->payment_status, Order::VERIFIABLE_PAYMENTS, true)) {
+            Inertia::flash('toast', ['type' => 'error', 'message' => 'Only unpaid storefront orders can be verified.']);
 
             return back();
         }
 
-        $toast = match ($verifier->verify($order)) {
-            PaymentVerifier::PAID => tap(
-                ['type' => 'success', 'message' => "Payment confirmed for {$order->reference} — bundle dispatched."],
-                function () use ($order, $dispatch): void {
-                    $order->update(['payment_status' => Order::PAYMENT_PAID]);
-                    $dispatch->fulfillPaid($order);
-                },
-            ),
-            PaymentVerifier::FAILED => tap(
-                ['type' => 'error', 'message' => "{$order->reference}: gateway reports the payment failed — order marked failed."],
-                fn () => $order->update(['payment_status' => Order::PAYMENT_FAILED]),
-            ),
-            default => ['type' => 'info', 'message' => "{$order->reference}: payment not confirmed yet — left awaiting. Try again shortly."],
+        $previous = $order->payment_status;
+
+        $toast = match ($confirmer->confirm($order)) {
+            PaymentVerifier::PAID => ['type' => 'success', 'message' => "Payment confirmed for {$order->reference} — bundle dispatched."],
+            PaymentVerifier::FAILED => ['type' => 'error', 'message' => "{$order->reference}: gateway reports the payment failed."],
+            default => ['type' => 'info', 'message' => $previous === Order::PAYMENT_AWAITING
+                ? "{$order->reference}: payment not confirmed yet — left awaiting. Try again shortly."
+                : "{$order->reference}: gateway still has no successful payment — left {$previous}."],
         };
 
         Inertia::flash('toast', $toast);

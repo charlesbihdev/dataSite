@@ -3,12 +3,13 @@ import { useState } from "react";
 import { RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-/** Status filter for wallet history: completed ledger rows vs top-ups still pending/failed. */
+/** Status filter for wallet history: completed ledger rows vs top-ups still pending/failed/expired. */
 export const WALLET_STATUS_FILTERS: { value: string; label: string }[] = [
     { value: "all", label: "All statuses" },
     { value: "completed", label: "Completed" },
     { value: "pending", label: "Pending" },
     { value: "failed", label: "Failed" },
+    { value: "expired", label: "Expired" },
 ];
 
 /**

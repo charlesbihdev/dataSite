@@ -15,6 +15,8 @@ class OrderSettlementService
 {
     public const TXN_REFUND = 'order_refund';
 
+    public function __construct(private readonly OrderWalletLedger $ledger) {}
+
     /**
      * Order delivered: freeze the real upstream cost, mark completed, and credit the
      * pending earnings so they become withdrawable (ARCHITECTURE §3 step 6).
@@ -62,7 +64,7 @@ class OrderSettlementService
             /** @var Order $locked */
             $locked = Order::query()->whereKey($order->getKey())->lockForUpdate()->firstOrFail();
 
-            if (in_array($locked->status, [Order::STATUS_FAILED, Order::STATUS_COMPLETED], true)) {
+            if (in_array($locked->status, [Order::STATUS_FAILED, Order::STATUS_COMPLETED, Order::STATUS_REFUNDED], true)) {
                 return;
             }
 
@@ -112,6 +114,10 @@ class OrderSettlementService
             if ($reason !== null) {
                 $locked->failure_reason = mb_substr($reason, 0, 255);
             }
+            // Same invariant as reverse(): the wallet money goes back below, so it's no longer held.
+            if ($locked->channel === Order::CHANNEL_PREPAID) {
+                $locked->payment_status = Order::PAYMENT_AWAITING;
+            }
             $locked->save();
 
             Earning::query()
@@ -119,9 +125,7 @@ class OrderSettlementService
                 ->whereIn('status', [Earning::STATUS_PENDING, Earning::STATUS_CREDITED])
                 ->update(['status' => Earning::STATUS_REVERSED]);
 
-            $this->refundSellerWallet($locked);
-
-            $amount = $locked->channel === Order::CHANNEL_PREPAID ? (float) $locked->seller_cost : 0.0;
+            $amount = $this->refundSellerWallet($locked);
 
             return [
                 'refunded' => true,
@@ -160,24 +164,28 @@ class OrderSettlementService
     }
 
     /**
-     * Give back the deposit that was debited at dispatch. Online sales debited nothing.
+     * Give back the deposit debited at dispatch (online sales debited nothing) — exactly what the
+     * ledger says is still held, never more, so money that already went back can't go back twice.
      */
-    private function refundSellerWallet(Order $order): void
+    private function refundSellerWallet(Order $order): float
     {
-        if ($order->channel !== Order::CHANNEL_PREPAID) {
-            return;
+        $seller = $order->seller;
+        if ($order->channel !== Order::CHANNEL_PREPAID || $seller === null || ! method_exists($seller, 'walletOrCreate')) {
+            return 0.0;
         }
 
-        $seller = $order->seller;
-        if ($seller === null || ! method_exists($seller, 'walletOrCreate')) {
-            return;
+        $held = $this->ledger->held($order);
+        if ($held <= 0) {
+            return 0.0;
         }
 
         $seller->walletOrCreate()->credit(
-            (float) $order->seller_cost,
+            $held,
             self::TXN_REFUND,
             $order->reference,
             "Refund for reversed order {$order->reference}",
         );
+
+        return $held;
     }
 }

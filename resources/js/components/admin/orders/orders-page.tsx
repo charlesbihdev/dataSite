@@ -5,7 +5,7 @@ import { agent as agentOrders, bulk as bulkOrders, regular as regularOrders, ver
 import { OrderBulkBar, type BulkAction } from '@/components/admin/orders/order-bulk-bar';
 import { AdminOrder, OrderDetailDialog } from '@/components/admin/orders/order-detail-dialog';
 import { OrderFilters } from '@/components/admin/orders/order-filters';
-import { type Filters, type OrderSegment } from '@/components/admin/orders/orders-shared';
+import { type Filters, type OrderSegment, VERIFIABLE_PAYMENTS } from '@/components/admin/orders/orders-shared';
 import { SellerTypeBadge } from '@/components/admin/orders/seller-type-badge';
 import { Column, DataTable } from '@/components/common/data-table';
 import { DateRangePicker, DateRangeValue } from '@/components/common/date-range-picker';
@@ -45,6 +45,9 @@ const PaymentBadge = ({ status }: { status: string }) => {
     if (status === 'failed') {
         return <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700 dark:bg-red-950 dark:text-red-300">Failed</span>;
     }
+    if (status === 'expired') {
+        return <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">Expired</span>;
+    }
     return <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">Paid</span>;
 };
 
@@ -75,7 +78,7 @@ export function OrdersPage({
     const [applyStatus, setApplyStatus] = useState('');
 
     // Every row is selectable; the server scopes each bulk action to the orders it can act on
-    // (verify/delete → awaiting, sync → processing, retry → failed), so a mixed selection is safe.
+    // (verify → unpaid, delete → awaiting, sync → processing, retry → failed), so a mixed selection is safe.
     const runBulk = (
         action: BulkAction,
         status?: string,
@@ -152,7 +155,7 @@ export function OrdersPage({
             align: 'right',
             render: (o) => (
                 <div className="flex items-center justify-end gap-1">
-                    {isRegular && o.paymentStatus === 'awaiting' ? (
+                    {isRegular && VERIFIABLE_PAYMENTS.includes(o.paymentStatus) ? (
                         <Button
                             variant="ghost"
                             size="icon"

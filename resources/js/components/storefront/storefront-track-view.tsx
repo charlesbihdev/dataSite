@@ -16,7 +16,7 @@ export interface TrackedOrder {
     capacityGb: number;
     phone: string;
     amount: number;
-    paymentStatus: "paid" | "awaiting" | "failed";
+    paymentStatus: "paid" | "awaiting" | "failed" | "expired";
     status: string;
     date: string | null;
 }
@@ -27,6 +27,7 @@ const PAYMENT_TONE = {
     paid: { label: "Paid", class: "bg-success/10 text-success" },
     awaiting: { label: "Awaiting", class: "bg-brand/10 text-brand" },
     failed: { label: "Failed", class: "bg-destructive/10 text-destructive" },
+    expired: { label: "Expired", class: "bg-muted text-muted-foreground" },
 } as const;
 
 const STATUS_TONE: Record<string, { label: string; icon: typeof CheckCircle2; class: string }> = {

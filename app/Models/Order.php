@@ -60,6 +60,12 @@ class Order extends Model
 
     public const PAYMENT_FAILED = 'failed';
 
+    // Never confirmed by the gateway within config('payments.expiry_hours'); still verifiable.
+    public const PAYMENT_EXPIRED = 'expired';
+
+    /** Payment states a gateway re-check may still resolve to paid. */
+    public const VERIFIABLE_PAYMENTS = [self::PAYMENT_AWAITING, self::PAYMENT_FAILED, self::PAYMENT_EXPIRED];
+
     public const STATUS_PENDING = 'pending';
 
     public const STATUS_VERIFYING = 'verifying';

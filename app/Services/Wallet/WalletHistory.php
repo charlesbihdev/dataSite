@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * One newest-first history for a wallet: every completed ledger movement (wallet_transactions) plus
- * every top-up attempt that hasn't credited (pending or failed balance_topups), ordered purely by
+ * every top-up attempt that hasn't credited (pending, failed or expired balance_topups), ordered purely by
  * time like the admin Top-ups page. A successful top-up appears once — as its ledger credit — so
  * nothing doubles. Rows are plain objects tagged `kind` = ledger | topup for the caller to present.
  */
@@ -21,7 +21,7 @@ final class WalletHistory
     public const STATUS_COMPLETED = 'completed';
 
     /**
-     * @param  string  $status  all | completed | pending | failed
+     * @param  string  $status  all | completed | pending | failed | expired
      * @param  bool  $includeAttempts  false when the caller's other filters rule top-ups out
      * @param  (Closure(Builder): void)|null  $scopeLedger  caller-specific ledger filters (type, source…)
      */
@@ -42,8 +42,8 @@ final class WalletHistory
         }
 
         $attemptStatuses = $status === 'all'
-            ? [BalanceTopup::STATUS_PENDING, BalanceTopup::STATUS_FAILED]
-            : array_values(array_intersect([$status], [BalanceTopup::STATUS_PENDING, BalanceTopup::STATUS_FAILED]));
+            ? [BalanceTopup::STATUS_PENDING, BalanceTopup::STATUS_FAILED, BalanceTopup::STATUS_EXPIRED]
+            : array_values(array_intersect([$status], [BalanceTopup::STATUS_PENDING, BalanceTopup::STATUS_FAILED, BalanceTopup::STATUS_EXPIRED]));
 
         if ($includeAttempts && $attemptStatuses !== []) {
             $parts[] = $this->attempts($wallet, $attemptStatuses, $search, $from, $to);

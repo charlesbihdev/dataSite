@@ -39,6 +39,7 @@ const STATUS_TONE: Record<string, Tone> = {
     rejected: 'danger',
     // top-ups
     success: 'success',
+    expired: 'neutral',
     // accounts
     active: 'success',
     suspended: 'danger',

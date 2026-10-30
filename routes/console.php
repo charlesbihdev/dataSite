@@ -21,6 +21,9 @@ Schedule::call(fn () => Cache::put('scheduler:last-run', now()->toIso8601String(
 // skipped by the lock rather than piling up — no background-process dependency on shared hosting.
 Schedule::command('orders:poll-processing')->everyMinute()->withoutOverlapping();
 
+// Payment safety net: re-check unconfirmed gateway payments (orders + top-ups), expire stale ones.
+Schedule::command('payments:verify-pending')->everyFiveMinutes()->withoutOverlapping(15);
+
 // Drain the queue without a persistent worker: process pending jobs (receipt emails, the instant
 // poll) then exit. Short --max-time keeps a single schedule:run comfortably under a minute.
 Schedule::command('queue:work --stop-when-empty --max-time=30')->everyMinute()->withoutOverlapping(5);
