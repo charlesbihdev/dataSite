@@ -4,11 +4,17 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { cn } from '@/lib/utils';
 import type { AgentOption, SplitFilters as Filters } from './types';
 
 const SETTLEMENTS = ['all', 'credited', 'pending', 'reversed'];
 
-/** Filter bar for Profit Splits. The subagent list narrows to the chosen agent's subagents. */
+const SCOPES: { value: Filters['scope']; label: string }[] = [
+    { value: 'own', label: 'Their own sales' },
+    { value: 'subagents', label: "Subagents' sales" },
+];
+
+/** Filter bar for Profit Splits. The subagent list narrows to the chosen agent's subagents; own sales have none. */
 export function SplitFilters({
     filters,
     agents,
@@ -29,6 +35,23 @@ export function SplitFilters({
 
     return (
         <div className="flex flex-wrap items-center gap-3">
+            <div className="inline-flex rounded-lg border border-border p-0.5">
+                {SCOPES.map((scope) => (
+                    <button
+                        key={scope.value}
+                        type="button"
+                        aria-pressed={filters.scope === scope.value}
+                        onClick={() => onApply({ scope: scope.value, subagent: 'all' })}
+                        className={cn(
+                            'rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
+                            filters.scope === scope.value ? 'bg-brand text-brand-fg' : 'text-muted-foreground hover:text-foreground',
+                        )}
+                    >
+                        {scope.label}
+                    </button>
+                ))}
+            </div>
+
             <Select value={filters.agent} onValueChange={(v) => onApply({ agent: v, subagent: 'all' })}>
                 <SelectTrigger className="w-48">
                     <SelectValue />
@@ -43,7 +66,7 @@ export function SplitFilters({
                 </SelectContent>
             </Select>
 
-            <Select value={filters.subagent} onValueChange={(v) => onApply({ subagent: v })} disabled={filters.agent === 'all'}>
+            <Select value={filters.subagent} onValueChange={(v) => onApply({ subagent: v })} disabled={filters.agent === 'all' || filters.scope === 'own'}>
                 <SelectTrigger className="w-48">
                     <SelectValue />
                 </SelectTrigger>
@@ -78,6 +101,17 @@ export function SplitFilters({
                 />
                 <Label htmlFor="problems-only" className="cursor-pointer text-sm font-normal">
                     Problems only
+                </Label>
+            </div>
+
+            <div className="flex items-center gap-2">
+                <Checkbox
+                    id="profit-only"
+                    checked={filters.profit_only}
+                    onCheckedChange={(checked) => onApply({ profit_only: checked === true })}
+                />
+                <Label htmlFor="profit-only" className="cursor-pointer text-sm font-normal">
+                    Only sales with profit
                 </Label>
             </div>
 

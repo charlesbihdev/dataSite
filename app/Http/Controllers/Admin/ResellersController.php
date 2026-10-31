@@ -47,7 +47,7 @@ class ResellersController extends Controller
                 ->paginate(30)
                 ->withQueryString()
                 ->through(fn (Order $order): array => $report->present($order)),
-            'stats' => $report->stats($query),
+            'stats' => $report->stats($query, $filters['scope'] === ProfitSplitReport::SCOPE_OWN),
             'filters' => $filters,
             'agents' => $report->agentOptions(),
         ]);
@@ -55,12 +55,19 @@ class ResellersController extends Controller
 
     public function exportSplits(Request $request, ProfitSplitReport $report): StreamedResponse
     {
-        $orders = $report->withRelations($report->query($request, $report->filters($request)))->lazyById(500, 'orders.id', 'id');
+        $filters = $report->filters($request);
+        $own = $filters['scope'] === ProfitSplitReport::SCOPE_OWN;
+        $orders = $report->withRelations($report->query($request, $filters))->lazyById(500, 'orders.id', 'id');
 
-        $rows = (function () use ($orders, $report): \Generator {
+        $rows = (function () use ($orders, $report, $own): \Generator {
             foreach ($orders as $order) {
                 $row = $report->present($order);
-                yield [
+                yield $own ? [
+                    $row['date'], $row['reference'], $row['agent'], $row['orderStatus'],
+                    $row['customerPaid'], $row['sellerCost'], $row['subagentShare'], $row['platformShare'],
+                    $row['dbhCost'], $row['dbhCost'] === null ? '' : ($row['dbhActual'] ? 'actual' : 'expected'),
+                    $row['settlement'], $row['issues'] === [] ? 'OK' : 'CHECK', implode('; ', $row['issues']),
+                ] : [
                     $row['date'], $row['reference'], $row['subagent'], $row['agent'], $row['orderStatus'],
                     $row['customerPaid'], $row['subagentShare'], $row['agentShare'], $row['platformShare'],
                     $row['dbhCost'], $row['dbhCost'] === null ? '' : ($row['dbhActual'] ? 'actual' : 'expected'),
@@ -69,7 +76,10 @@ class ResellersController extends Controller
             }
         })();
 
-        return CsvExport::download('profit-splits-'.now()->format('Y-m-d').'.csv', [
+        return CsvExport::download(($own ? 'agent-own-sales-' : 'profit-splits-').now()->format('Y-m-d').'.csv', $own ? [
+            'Date', 'Order', 'Agent', 'Order status', 'Customer paid', 'Their cost', 'Shop profit',
+            'Platform share', 'DBH cost', 'DBH cost source', 'Settlement', 'Check', 'Issues',
+        ] : [
             'Date', 'Order', 'Subagent', 'Agent', 'Order status', 'Customer paid', 'Subagent share',
             'Agent share', 'Platform share', 'DBH cost', 'DBH cost source', 'Settlement', 'Check', 'Issues',
         ], $rows);

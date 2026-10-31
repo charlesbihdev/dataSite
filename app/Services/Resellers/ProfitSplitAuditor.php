@@ -9,12 +9,13 @@ use App\Models\Subagent;
 use Illuminate\Database\Eloquent\Builder;
 
 /**
- * Accuracy rules for a subagent sale's profit split. `issues()` explains one order; `whereHasIssue()`
- * is the same rules in SQL so the "problems only" filter and the per-row check never disagree.
+ * Accuracy rules for a sale's profit split. `issues()` explains one order; `whereHasIssue()` is the
+ * same rules in SQL so the "problems only" filter and the per-row check never disagree.
  *
  * Expected shares come straight from the frozen cascade (see ProfitSplit):
  *   subagent = customer_price − seller_cost, agent = seller_cost − agent_cost,
  *   platform = agent_cost − DBH cost (actual upstream_cost, else expected base_cost).
+ * On an agent's own sale the first share is their shop profit and there is no commission.
  */
 final class ProfitSplitAuditor
 {
@@ -49,17 +50,23 @@ final class ProfitSplitAuditor
     {
         $shares = $this->shares($order);
         $issues = [];
+        $ownSale = $order->seller_type === (new Agent)->getMorphClass();
+        $labels = $ownSale
+            ? ['subagent' => 'Shop profit', 'platform' => 'Platform']
+            : ['subagent' => 'Subagent', 'agent' => 'Agent', 'platform' => 'Platform'];
 
-        foreach (['subagent' => 'Subagent', 'agent' => 'Agent', 'platform' => 'Platform'] as $key => $label) {
+        foreach ($labels as $key => $label) {
             if ($shares[$key] !== null && $shares[$key] < 0) {
                 $issues[] = "{$label} share is negative (".number_format($shares[$key], 2).')';
             }
         }
 
-        $expected = [
-            Earning::TYPE_SHOP_PROFIT => ['Subagent', $shares['subagent'], (new Subagent)->getMorphClass(), $order->seller_id],
-            Earning::TYPE_COMMISSION => ['Agent', $shares['agent'], (new Agent)->getMorphClass(), $order->seller?->agent_id],
-        ];
+        $expected = $ownSale
+            ? [Earning::TYPE_SHOP_PROFIT => ['Shop profit', $shares['subagent'], (new Agent)->getMorphClass(), $order->seller_id]]
+            : [
+                Earning::TYPE_SHOP_PROFIT => ['Subagent', $shares['subagent'], (new Subagent)->getMorphClass(), $order->seller_id],
+                Earning::TYPE_COMMISSION => ['Agent', $shares['agent'], (new Agent)->getMorphClass(), $order->seller?->agent_id],
+            ];
 
         foreach ($expected as $type => [$label, $amount, $earnerType, $earnerId]) {
             $earning = $order->earnings->firstWhere('type', $type);
@@ -82,6 +89,27 @@ final class ProfitSplitAuditor
         }
 
         return $issues;
+    }
+
+    /** @param  Builder<Order>  $query */
+    public function whereOwnSaleHasIssue(Builder $query): void
+    {
+        $agent = (new Agent)->getMorphClass();
+        $tol = (string) self::TOLERANCE;
+
+        $query->where(function (Builder $q) use ($agent, $tol): void {
+            $q->whereColumn('orders.customer_price', '<', 'orders.seller_cost')
+                ->orWhereRaw('orders.agent_cost < COALESCE(orders.upstream_cost, orders.base_cost)')
+                ->orWhereHas('earnings', fn (Builder $e) => $e->whereRaw(
+                    '(earnings.type = ? AND (ABS(earnings.amount - (orders.customer_price - orders.seller_cost)) > '.$tol
+                    .' OR earnings.earner_type <> ? OR earnings.earner_id <> orders.seller_id))',
+                    [Earning::TYPE_SHOP_PROFIT, $agent],
+                ))
+                ->orWhere(fn (Builder $m) => $m->where('orders.payment_status', Order::PAYMENT_PAID)
+                    ->whereIn('orders.status', self::DISPATCHED)
+                    ->whereRaw('orders.customer_price - orders.seller_cost > '.$tol)
+                    ->whereDoesntHave('earnings', fn (Builder $e) => $e->where('type', Earning::TYPE_SHOP_PROFIT)));
+        });
     }
 
     /** @param  Builder<Order>  $query */
