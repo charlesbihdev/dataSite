@@ -42,17 +42,19 @@ function Check({ issues }: { issues: string[] }) {
     );
 }
 
+const orderColumn: Column<Split> = {
+    key: 'reference',
+    header: 'Order',
+    render: (s) => (
+        <div>
+            <div className="font-mono text-xs">{s.reference}</div>
+            <div className="text-xs text-muted-foreground">{s.date ?? '—'}</div>
+        </div>
+    ),
+};
+
 export const splitColumns: Column<Split>[] = [
-    {
-        key: 'reference',
-        header: 'Order',
-        render: (s) => (
-            <div>
-                <div className="font-mono text-xs">{s.reference}</div>
-                <div className="text-xs text-muted-foreground">{s.date ?? '—'}</div>
-            </div>
-        ),
-    },
+    orderColumn,
     {
         key: 'chain',
         header: 'Subagent → Agent',
@@ -66,22 +68,38 @@ export const splitColumns: Column<Split>[] = [
     { key: 'customerPaid', header: 'Customer paid', align: 'right', render: (s) => <span className="font-medium">{cedis(s.customerPaid)}</span> },
     { key: 'subagentShare', header: 'Subagent', align: 'right', render: (s) => <Share value={s.subagentShare} /> },
     { key: 'agentShare', header: 'Agent', align: 'right', render: (s) => <Share value={s.agentShare} /> },
-    { key: 'platformShare', header: 'Platform', align: 'right', render: (s) => <Share value={s.platformShare} /> },
-    {
-        key: 'dbhCost',
-        header: 'DBH',
-        align: 'right',
-        render: (s) => (
-            <span title={s.dbhActual ? 'Actual supplier charge' : 'Expected cost — supplier charge not recorded yet'}>
-                <Share value={s.dbhCost} />
-                {s.dbhCost !== null && !s.dbhActual ? <span className="ml-1 text-xs text-muted-foreground">est.</span> : null}
-            </span>
-        ),
-    },
-    {
-        key: 'settlement',
-        header: 'Settlement',
-        render: (s) => <StatusBadge status={s.settlement === 'none' ? 'unsettled' : s.settlement} />,
-    },
-    { key: 'check', header: 'Check', render: (s) => <Check issues={s.issues} /> },
+    ...sharedColumns(),
 ];
+
+/** An agent's own sales: where each cedi of their Shop profit came from. */
+export const ownSaleColumns: Column<Split>[] = [
+    orderColumn,
+    { key: 'seller', header: 'Agent', render: (s) => <span className="font-medium">{s.agent}</span> },
+    { key: 'customerPaid', header: 'Customer paid', align: 'right', render: (s) => <span className="font-medium">{cedis(s.customerPaid)}</span> },
+    { key: 'sellerCost', header: 'Their cost', align: 'right', render: (s) => <Share value={s.sellerCost} /> },
+    { key: 'shopProfit', header: 'Shop profit', align: 'right', render: (s) => <Share value={s.subagentShare} /> },
+    ...sharedColumns(),
+];
+
+function sharedColumns(): Column<Split>[] {
+    return [
+        { key: 'platformShare', header: 'Platform', align: 'right', render: (s) => <Share value={s.platformShare} /> },
+        {
+            key: 'dbhCost',
+            header: 'DBH',
+            align: 'right',
+            render: (s) => (
+                <span title={s.dbhActual ? 'Actual supplier charge' : 'Expected cost — supplier charge not recorded yet'}>
+                    <Share value={s.dbhCost} />
+                    {s.dbhCost !== null && !s.dbhActual ? <span className="ml-1 text-xs text-muted-foreground">est.</span> : null}
+                </span>
+            ),
+        },
+        {
+            key: 'settlement',
+            header: 'Settlement',
+            render: (s) => <StatusBadge status={s.settlement === 'none' ? 'unsettled' : s.settlement} />,
+        },
+        { key: 'check', header: 'Check', render: (s) => <Check issues={s.issues} /> },
+    ];
+}

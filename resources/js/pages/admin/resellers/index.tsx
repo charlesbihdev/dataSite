@@ -21,6 +21,7 @@ interface Filters {
 interface Stats {
     agents: number;
     subagents: number;
+    agentShopProfit: number;
     agentEarned: number;
     subagentEarned: number;
     pending: number;
@@ -51,7 +52,7 @@ export default function Resellers({ agents, stats, filters }: { agents: Paginate
             <div className="flex flex-1 flex-col gap-6 p-4">
                 <PageHeader
                     title="Resellers"
-                    description="Which subagents sit under each agent, and what their sales earned both sides."
+                    description="Every agent and their subagents: what each person earned, withdrew and has available."
                     actions={
                         <div className="flex items-center gap-3">
                             <ResellersTabs active="tree" />
@@ -60,14 +61,16 @@ export default function Resellers({ agents, stats, filters }: { agents: Paginate
                     }
                 />
 
-                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                    <StatTile label="Agents with Subagents" value={String(stats.agents)} hint="Have recruited at least one" />
+                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+                    <StatTile label="Agents" value={String(stats.agents)} hint="All registered agents" />
                     <StatTile label="Subagents" value={String(stats.subagents)} hint="Registered under agents" />
+                    <StatTile label="Agent Shop Profit" value={cedis(stats.agentShopProfit)} hint="Credited from their own sales" />
                     <StatTile label="Agent Commission" value={cedis(stats.agentEarned)} hint="Credited from subagent sales" />
                     <StatTile label="Subagent Profit" value={cedis(stats.subagentEarned)} hint={`${cedis(stats.pending)} still pending`} />
                 </div>
 
-                <div className="flex items-center justify-end">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                    <p className="text-xs text-muted-foreground">The date filter changes sales and earnings. Withdrawn and Available are always all-time.</p>
                     <Input
                         value={search}
                         onChange={(e) => onSearchChange(e.target.value)}

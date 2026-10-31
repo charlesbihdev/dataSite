@@ -6,6 +6,7 @@ use App\Models\Agent;
 use App\Models\Earning;
 use App\Models\Order;
 use App\Models\Subagent;
+use App\Models\Withdrawal;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
@@ -67,7 +68,6 @@ class AdminResellersTest extends TestCase
     public function test_tree_lists_agents_with_their_subagents_and_earnings(): void
     {
         $second = $this->subagent($this->agent, 'Ama Data', '0591110002');
-        Agent::factory()->create(['name' => 'Lonely Agent']); // no subagents → not listed
 
         $this->sale($this->sub, 'DS-1');
         $this->sale($this->sub, 'DS-2', ['status' => Order::STATUS_PROCESSING]);
@@ -91,6 +91,57 @@ class AdminResellersTest extends TestCase
             ->where('stats.agentEarned', 2)
             ->where('stats.subagentEarned', 3)
             ->where('stats.pending', 2.5));
+    }
+
+    public function test_tree_shows_each_persons_own_money(): void
+    {
+        $this->sale($this->sub, 'DS-1');
+        $own = $this->sale($this->agent, 'DS-OWN', ['customer_price' => 30, 'seller_cost' => 20]);
+        $this->agent->earnings()->create(['order_id' => $own->id, 'type' => Earning::TYPE_SHOP_PROFIT, 'amount' => 10, 'status' => Earning::STATUS_CREDITED]);
+        $this->agent->withdrawals()->create(['amount' => 4, 'status' => Withdrawal::STATUS_PAID, 'method' => 'momo', 'destination' => '0241234567', 'reference' => 'WD-1']);
+        $this->agent->withdrawals()->create(['amount' => 2, 'status' => Withdrawal::STATUS_PENDING, 'method' => 'momo', 'destination' => '0241234567', 'reference' => 'WD-2']);
+        $this->agent->withdrawals()->create(['amount' => 1, 'status' => Withdrawal::STATUS_REJECTED, 'method' => 'momo', 'destination' => '0241234567', 'reference' => 'WD-3']);
+
+        $this->actingAsAdmin();
+        $this->get(route('admin.resellers'))->assertInertia(fn (Assert $page) => $page
+            ->where('agents.data.0.ownSales', 1)
+            ->where('agents.data.0.ownRevenue', 30)
+            ->where('agents.data.0.ownProfit', 10)
+            ->where('agents.data.0.agentEarned', 1)
+            ->where('agents.data.0.totalEarned', 11)
+            ->where('agents.data.0.withdrawn', 4)
+            ->where('agents.data.0.requested', 2)
+            ->where('agents.data.0.available', fn ($v) => (float) $v === $this->agent->earningsBalance())
+            ->where('agents.data.0.available', 5)
+            ->where('agents.data.0.subagents.0.totalEarned', 1.5)
+            ->where('agents.data.0.subagents.0.available', 1.5)
+            ->where('stats.agentShopProfit', 10));
+    }
+
+    public function test_agents_without_subagents_are_listed(): void
+    {
+        Agent::factory()->create(['name' => 'Solo Shop']);
+
+        $this->actingAsAdmin();
+        $this->get(route('admin.resellers', ['q' => 'Solo']))->assertInertia(fn (Assert $page) => $page
+            ->has('agents.data', 1)
+            ->where('agents.data.0.name', 'Solo Shop')
+            ->where('agents.data.0.subagentCount', 0)
+            ->where('agents.data.0.totalEarned', 0));
+    }
+
+    public function test_date_filter_changes_earnings_but_not_the_available_balance(): void
+    {
+        $old = $this->sale($this->agent, 'DS-OLD', ['customer_price' => 30, 'seller_cost' => 20]);
+        $this->agent->earnings()->create(['order_id' => $old->id, 'type' => Earning::TYPE_SHOP_PROFIT, 'amount' => 10, 'status' => Earning::STATUS_CREDITED]);
+        Order::query()->whereKey($old->id)->update(['created_at' => now()->subDays(40)]);
+
+        $this->actingAsAdmin();
+        $this->get(route('admin.resellers', ['range' => 'custom', 'from' => now()->subDay()->toDateString(), 'to' => now()->toDateString()]))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('agents.data.0.ownProfit', 0)
+                ->where('agents.data.0.totalEarned', 0)
+                ->where('agents.data.0.available', 10));
     }
 
     public function test_tree_search_matches_subagent_names(): void
@@ -175,6 +226,104 @@ class AdminResellersTest extends TestCase
 
         $this->get(route('admin.resellers.profit-splits', ['settlement' => 'credited']))
             ->assertInertia(fn (Assert $page) => $page->has('splits.data', 1)->where('splits.data.0.reference', 'DS-OTHER'));
+    }
+
+    /** An agent's own shop sale, with the profit they earned on it. */
+    private function ownSale(string $ref, array $overrides = []): Order
+    {
+        $order = $this->sale($this->agent, $ref, $overrides + ['agent_cost' => 10.5]);
+
+        if ($order->customer_price > $order->seller_cost) {
+            $this->agent->earnings()->create(['order_id' => $order->id, 'type' => Earning::TYPE_SHOP_PROFIT,
+                'amount' => round($order->customer_price - $order->seller_cost, 2),
+                'status' => $order->status === Order::STATUS_COMPLETED ? Earning::STATUS_CREDITED : Earning::STATUS_PENDING]);
+        }
+
+        return $order;
+    }
+
+    public function test_own_scope_lists_the_agents_own_sales_and_keeps_the_subagent_scope_apart(): void
+    {
+        $this->ownSale('DS-OWN');
+        $this->ownSale('DS-OWN-PENDING', ['status' => Order::STATUS_PROCESSING]);
+        $this->sale($this->sub, 'DS-SUB');
+
+        $this->actingAsAdmin();
+        $this->get(route('admin.resellers.profit-splits', ['scope' => 'own', 'agent' => $this->agent->id]))
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('splits.data', 2)
+                ->where('splits.data.1.reference', 'DS-OWN')
+                ->where('splits.data.1.agent', 'Agent Mensah')
+                ->where('splits.data.1.sellerCost', 10.5)
+                ->where('splits.data.1.subagentShare', 1.5)
+                ->where('splits.data.1.issues', [])
+                ->where('stats.profitCredited', 1.5)
+                ->where('stats.profitPending', 1.5)
+                ->where('stats.problems', 0));
+
+        $this->get(route('admin.resellers.profit-splits', ['agent' => $this->agent->id]))
+            ->assertInertia(fn (Assert $page) => $page->has('splits.data', 1)->where('splits.data.0.reference', 'DS-SUB'));
+    }
+
+    public function test_own_sales_total_matches_the_shop_profit_on_the_resellers_table(): void
+    {
+        $this->ownSale('DS-A');
+        $this->ownSale('DS-B', ['customer_price' => 20]);
+        $this->ownSale('DS-FAILED', ['status' => Order::STATUS_FAILED]);
+
+        $this->actingAsAdmin();
+        $tableProfit = null;
+        $this->get(route('admin.resellers'))->assertInertia(function (Assert $page) use (&$tableProfit) {
+            $tableProfit = $page->toArray()['props']['agents']['data'][0]['ownProfit'];
+        });
+
+        $this->get(route('admin.resellers.profit-splits', ['scope' => 'own', 'agent' => $this->agent->id]))
+            ->assertInertia(fn (Assert $page) => $page->where('stats.profitCredited', $tableProfit));
+    }
+
+    public function test_only_sales_with_profit_hides_wallet_orders(): void
+    {
+        $this->ownSale('DS-SHOP');
+        $this->ownSale('DS-WALLET', ['customer_price' => 10.5]);
+        $this->sale($this->sub, 'DS-SUB-WALLET', ['customer_price' => 10.5]);
+
+        $this->actingAsAdmin();
+        $this->get(route('admin.resellers.profit-splits', ['scope' => 'own', 'profit_only' => 1]))
+            ->assertInertia(fn (Assert $page) => $page->has('splits.data', 1)->where('splits.data.0.reference', 'DS-SHOP'));
+        $this->get(route('admin.resellers.profit-splits', ['profit_only' => 1]))
+            ->assertInertia(fn (Assert $page) => $page->has('splits.data', 0));
+    }
+
+    public function test_own_sale_problems_are_flagged_the_same_in_the_row_and_the_filter(): void
+    {
+        $this->ownSale('DS-OK');
+        $wrong = $this->ownSale('DS-WRONG');
+        Earning::query()->where('order_id', $wrong->id)->update(['amount' => 9]);
+        $this->sale($this->agent, 'DS-MISSING', ['agent_cost' => 10.5]);
+        $this->ownSale('DS-BELOW-DBH', ['seller_cost' => 8, 'agent_cost' => 8, 'customer_price' => 12]);
+
+        $this->actingAsAdmin();
+        $this->get(route('admin.resellers.profit-splits', ['scope' => 'own', 'problems' => 1]))
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('splits.data', 3)
+                ->where('stats.problems', 3)
+                ->where('splits.data.0.issues', ['Platform share is negative (-1.00)'])
+                ->where('splits.data.1.issues', ['Shop profit earning missing (expected 1.50)'])
+                ->where('splits.data.2.issues', ['Stored Shop profit earning 9.00, expected 1.50']));
+    }
+
+    public function test_own_sales_search_and_export(): void
+    {
+        $this->ownSale('DS-FINDME');
+        $this->ownSale('DS-OTHER');
+
+        $this->actingAsAdmin();
+        $this->get(route('admin.resellers.profit-splits', ['scope' => 'own', 'q' => 'FINDME']))
+            ->assertInertia(fn (Assert $page) => $page->has('splits.data', 1));
+
+        $csv = $this->get(route('admin.resellers.profit-splits.export', ['scope' => 'own']))->streamedContent();
+        $this->assertStringContainsString('Shop profit', $csv);
+        $this->assertStringContainsString('DS-FINDME', $csv);
     }
 
     public function test_splits_export_streams_csv(): void
